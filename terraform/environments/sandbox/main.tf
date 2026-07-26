@@ -36,14 +36,14 @@ module "recovery_access" {
   public_transit_gateway_routes = [
     {
       destination_cidr_block = module.core_recovery.vpc_cidr
-      transit_gateway_id = module.transit_gateway.id
+      transit_gateway_id     = module.transit_gateway.id
     }
   ]
 
   private_transit_gateway_routes = [
     {
       destination_cidr_block = module.core_recovery.vpc_cidr
-      transit_gateway_id = module.transit_gateway.id
+      transit_gateway_id     = module.transit_gateway.id
     }
   ]
 }
@@ -73,11 +73,11 @@ module "core_recovery" {
   private_transit_gateway_routes = [
     {
       destination_cidr_block = module.recovery_access.vpc_cidr
-      transit_gateway_id = module.transit_gateway.id
+      transit_gateway_id     = module.transit_gateway.id
     },
     {
       destination_cidr_block = module.protected_data.vpc_cidr
-      transit_gateway_id = module.transit_gateway.id
+      transit_gateway_id     = module.transit_gateway.id
     }
   ]
 }
@@ -107,7 +107,7 @@ module "protected_data" {
   private_transit_gateway_routes = [
     {
       destination_cidr_block = module.core_recovery.vpc_cidr
-      transit_gateway_id = module.transit_gateway.id
+      transit_gateway_id     = module.transit_gateway.id
     }
   ]
 }
@@ -167,7 +167,7 @@ module "security_group_rule" {
       cidr_ipv4 = "0.0.0.0/0"
     }
 
-    core-ssh = {
+    core-ssh-from-recovery-access = {
       type              = "ingress"
       security_group_id = module.security_group.security_group_ids["core"]
 
@@ -176,6 +176,17 @@ module "security_group_rule" {
       to_port     = 22
 
       cidr_ipv4 = module.recovery_access.vpc_cidr
+    }
+
+    core-ssh-from-protected-data = {
+      type              = "ingress"
+      security_group_id = module.security_group.security_group_ids["core"]
+
+      ip_protocol = "tcp"
+      from_port   = 22
+      to_port     = 22
+
+      cidr_ipv4 = module.protected_data.vpc_cidr
     }
 
     core-egress = {
@@ -347,7 +358,7 @@ module "ec2" {
   instances = {
 
     management = {
-      ami           = data.aws_ami.amazon_linux.id
+      ami           = "ami-00adf8f2fe708c532" # Amazon Linux 2023 (x86_64) - us-east-1
       instance_type = "t3.micro"
 
       subnet_id                   = module.recovery_access.public_subnet_ids[0]
