@@ -19,7 +19,7 @@ resource "aws_subnet" "public" {
     index(local.public_subnet_keys, each.key)
   ]
 
-  map_public_ip_on_launch = true
+  map_public_ip_on_launch = false # true when we want public IPs on instances in this subnet
 
   # merge() combines maps left-to-right; later keys win. Common tags come
   # first, then subnet-specific Name/Tier overrides.

@@ -21,10 +21,10 @@ module "recovery_access" {
   cidr_block              = "10.100.0.0/16"
   availability_zone_count = 2
 
-  public_subnets = {
-    public-a = "10.100.1.0/24"
-    public-b = "10.100.2.0/24"
-  }
+  # public_subnets = {   blocking entire section for now, since we don't want public subnets in the sandbox
+  #  public-a = "10.100.1.0/24"
+  #  public-b = "10.100.2.0/24"
+  #}
 
   private_subnets = {
     private-a = "10.100.11.0/24"
@@ -33,12 +33,12 @@ module "recovery_access" {
   # Install routes in the private route table for networks reachable via
   # the Transit Gateway. Under the IRE trust model, the Recovery Access VPC
   # communicates only with the Core Recovery VPC.
-  public_transit_gateway_routes = [
-    {
-      destination_cidr_block = module.core_recovery.vpc_cidr
-      transit_gateway_id     = module.transit_gateway.id
-    }
-  ]
+  #public_transit_gateway_routes = [
+   # {
+   #   destination_cidr_block = module.core_recovery.vpc_cidr
+   #   transit_gateway_id     = module.transit_gateway.id
+   # }
+  #]
 
   private_transit_gateway_routes = [
     {
@@ -154,6 +154,17 @@ module "security_group_rule" {
       ip_protocol = "tcp"
       from_port   = 22
       to_port     = 22
+
+      cidr_ipv4 = "0.0.0.0/0"
+    }
+
+    management-ping = {
+      type              = "ingress"
+      security_group_id = module.security_group.security_group_ids["management"]
+
+      ip_protocol = "icmp"
+      from_port   = 8
+      to_port     = -1
 
       cidr_ipv4 = "0.0.0.0/0"
     }
@@ -361,8 +372,8 @@ module "ec2" {
       ami           = "ami-00adf8f2fe708c532" # Amazon Linux 2023 (x86_64) - us-east-1
       instance_type = "t3.micro"
 
-      subnet_id                   = module.recovery_access.public_subnet_ids[0]
-      associate_public_ip_address = true
+      subnet_id                   = module.recovery_access.private_subnet_ids[1] # create on 2nd subnet and changed to private subnet to avoid public IPs in sandbox
+      associate_public_ip_address = false # true when we want public IPs on instances in this subnet
 
       key_name = module.key_pair.key_names["management"]
 
