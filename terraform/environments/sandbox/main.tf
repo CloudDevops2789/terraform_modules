@@ -321,7 +321,8 @@ module "key_pair" {
 
   key_pairs = {
     management = {
-      public_key = file("~/.ssh/management.pub")
+      key_name   = "management"
+      public_key = file(var.public_key_path)
     }
   }
 

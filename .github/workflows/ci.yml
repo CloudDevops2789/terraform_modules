@@ -57,6 +57,10 @@ jobs:
         working-directory: terraform/environments/sandbox
         run: |
           terraform init -backend=false -input=false
+          cat > terraform.tfvars <<EOF
+          public_key_path = "/tmp/dummy.pub"
+          EOF
+          echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCtest GitHubActions" > /tmp/dummy.pub
           terraform validate
 
   # Checkov scans the Terraform for security misconfigurations (public
