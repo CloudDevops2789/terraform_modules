@@ -321,7 +321,6 @@ module "key_pair" {
 
   key_pairs = {
     management = {
-      key_name   = "management"
       public_key = file(var.public_key_path)
     }
   }
