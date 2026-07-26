@@ -70,18 +70,24 @@ variable "tags" {
 # Optional Transit Gateway routes to install in the private route table.
 # The module remains reusable by accepting a list of routes instead of
 # hardcoding knowledge of specific VPCs or network topologies.
-variable "transit_gateway_routes" {
-
-  description = "Routes to add to the private route table via the Transit Gateway."
+variable "public_transit_gateway_routes" {
+  description = "Routes to add to the public route table via the Transit Gateway."
 
   type = list(object({
-
     destination_cidr_block = string
-
-    transit_gateway_id = string
-
+    transit_gateway_id     = string
   }))
 
   default = []
+}
 
+variable "private_transit_gateway_routes" {
+  description = "Routes to add to the private route table via the Transit Gateway."
+
+  type = list(object({
+    destination_cidr_block = string
+    transit_gateway_id     = string
+  }))
+
+  default = []
 }

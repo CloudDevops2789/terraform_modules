@@ -33,15 +33,25 @@ variable "auto_accept_shared_attachments" {
 }
 
 variable "default_route_table_association" {
-  description = "Default route table association"
+  description = "Whether new VPC attachments automatically associate with the default Transit Gateway route table."
   type        = string
-  default     = "enable"
+  default     = "disable"
+
+  validation {
+    condition     = contains(["enable", "disable"], var.default_route_table_association)
+    error_message = "Value must be either \"enable\" or \"disable\"."
+  }
 }
 
 variable "default_route_table_propagation" {
-  description = "Default route table propagation"
+  description = "Whether new VPC attachments automatically propagate routes to the default Transit Gateway route table."
   type        = string
-  default     = "enable"
+  default     = "disable"
+
+  validation {
+    condition     = contains(["enable", "disable"], var.default_route_table_propagation)
+    error_message = "Value must be either \"enable\" or \"disable\"."
+  }
 }
 
 variable "tags" {

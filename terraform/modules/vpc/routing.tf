@@ -84,21 +84,27 @@ resource "aws_route_table" "private" {
 # converts the input list into a map keyed by destination CIDR, giving each
 # route a stable Terraform resource address and avoiding index-based
 # references.
-resource "aws_route" "transit_gateway" {
+resource "aws_route" "public_transit_gateway" {
+  for_each = local.has_public_subnets ? {
+    for route in var.public_transit_gateway_routes :
+    route.destination_cidr_block => route
+  } : {}
 
+  route_table_id         = aws_route_table.public[0].id
+  destination_cidr_block = each.value.destination_cidr_block
+  transit_gateway_id     = each.value.transit_gateway_id
+}
+
+resource "aws_route" "private_transit_gateway" {
   for_each = {
-    for route in var.transit_gateway_routes :
+    for route in var.private_transit_gateway_routes :
     route.destination_cidr_block => route
   }
 
-  route_table_id = aws_route_table.private.id
-
+  route_table_id         = aws_route_table.private.id
   destination_cidr_block = each.value.destination_cidr_block
-
-  transit_gateway_id = each.value.transit_gateway_id
-
+  transit_gateway_id     = each.value.transit_gateway_id
 }
-
 resource "aws_route_table_association" "private" {
 
   for_each = aws_subnet.private

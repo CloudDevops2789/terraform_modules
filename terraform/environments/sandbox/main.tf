@@ -33,14 +33,18 @@ module "recovery_access" {
   # Install routes in the private route table for networks reachable via
   # the Transit Gateway. Under the IRE trust model, the Recovery Access VPC
   # communicates only with the Core Recovery VPC.
-  transit_gateway_routes = [
-
+  public_transit_gateway_routes = [
     {
       destination_cidr_block = module.core_recovery.vpc_cidr
-
       transit_gateway_id = module.transit_gateway.id
     }
+  ]
 
+  private_transit_gateway_routes = [
+    {
+      destination_cidr_block = module.core_recovery.vpc_cidr
+      transit_gateway_id = module.transit_gateway.id
+    }
   ]
 }
 
@@ -66,20 +70,15 @@ module "core_recovery" {
 
   # Core Recovery acts as the central routing domain within the IRE. It
   # requires routes to both the Recovery Access and Protected Data VPCs.
-  transit_gateway_routes = [
-
+  private_transit_gateway_routes = [
     {
       destination_cidr_block = module.recovery_access.vpc_cidr
-
       transit_gateway_id = module.transit_gateway.id
     },
-
     {
       destination_cidr_block = module.protected_data.vpc_cidr
-
       transit_gateway_id = module.transit_gateway.id
     }
-
   ]
 }
 
@@ -105,15 +104,111 @@ module "protected_data" {
   # Install routes for the Core Recovery VPC only. Direct routing to the
   # Recovery Access VPC is intentionally omitted to enforce the IRE trust
   # model.
-  transit_gateway_routes = [
-
+  private_transit_gateway_routes = [
     {
       destination_cidr_block = module.core_recovery.vpc_cidr
-
       transit_gateway_id = module.transit_gateway.id
     }
-
   ]
+}
+
+
+
+module "security_group" {
+
+  source = "../../modules/security-group"
+
+  default_tags = local.default_tags
+
+  security_groups = {
+
+    management = {
+      description = "Management"
+      vpc_id      = module.recovery_access.vpc_id
+    }
+
+    core = {
+      description = "Core Recovery"
+      vpc_id      = module.core_recovery.vpc_id
+    }
+
+    protected = {
+      description = "Protected Data"
+      vpc_id      = module.protected_data.vpc_id
+    }
+
+  }
+
+}
+
+module "security_group_rule" {
+
+  source = "../../modules/security-group-rule"
+
+  rules = {
+
+    management-ssh = {
+      type              = "ingress"
+      security_group_id = module.security_group.security_group_ids["management"]
+
+      ip_protocol = "tcp"
+      from_port   = 22
+      to_port     = 22
+
+      cidr_ipv4 = "0.0.0.0/0"
+    }
+
+    management-egress = {
+      type              = "egress"
+      security_group_id = module.security_group.security_group_ids["management"]
+
+      ip_protocol = "-1"
+
+      cidr_ipv4 = "0.0.0.0/0"
+    }
+
+    core-ssh = {
+      type              = "ingress"
+      security_group_id = module.security_group.security_group_ids["core"]
+
+      ip_protocol = "tcp"
+      from_port   = 22
+      to_port     = 22
+
+      cidr_ipv4 = module.recovery_access.vpc_cidr
+    }
+
+    core-egress = {
+      type              = "egress"
+      security_group_id = module.security_group.security_group_ids["core"]
+
+      ip_protocol = "-1"
+
+      cidr_ipv4 = "0.0.0.0/0"
+    }
+
+    protected-ssh = {
+      type              = "ingress"
+      security_group_id = module.security_group.security_group_ids["protected"]
+
+      ip_protocol = "tcp"
+      from_port   = 22
+      to_port     = 22
+
+      cidr_ipv4 = module.core_recovery.vpc_cidr
+    }
+
+    protected-egress = {
+      type              = "egress"
+      security_group_id = module.security_group.security_group_ids["protected"]
+
+      ip_protocol = "-1"
+
+      cidr_ipv4 = "0.0.0.0/0"
+    }
+
+  }
+
 }
 
 ############################################
@@ -130,6 +225,8 @@ module "transit_gateway" {
 
   name = "ire-transit-gateway"
 
+  default_route_table_association = "disable"
+  default_route_table_propagation = "disable"
 
   # Transit Gateway route tables representing the routing domains within
   # the recovery environment. Attachments associate with these route tables
@@ -201,6 +298,94 @@ module "transit_gateway" {
     Environment = "Sandbox"
     ManagedBy   = "Terraform"
     Owner       = "CloudEngineering"
+  }
+
+}
+
+module "key_pair" {
+
+  source = "../../modules/key-pair"
+
+  default_tags = local.default_tags
+
+  key_pairs = {
+    management = {
+      public_key = file("~/.ssh/management.pub")
+    }
+  }
+
+}
+
+data "aws_ami" "amazon_linux" {
+
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-2023*-x86_64"]
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+}
+
+module "ec2" {
+
+  source = "../../modules/ec2"
+
+  default_tags = local.default_tags
+
+  instances = {
+
+    management = {
+      ami           = data.aws_ami.amazon_linux.id
+      instance_type = "t3.micro"
+
+      subnet_id                   = module.recovery_access.public_subnet_ids[0]
+      associate_public_ip_address = true
+
+      key_name = module.key_pair.key_names["management"]
+
+      vpc_security_group_ids = [
+        module.security_group.security_group_ids["management"]
+      ]
+    }
+
+    core = {
+      ami           = data.aws_ami.amazon_linux.id
+      instance_type = "t3.micro"
+
+      subnet_id = module.core_recovery.private_subnet_ids[0]
+
+      key_name = module.key_pair.key_names["management"]
+
+      vpc_security_group_ids = [
+        module.security_group.security_group_ids["core"]
+      ]
+    }
+
+    protected = {
+      ami           = data.aws_ami.amazon_linux.id
+      instance_type = "t3.micro"
+
+      subnet_id = module.protected_data.private_subnet_ids[0]
+
+      key_name = module.key_pair.key_names["management"]
+
+      vpc_security_group_ids = [
+        module.security_group.security_group_ids["protected"]
+      ]
+    }
+
   }
 
 }

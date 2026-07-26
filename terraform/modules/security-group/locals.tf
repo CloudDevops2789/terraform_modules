@@ -1,0 +1,14 @@
+locals {
+
+  tags = {
+    for sg_name, sg in var.security_groups :
+    sg_name => merge(
+      var.default_tags,
+      sg.tags,
+      {
+        Name = sg_name
+      }
+    )
+  }
+
+}
