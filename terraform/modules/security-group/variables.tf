@@ -4,6 +4,9 @@ variable "default_tags" {
   default     = {}
 }
 
+# description is required because AWS requires a non-empty description on
+# every security group and rejects the request otherwise - encoding that
+# in the type turns an API error into a plan-time error.
 variable "security_groups" {
   description = "Security groups to create."
 

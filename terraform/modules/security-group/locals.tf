@@ -1,3 +1,5 @@
+# Per-group tag maps, same comprehension + merge() precedence used by the
+# ec2 and key-pair modules.
 locals {
 
   tags = {

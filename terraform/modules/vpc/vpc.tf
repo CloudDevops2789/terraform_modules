@@ -9,5 +9,7 @@ resource "aws_vpc" "this" {
   enable_dns_support   = var.enable_dns_support
   enable_dns_hostnames = var.enable_dns_hostnames
 
+  # Every other resource in this module merges further tags on top of this
+  # same base map, so the whole VPC tags consistently.
   tags = local.common_tags
 }
