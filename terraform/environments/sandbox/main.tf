@@ -560,19 +560,19 @@ module "backup_plan" {
 
       copy_actions = {
 
-      cyber_recovery = {
+        cyber_recovery = {
 
-        destination_vault_arn = module.backup_logically_air_gapped_vault.arn
+          destination_vault_arn = module.backup_logically_air_gapped_vault.arn
 
-        lifecycle = {
+          lifecycle = {
 
-          delete_after = 365
+            delete_after = 365
+
+          }
 
         }
 
       }
-
-    }
 
     }
 
