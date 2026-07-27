@@ -413,7 +413,66 @@ module "ec2" {
   }
 
 }
+## aws backup vault module to create a backup vault for the recovery environment. 
+## This is used to store backups of critical data and configurations.
+module "backup_vault" {
 
+  source = "../../modules/backup-standard-vault"
+
+  name = "ire-standard-backup-vault"
+
+  tags = local.default_tags
+
+}
+
+## logically air-gapped backup vault module to create a logically air-gapped backup vault for the recovery environment.
+## This vault is used to store backups of critical data and configurations, and is protected by immutable retention boundaries to defend against ransomware and accidental deletion.
+## The vault is created in the protected data VPC, which is isolated from the other VPCs in the recovery environment.
+## The vault is also encrypted using a KMS key, which is specified in the module input.
+## The vault is also tagged with the default tags specified in the local variable.
+module "backup_logically_air_gapped_vault" {
+
+  source = "../../modules/backup-logically-air-gapped-vault"
+
+  name = "ire-airgap-backup-vault"
+
+  min_retention_days = 30
+
+  max_retention_days = 365
+
+  tags = local.default_tags
+
+}
+
+# Backup Plan module to create a backup plan that defines the backup schedule and retention policy for the recovery environment. 
+# This plan will use the backup vault created above to store the backups.
+module "backup_plan" {
+
+  source = "../../modules/backup-plan"
+
+  name = "ire-backup-plan"
+
+  backup_vault_name = module.backup_vault.name
+
+  rules = {
+
+    daily = {
+
+      schedule = "cron(0 5 ? * * *)"
+
+      lifecycle = {
+
+        delete_after = 30
+
+      }
+
+    }
+
+  }
+
+  tags = local.default_tags
+
+}
 
 module "client_vpn" {
 
@@ -454,7 +513,9 @@ module "client_vpn" {
   session_timeout_hours = 8
 
   authorization_rules = {
-
+    #When we  move to IAM Identity Center (SAML), your interface barely changes.  
+    #you could extend the object with an optional group identifier 
+    #access_group_id = "cloud-admin"
     recovery_access = {
 
       target_network_cidr = module.recovery_access.vpc_cidr
@@ -468,4 +529,4 @@ module "client_vpn" {
   routes = {}
 
 }
-  
+
