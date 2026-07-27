@@ -2,17 +2,19 @@
 # evaluating here. It contains no resources of its own - instead it composes
 # reusable child modules (vpc, transit-gateway) into the 3-VPC IRE topology:
 # Landing Zone -> Core Recovery -> Protected Data, joined by a Transit Gateway.
-#
-############################################
-# Landing Zone VPC
-############################################
 
-# A "module" block instantiates a child module. `source` points at the local
-# module directory; everything else is an INPUT passed to that module's
-# variables.tf. Terraform copies of the same module (below) are fully
-# independent - each gets its own state entries.
-# This VPC is the entry point where administrators land before reaching
-# recovery workloads. It is the only VPC with public subnets (sandbox-only).
+########################################################
+# Networking
+########################################################
+
+############################################
+# Recovery Access VPC
+############################################
+# Entry point for administrators before they reach recovery workloads.
+# This is the only VPC in the topology that would host public subnets
+# in a production layout (disabled here for the sandbox). All traffic
+# into the IRE is expected to land here first, then hop to Core Recovery
+# over the Transit Gateway per the trust model below.
 module "recovery_access" {
 
   source = "../../modules/vpc"
@@ -51,9 +53,9 @@ module "recovery_access" {
 ############################################
 # Core Recovery VPC
 ############################################
-
-# Hosts the recovery tooling/compute tier. Note: no `public_subnets` input is
-# given, so the module falls back to its default of {} and creates no public
+# Hosts the recovery tooling and compute tier, and acts as the central
+# routing domain within the IRE. No public_subnets input is given, so
+# the module falls back to its default of {} and creates no public
 # subnets, no Internet Gateway, and no public route table for this VPC.
 module "core_recovery" {
 
@@ -85,9 +87,11 @@ module "core_recovery" {
 ############################################
 # Protected Data VPC
 ############################################
-
-# Holds the immutable backup data (most sensitive tier). Private subnets only,
-# same pattern as core_recovery - isolation is the point of this VPC.
+# Holds the immutable backup data - the most sensitive tier in the IRE.
+# Private subnets only, same isolation pattern as Core Recovery. Direct
+# routing to Recovery Access is intentionally omitted below so that
+# administrators can never reach protected data without transiting
+# Core Recovery first.
 module "protected_data" {
 
   source = "../../modules/vpc"
@@ -112,8 +116,110 @@ module "protected_data" {
   ]
 }
 
+############################################
+# Transit Gateway
+############################################
+# The Transit Gateway is the central router connecting all three VPCs
+# and is the mechanism that enforces the IRE trust chain: Recovery
+# Access <-> Core Recovery <-> Protected Data, with no direct path
+# between Recovery Access and Protected Data. Route table association
+# and propagation are handled per-attachment below rather than through
+# the TGW default route table, which is why default association and
+# propagation are disabled.
+module "transit_gateway" {
 
+  source = "../../modules/transit-gateway"
 
+  name = "ire-transit-gateway"
+
+  default_route_table_association = "disable"
+  default_route_table_propagation = "disable"
+
+  # Transit Gateway route tables representing the routing domains within
+  # the recovery environment. Attachments associate with these route tables
+  # and propagate routes according to the configured trust model.
+  route_tables = {
+
+    recovery_access = {
+      name = "Recovery Access"
+    }
+
+    core_recovery = {
+      name = "Core Recovery"
+    }
+
+    protected_data = {
+      name = "Protected Data"
+    }
+
+  }
+
+  # A map(object) input: one entry per VPC to attach. Inside the module this map
+  # is iterated with for_each, so each key (recovery_access, core_recovery, ...)
+  # becomes a stable resource address like
+  # aws_ec2_transit_gateway_vpc_attachment.this["recovery_access"].
+  # Attachments are placed in the PRIVATE subnets - the TGW creates a network
+  # interface in each subnet you list.
+  vpc_attachments = {
+
+    recovery_access = {
+      vpc_id     = module.recovery_access.vpc_id
+      subnet_ids = module.recovery_access.private_subnet_ids
+
+      route_table = "recovery_access"
+
+      propagate_to = [
+        "core_recovery"
+      ]
+    }
+
+    core_recovery = {
+      vpc_id     = module.core_recovery.vpc_id
+      subnet_ids = module.core_recovery.private_subnet_ids
+
+      route_table = "core_recovery"
+
+      propagate_to = [
+        "recovery_access",
+        "protected_data"
+      ]
+    }
+
+    protected_data = {
+      vpc_id     = module.protected_data.vpc_id
+      subnet_ids = module.protected_data.private_subnet_ids
+
+      route_table = "protected_data"
+
+      propagate_to = [
+        "core_recovery"
+      ]
+    }
+  }
+
+  # Merged onto the TGW resources by the module (see its locals.tf). These are
+  # in addition to the provider-level default_tags defined in provider.tf.
+  tags = {
+    Name        = "ire-transit-gateway"
+    Project     = "AWS-IRE"
+    Environment = "Sandbox"
+    ManagedBy   = "Terraform"
+    Owner       = "CloudEngineering"
+  }
+
+}
+
+########################################################
+# Security
+########################################################
+
+############################################
+# Security Groups
+############################################
+# One security group per trust tier (management, core, protected).
+# Grouping rules by tier - rather than by instance - keeps the security
+# posture legible: each tier's allowed traffic maps directly to the
+# IRE trust chain enforced by the Transit Gateway route tables above.
 module "security_group" {
 
   source = "../../modules/security-group"
@@ -141,6 +247,15 @@ module "security_group" {
 
 }
 
+############################################
+# Security Group Rules
+############################################
+# Ingress/egress rules for each tier's security group. Ingress is scoped
+# to the CIDR of the adjacent, trusted VPC only (e.g. Protected Data only
+# accepts SSH from Core Recovery), mirroring the no-direct-path rule
+# enforced at the network layer. Management is the exception, since it is
+# the administrator entry point and is reachable from 0.0.0.0/0 in this
+# sandbox configuration.
 module "security_group_rule" {
 
   source = "../../modules/security-group-rule"
@@ -233,97 +348,17 @@ module "security_group_rule" {
 
 }
 
+########################################################
+# Compute
+########################################################
+
 ############################################
-# Transit Gateway
+# Key Pair
 ############################################
-
-# The Transit Gateway is the central router connecting all three VPCs.
-# The references like `module.recovery_access.vpc_id` read OUTPUTS of the vpc
-# module instances above. These references are also how Terraform builds its
-# dependency graph: it knows the VPCs must exist before the TGW attachments.
-module "transit_gateway" {
-
-  source = "../../modules/transit-gateway"
-
-  name = "ire-transit-gateway"
-
-  default_route_table_association = "disable"
-  default_route_table_propagation = "disable"
-
-  # Transit Gateway route tables representing the routing domains within
-  # the recovery environment. Attachments associate with these route tables
-  # and propagate routes according to the configured trust model.
-  route_tables = {
-
-    recovery_access = {
-      name = "Recovery Access"
-    }
-
-    core_recovery = {
-      name = "Core Recovery"
-    }
-
-    protected_data = {
-      name = "Protected Data"
-    }
-
-  }
-
-  # A map(object) input: one entry per VPC to attach. Inside the module this map
-  # is iterated with for_each, so each key (recovery_access, core_recovery, ...)
-  # becomes a stable resource address like
-  # aws_ec2_transit_gateway_vpc_attachment.this["recovery_access"].
-  # Attachments are placed in the PRIVATE subnets - the TGW creates a network
-  # interface in each subnet you list.
-  vpc_attachments = {
-
-    recovery_access = {
-      vpc_id     = module.recovery_access.vpc_id
-      subnet_ids = module.recovery_access.private_subnet_ids
-
-      route_table = "recovery_access"
-
-      propagate_to = [
-        "core_recovery"
-      ]
-    }
-
-    core_recovery = {
-      vpc_id     = module.core_recovery.vpc_id
-      subnet_ids = module.core_recovery.private_subnet_ids
-
-      route_table = "core_recovery"
-
-      propagate_to = [
-        "recovery_access",
-        "protected_data"
-      ]
-    }
-
-    protected_data = {
-      vpc_id     = module.protected_data.vpc_id
-      subnet_ids = module.protected_data.private_subnet_ids
-
-      route_table = "protected_data"
-
-      propagate_to = [
-        "core_recovery"
-      ]
-    }
-  }
-
-  # Merged onto the TGW resources by the module (see its locals.tf). These are
-  # in addition to the provider-level default_tags defined in provider.tf.
-  tags = {
-    Name        = "ire-transit-gateway"
-    Project     = "AWS-IRE"
-    Environment = "Sandbox"
-    ManagedBy   = "Terraform"
-    Owner       = "CloudEngineering"
-  }
-
-}
-
+# Single management key pair used to reach instances across all three
+# tiers via SSH. Centralizing on one key keeps break-glass access simple
+# in the sandbox; production environments would typically scope keys
+# per tier or replace this with Systems Manager Session Manager.
 module "key_pair" {
 
   source = "../../modules/key-pair"
@@ -338,6 +373,13 @@ module "key_pair" {
 
 }
 
+############################################
+# AMI Data Source
+############################################
+# Resolves the latest Amazon Linux 2023 (x86_64, HVM) AMI at apply time.
+# Currently unused by the EC2 module below, which pins explicit AMI IDs
+# instead so that sandbox builds are reproducible; retained here as the
+# supported path for moving to dynamically resolved AMIs later.
 data "aws_ami" "amazon_linux" {
 
   most_recent = true
@@ -360,6 +402,13 @@ data "aws_ami" "amazon_linux" {
 
 }
 
+############################################
+# EC2
+############################################
+# One representative instance per tier (management, core, protected) to
+# validate connectivity and routing across the IRE topology. All three
+# sit on private subnets with no public IPs, consistent with the
+# sandbox's no-public-subnet posture.
 module "ec2" {
 
   source = "../../modules/ec2"
@@ -413,9 +462,22 @@ module "ec2" {
   }
 
 }
-## aws backup vault module to create a backup vault for the recovery environment. 
-## This is used to store backups of critical data and configurations.
-module "backup_vault" {
+
+########################################################
+# Recovery
+########################################################
+
+############################################
+# Standard Backup Vault
+############################################
+# Creates the primary AWS Backup Vault used
+# to store recovery points generated by
+# AWS Backup jobs.
+#
+# Recovery points stored in this vault can
+# later be copied to a Logically Air-Gapped
+# Vault for ransomware protection.
+module "backup_standard_vault" {
 
   source = "../../modules/backup-standard-vault"
 
@@ -425,11 +487,16 @@ module "backup_vault" {
 
 }
 
-## logically air-gapped backup vault module to create a logically air-gapped backup vault for the recovery environment.
-## This vault is used to store backups of critical data and configurations, and is protected by immutable retention boundaries to defend against ransomware and accidental deletion.
-## The vault is created in the protected data VPC, which is isolated from the other VPCs in the recovery environment.
-## The vault is also encrypted using a KMS key, which is specified in the module input.
-## The vault is also tagged with the default tags specified in the local variable.
+############################################
+# Logically Air-Gapped Backup Vault
+############################################
+# Creates an AWS Backup Logically Air-Gapped
+# Vault used to store immutable copies of
+# recovery points.
+#
+# This vault provides an additional layer of
+# protection against ransomware, accidental
+# deletion, and credential compromise.
 module "backup_logically_air_gapped_vault" {
 
   source = "../../modules/backup-logically-air-gapped-vault"
@@ -444,15 +511,23 @@ module "backup_logically_air_gapped_vault" {
 
 }
 
-# Backup Plan module to create a backup plan that defines the backup schedule and retention policy for the recovery environment. 
-# This plan will use the backup vault created above to store the backups.
+############################################
+# Backup Plan
+############################################
+# Defines the backup schedule and retention
+# policy for the recovery environment.
+#
+# This plan writes into the Standard Backup
+# Vault above; recovery points can then be
+# copied into the Logically Air-Gapped Vault
+# in a later phase.
 module "backup_plan" {
 
   source = "../../modules/backup-plan"
 
   name = "ire-backup-plan"
 
-  backup_vault_name = module.backup_vault.name
+  backup_vault_name = module.backup_standard_vault.name
 
   rules = {
 
@@ -474,6 +549,20 @@ module "backup_plan" {
 
 }
 
+########################################################
+# Remote Access
+########################################################
+
+############################################
+# Client VPN
+############################################
+# Provides administrator remote access into the Recovery Access VPC,
+# the designated entry point for the IRE. Authorization is currently
+# all-groups via certificate auth; the commented block below documents
+# the planned extension point for group-scoped access once IAM Identity
+# Center (SAML) is introduced as the auth source - at that point the
+# interface here barely changes, it just gains an optional group
+# identifier per authorization rule.
 module "client_vpn" {
 
   source = "../../modules/client-vpn"
@@ -529,4 +618,3 @@ module "client_vpn" {
   routes = {}
 
 }
-
