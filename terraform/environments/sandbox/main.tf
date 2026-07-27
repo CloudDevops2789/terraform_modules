@@ -649,7 +649,7 @@ module "backup_selection" {
 # the planned extension point for group-scoped access once IAM Identity
 # Center (SAML) is introduced as the auth source - at that point the
 # interface here barely changes, it just gains an optional group
-# identifier per authorization rule.
+# identifier per authorization rule.add
 module "client_vpn" {
 
   source = "../../modules/client-vpn"
