@@ -11,3 +11,13 @@ variable "public_key_path" {
   description = "Path to the SSH public key"
   type        = string
 }
+
+variable "server_certificate_arn" {
+  description = "ACM server certificate ARN."
+  type        = string
+}
+
+variable "root_certificate_chain_arn" {
+  description = "ACM root CA certificate ARN."
+  type        = string
+}

@@ -34,10 +34,10 @@ module "recovery_access" {
   # the Transit Gateway. Under the IRE trust model, the Recovery Access VPC
   # communicates only with the Core Recovery VPC.
   #public_transit_gateway_routes = [
-   # {
-   #   destination_cidr_block = module.core_recovery.vpc_cidr
-   #   transit_gateway_id     = module.transit_gateway.id
-   # }
+  # {
+  #   destination_cidr_block = module.core_recovery.vpc_cidr
+  #   transit_gateway_id     = module.transit_gateway.id
+  # }
   #]
 
   private_transit_gateway_routes = [
@@ -373,7 +373,7 @@ module "ec2" {
       instance_type = "t3.micro"
 
       subnet_id                   = module.recovery_access.private_subnet_ids[1] # create on 2nd subnet and changed to private subnet to avoid public IPs in sandbox
-      associate_public_ip_address = false # true when we want public IPs on instances in this subnet
+      associate_public_ip_address = false                                        # true when we want public IPs on instances in this subnet
 
       key_name = module.key_pair.key_names["management"]
 
@@ -383,7 +383,8 @@ module "ec2" {
     }
 
     core = {
-      ami           = data.aws_ami.amazon_linux.id
+      #ami           = data.aws_ami.amazon_linux.id
+      ami           = "ami-00adf8f2fe708c532" # Amazon Linux 2023 (x86_64) - us-east-1
       instance_type = "t3.micro"
 
       subnet_id = module.core_recovery.private_subnet_ids[0]
@@ -396,7 +397,8 @@ module "ec2" {
     }
 
     protected = {
-      ami           = data.aws_ami.amazon_linux.id
+      #ami           = data.aws_ami.amazon_linux.id
+      ami           = "ami-00adf8f2fe708c532" # Amazon Linux 2023 (x86_64) - us-east-1 
       instance_type = "t3.micro"
 
       subnet_id = module.protected_data.private_subnet_ids[0]
@@ -411,3 +413,59 @@ module "ec2" {
   }
 
 }
+
+
+module "client_vpn" {
+
+  source = "../../modules/client-vpn"
+
+  name = "ire-client-vpn"
+
+  #server_certificate_arn     = "arn:aws:acm:us-east-1:781436988948:certificate/5bf9218b-6fbc-4cb3-a02b-0eb291d771b5"
+  #root_certificate_chain_arn = "arn:aws:acm:us-east-1:781436988948:certificate/fc51c80f-aa8a-4830-ad23-5a3f42ffd26f"
+  server_certificate_arn     = var.server_certificate_arn
+  root_certificate_chain_arn = var.root_certificate_chain_arn
+
+  client_cidr_block = "192.168.0.0/16"
+
+  vpc_id = module.recovery_access.vpc_id
+
+  network_associations = {
+
+    az1 = {
+      subnet_id = module.recovery_access.private_subnet_ids[0]
+    }
+
+    az2 = {
+      subnet_id = module.recovery_access.private_subnet_ids[1]
+    }
+
+  }
+
+  security_group_ids = [
+    module.security_group.security_group_ids["management"]
+  ]
+
+  split_tunnel       = true
+  transport_protocol = "udp"
+  vpn_port           = 443
+  dns_servers        = []
+
+  session_timeout_hours = 8
+
+  authorization_rules = {
+
+    recovery_access = {
+
+      target_network_cidr = module.recovery_access.vpc_cidr
+
+      authorize_all_groups = true
+
+    }
+
+  }
+
+  routes = {}
+
+}
+  
