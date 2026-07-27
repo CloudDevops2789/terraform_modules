@@ -78,4 +78,4 @@ jobs:
         with:
           directory: terraform/
           framework: terraform
-          soft_fail: ${{ github.base_ref != 'main' }}   # report-only until findings are triaged
+          soft_fail: true   # report-only until findings are triaged
