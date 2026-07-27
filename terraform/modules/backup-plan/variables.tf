@@ -34,52 +34,68 @@ variable "backup_vault_name" {
 # Backup Rules
 ############################################
 
-# Backup rules define when backups run and
-# how long recovery points are retained.
+# Collection of backup rules that define
+# the backup schedule, retention policy,
+# and optional copy actions for the
+# Backup Plan.
 #
-# One AWS Backup Rule is created for each
-# object in the map.
-#
-# Example:
-#
-# rules = {
-#
-#   daily = {
-#
-#     schedule = "cron(0 5 ? * * *)"
-#
-#     lifecycle = {
-#       delete_after = 30
-#     }
-#
-#   }
-#
-# }
+# Multiple rules (for example, daily,
+# weekly, and monthly) can be defined
+# within a single Backup Plan.
 #
 variable "rules" {
 
-  description = "Backup rules for the Backup Plan."
+  description = "Backup rules for the AWS Backup Plan."
 
   type = map(object({
 
+    ########################################
+    # Backup Schedule
+    ########################################
+
     schedule = string
 
-    start_window = optional(number, 60)
+    start_window = optional(number)
 
-    completion_window = optional(number, 180)
+    completion_window = optional(number)
 
-    lifecycle = object({
+    ########################################
+    # Backup Lifecycle
+    ########################################
 
-      delete_after = number
+    lifecycle = optional(object({
 
       cold_storage_after = optional(number)
 
-    })
+      delete_after = optional(number)
+
+    }))
+
+    ########################################
+    # Backup Copy Actions
+    ########################################
+
+    copy_actions = optional(map(object({
+
+      destination_vault_arn = string
+
+      ######################################
+      # Copy Lifecycle
+      ######################################
+
+      lifecycle = optional(object({
+
+        cold_storage_after = optional(number)
+
+        delete_after = optional(number)
+
+      }))
+
+    })))
 
   }))
 
 }
-
 ############################################
 # Resource Tags
 ############################################

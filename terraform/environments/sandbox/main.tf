@@ -463,9 +463,18 @@ module "ec2" {
 
 }
 
-########################################################
+##################################################################################################
 # Recovery
-########################################################
+##################################################################################################
+
+# The Recovery modules implement the AWS
+# Backup architecture for the Isolated
+# Recovery Environment (IRE).
+#
+# Together they provide backup storage,
+# backup scheduling, workload selection,
+# backup permissions, and immutable copies
+# of recovery points for cyber recovery.
 
 ############################################
 # Standard Backup Vault
@@ -514,13 +523,15 @@ module "backup_logically_air_gapped_vault" {
 ############################################
 # Backup Plan
 ############################################
-# Defines the backup schedule and retention
-# policy for the recovery environment.
+
+# Defines how AWS Backup protects the
+# recovery environment.
 #
-# This plan writes into the Standard Backup
-# Vault above; recovery points can then be
-# copied into the Logically Air-Gapped Vault
-# in a later phase.
+# The Backup Plan determines when backups
+# are created, how long they are retained,
+# and whether recovery points are copied
+# to additional Backup Vaults for
+# cyber recovery.
 module "backup_plan" {
 
   source = "../../modules/backup-plan"
@@ -535,11 +546,33 @@ module "backup_plan" {
 
       schedule = "cron(0 5 ? * * *)"
 
+      start_window = 60
+
+      completion_window = 180
+
       lifecycle = {
 
-        delete_after = 30
+        cold_storage_after = 30
+
+        delete_after = 365
 
       }
+
+      copy_actions = {
+
+      cyber_recovery = {
+
+        destination_vault_arn = module.backup_logically_air_gapped_vault.arn
+
+        lifecycle = {
+
+          delete_after = 365
+
+        }
+
+      }
+
+    }
 
     }
 
@@ -575,12 +608,14 @@ module "backup_role" {
 # Backup Selection
 ############################################
 
-# Associates AWS resources with the Backup
-# Plan, allowing AWS Backup to identify
-# which resources should be protected.
+# Associates AWS resources with the
+# Backup Plan.
 #
-
-
+# Only resources included in this
+# selection are protected by AWS Backup.
+# In this environment, the Core Recovery
+# EC2 instance is designated as the
+# protected workload.
 module "backup_selection" {
 
   source = "../../modules/backup-selection"
