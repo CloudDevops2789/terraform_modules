@@ -549,6 +549,58 @@ module "backup_plan" {
 
 }
 
+############################################
+# Backup IAM Role
+############################################
+
+# Creates the IAM Role assumed by AWS Backup
+# to perform backup and restore operations.
+#
+# The role includes the required trust
+# relationship and managed IAM policies
+# that allow AWS Backup to protect and
+# recover supported AWS resources.
+#
+module "backup_role" {
+
+  source = "../../modules/backup-role"
+
+  name = "ire-backup-role"
+
+  tags = local.default_tags
+
+}
+
+############################################
+# Backup Selection
+############################################
+
+# Associates AWS resources with the Backup
+# Plan, allowing AWS Backup to identify
+# which resources should be protected.
+#
+
+
+module "backup_selection" {
+
+  source = "../../modules/backup-selection"
+
+  name = "ire-backup-selection"
+
+  backup_plan_id = module.backup_plan.id
+
+  iam_role_arn = module.backup_role.arn
+
+  resources = [
+
+    module.ec2.instance_arns["core"] # associate the core instance with the backup plan
+
+  ]
+
+  tags = local.default_tags
+
+}
+
 ########################################################
 # Remote Access
 ########################################################
