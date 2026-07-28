@@ -348,6 +348,20 @@ module "security_group_rule" {
 
 }
 
+############################################
+# KMS
+############################################
+
+module "kms" {
+  source = "../../modules/kms"
+
+  description = "Customer managed KMS key for the IRE sandbox"
+
+  alias = "ire-sandbox"
+
+  tags = local.default_tags
+}
+
 ############################################################
 # Identity
 ############################################################
@@ -368,8 +382,8 @@ module "managed_microsoft_ad" {
     module.core_recovery.private_subnet_ids[1]
   ]
 
-  tags = local.default_tags
-  depends_on = [ module.core_recovery ]
+  tags       = local.default_tags
+  depends_on = [module.core_recovery]
 }
 
 ##################################################################################################
