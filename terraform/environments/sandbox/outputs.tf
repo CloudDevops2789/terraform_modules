@@ -1,4 +1,4 @@
-output "instance_ids" {
+/* output "instance_ids" {
   value = module.ec2.instance_ids
 }
 
@@ -37,4 +37,4 @@ output "backup_plan_version" {
 
   value = module.backup_plan.version
 
-}
+} */
