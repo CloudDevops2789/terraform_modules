@@ -28,4 +28,10 @@ resource "aws_ec2_client_vpn_network_association" "this" {
   client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.this.id
 
   subnet_id = each.value.subnet_id
+
+  timeouts {
+    create = "30m"
+    delete = "30m"
+  }
+  
 }

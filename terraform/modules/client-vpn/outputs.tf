@@ -82,3 +82,8 @@ output "log_stream_name" {
 
   value = aws_cloudwatch_log_stream.this.name
 }
+
+output "endpoint_id" {
+  description = "The Client VPN endpoint ID"
+  value       = aws_ec2_client_vpn_endpoint.this.id
+}
