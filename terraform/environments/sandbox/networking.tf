@@ -10,32 +10,28 @@
 # in a production layout (disabled here for the sandbox). All traffic
 # into the IRE is expected to land here first, then hop to Core Recovery
 # over the Transit Gateway per the trust model below.
+
+# Static network parameters (CIDR, subnet layout and VPC name) are defined
+# in locals.tf; this module consumes those values and builds the network.
+
 module "recovery_access" {
 
   source = "../../modules/vpc"
 
-  vpc_name                = "recovery-access"
-  cidr_block              = "10.100.0.0/16"
-  availability_zone_count = 2
+  vpc_name                = local.recovery_access.vpc_name
+  cidr_block              = local.recovery_access.cidr_block
+  availability_zone_count = local.recovery_access.availability_zone_count
 
   # public_subnets = {   blocking entire section for now, since we don't want public subnets in the sandbox
   #  public-a = "10.100.1.0/24"
   #  public-b = "10.100.2.0/24"
   #}
 
-  private_subnets = {
-    private-a = "10.100.11.0/24"
-    private-b = "10.100.12.0/24"
-  }
+  private_subnets = local.recovery_access.private_subnets
+
   # Install routes in the private route table for networks reachable via
   # the Transit Gateway. Under the IRE trust model, the Recovery Access VPC
   # communicates only with the Core Recovery VPC.
-  #public_transit_gateway_routes = [
-  # {
-  #   destination_cidr_block = module.core_recovery.vpc_cidr
-  #   transit_gateway_id     = module.transit_gateway.id
-  # }
-  #]
 
   private_transit_gateway_routes = [
     {
@@ -56,14 +52,11 @@ module "core_recovery" {
 
   source = "../../modules/vpc"
 
-  vpc_name                = "core-recovery"
-  cidr_block              = "10.101.0.0/16"
-  availability_zone_count = 2
+  vpc_name                = local.core_recovery.vpc_name
+  cidr_block              = local.core_recovery.cidr_block
+  availability_zone_count = local.core_recovery.availability_zone_count
 
-  private_subnets = {
-    private-a = "10.101.11.0/24"
-    private-b = "10.101.12.0/24"
-  }
+  private_subnets = local.core_recovery.private_subnets
 
   # Core Recovery acts as the central routing domain within the IRE. It
   # requires routes to both the Recovery Access and Protected Data VPCs.
@@ -91,14 +84,11 @@ module "protected_data" {
 
   source = "../../modules/vpc"
 
-  vpc_name                = "protected-data"
-  cidr_block              = "10.102.0.0/16"
-  availability_zone_count = 2
+  vpc_name                = local.protected_data.vpc_name
+  cidr_block              = local.protected_data.cidr_block
+  availability_zone_count = local.protected_data.availability_zone_count
 
-  private_subnets = {
-    private-a = "10.102.11.0/24"
-    private-b = "10.102.12.0/24"
-  }
+  private_subnets = local.protected_data.private_subnets
 
   # Install routes for the Core Recovery VPC only. Direct routing to the
   # Recovery Access VPC is intentionally omitted to enforce the IRE trust
@@ -114,92 +104,120 @@ module "protected_data" {
 ############################################
 # Transit Gateway
 ############################################
-# The Transit Gateway is the central router connecting all three VPCs
-# and is the mechanism that enforces the IRE trust chain: Recovery
-# Access <-> Core Recovery <-> Protected Data, with no direct path
-# between Recovery Access and Protected Data. Route table association
-# and propagation are handled per-attachment below rather than through
-# the TGW default route table, which is why default association and
-# propagation are disabled.
+# The Transit Gateway is the central router connecting all three VPCs.
+#
+# Trust Model
+#
+#   Recovery Access <------> Core Recovery <------> Protected Data
+#
+# Recovery Access has no direct path to Protected Data. All traffic must
+# traverse Core Recovery.
+#
+# Transit Gateway Route Tables define the routing domains, while the VPC
+# attachments below define:
+#
+#   1. Which Transit Gateway Route Table each VPC attachment is associated with.
+#   2. Which Transit Gateway Route Tables learn routes from each VPC.
+
 module "transit_gateway" {
 
   source = "../../modules/transit-gateway"
 
-  name = "ire-transit-gateway"
+  name = local.transit_gateway.name
 
-  default_route_table_association = "disable"
-  default_route_table_propagation = "disable"
+  default_route_table_association = local.transit_gateway.default_route_table_association
+  default_route_table_propagation = local.transit_gateway.default_route_table_propagation
 
-  # Transit Gateway route tables representing the routing domains within
-  # the recovery environment. Attachments associate with these route tables
-  # and propagate routes according to the configured trust model.
-  route_tables = {
+  # Transit Gateway Route Tables.
+  # The map keys are logical identifiers used by the VPC attachments below.
+  route_tables = local.transit_gateway.route_tables
 
-    recovery_access = {
-      name = "Recovery Access"
-    }
+  ##########################################################################
+  # VPC Attachments
+  ##########################################################################
+  #
+  # Each attachment performs two independent actions:
+  #
+  # route_table
+  #   Associates the VPC attachment with one Transit Gateway Route Table.
+  #
+  # propagate_to
+  #   Advertises this VPC's CIDR block into one or more Transit Gateway
+  #   Route Tables so those routing domains learn how to reach this VPC.
+  #
+  # IMPORTANT:
+  # The values "recovery_access", "core_recovery" and "protected_data"
+  # reference the Transit Gateway Route Table KEYS defined above.
+  # They do NOT refer to VPC Route Tables.
+  ##########################################################################
 
-    core_recovery = {
-      name = "Core Recovery"
-    }
-
-    protected_data = {
-      name = "Protected Data"
-    }
-
-  }
-
-  # A map(object) input: one entry per VPC to attach. Inside the module this map
-  # is iterated with for_each, so each key (recovery_access, core_recovery, ...)
-  # becomes a stable resource address like
-  # aws_ec2_transit_gateway_vpc_attachment.this["recovery_access"].
-  # Attachments are placed in the PRIVATE subnets - the TGW creates a network
-  # interface in each subnet you list.
   vpc_attachments = {
 
+    ######################################################################
+    # Recovery Access VPC
+    ######################################################################
     recovery_access = {
+
       vpc_id     = module.recovery_access.vpc_id
       subnet_ids = module.recovery_access.private_subnet_ids
 
+      # Associate this VPC attachment with the
+      # Recovery Access Transit Gateway Route Table.
       route_table = "recovery_access"
 
+      # Advertise the Recovery Access VPC CIDR into the
+      # Core Recovery Transit Gateway Route Table.
       propagate_to = [
         "core_recovery"
       ]
     }
 
+    ######################################################################
+    # Core Recovery VPC
+    ######################################################################
     core_recovery = {
+
       vpc_id     = module.core_recovery.vpc_id
       subnet_ids = module.core_recovery.private_subnet_ids
 
+      # Associate this VPC attachment with the
+      # Core Recovery Transit Gateway Route Table.
       route_table = "core_recovery"
 
+      # Advertise the Core Recovery VPC CIDR into both the
+      # Recovery Access and Protected Data Transit Gateway
+      # Route Tables.
       propagate_to = [
         "recovery_access",
         "protected_data"
       ]
     }
 
+    ######################################################################
+    # Protected Data VPC
+    ######################################################################
     protected_data = {
+
       vpc_id     = module.protected_data.vpc_id
       subnet_ids = module.protected_data.private_subnet_ids
 
+      # Associate this VPC attachment with the
+      # Protected Data Transit Gateway Route Table.
       route_table = "protected_data"
 
+      # Advertise the Protected Data VPC CIDR into the
+      # Core Recovery Transit Gateway Route Table.
       propagate_to = [
         "core_recovery"
       ]
     }
   }
 
-  # Merged onto the TGW resources by the module (see its locals.tf). These are
-  # in addition to the provider-level default_tags defined in provider.tf.
-  tags = {
-    Name        = "ire-transit-gateway"
-    Project     = "AWS-IRE"
-    Environment = "Sandbox"
-    ManagedBy   = "Terraform"
-    Owner       = "CloudEngineering"
-  }
+  tags = merge(
+    local.default_tags,
+    {
+      Name = local.transit_gateway.name
+    }
+  )
 
 }
