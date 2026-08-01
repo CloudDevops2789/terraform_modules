@@ -1,4 +1,4 @@
-/* output "instance_ids" {
+output "instance_ids" {
   value = module.ec2.instance_ids
 }
 
@@ -37,4 +37,10 @@ output "backup_plan_version" {
 
   value = module.backup_plan.version
 
-} */
+}
+
+output "client_vpn_endpoint_id" {
+  description = "The ID of the Client VPN endpoint."
+  value       = module.client_vpn.id
+}
+#aws_ec2_client_vpn_endpoint.this.id
