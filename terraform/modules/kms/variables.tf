@@ -43,12 +43,9 @@ variable "rotation_period_in_days" {
   default     = null
 
   validation {
-    condition = (
-      var.rotation_period_in_days == null ||
-      (
-        var.rotation_period_in_days >= 90 &&
-        var.rotation_period_in_days <= 2560
-      )
+    condition = var.rotation_period_in_days == null ? true : (
+      var.rotation_period_in_days >= 90 &&
+      var.rotation_period_in_days <= 2560
     )
 
     error_message = "rotation_period_in_days must be between 90 and 2560 days."
