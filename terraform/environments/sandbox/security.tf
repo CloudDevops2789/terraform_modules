@@ -18,17 +18,17 @@ module "security_group" {
   security_groups = {
 
     management = {
-      description = "Management"
+      description = local.security_groups.tiers.management.description
       vpc_id      = module.recovery_access.vpc_id
     }
 
     core = {
-      description = "Core Recovery"
+      description = local.security_groups.tiers.core.description
       vpc_id      = module.core_recovery.vpc_id
     }
 
     protected = {
-      description = "Protected Data"
+      description = local.security_groups.tiers.protected.description
       vpc_id      = module.protected_data.vpc_id
     }
 
@@ -55,40 +55,40 @@ module "security_group_rule" {
       type              = "ingress"
       security_group_id = module.security_group.security_group_ids["management"]
 
-      ip_protocol = "tcp"
-      from_port   = 22
-      to_port     = 22
+      ip_protocol = local.security_groups.rules.management_ssh.ip_protocol
+      from_port   = local.security_groups.rules.management_ssh.from_port
+      to_port     = local.security_groups.rules.management_ssh.to_port
 
-      cidr_ipv4 = "0.0.0.0/0"
+      cidr_ipv4 = local.security_groups.rules.management_ssh.cidr_ipv4
     }
 
     management-ping = {
       type              = "ingress"
       security_group_id = module.security_group.security_group_ids["management"]
 
-      ip_protocol = "icmp"
-      from_port   = 8
-      to_port     = -1
+      ip_protocol = local.security_groups.rules.management_ping.ip_protocol
+      from_port   = local.security_groups.rules.management_ping.from_port
+      to_port     = local.security_groups.rules.management_ping.to_port
 
-      cidr_ipv4 = "0.0.0.0/0"
+      cidr_ipv4 = local.security_groups.rules.management_ping.cidr_ipv4
     }
 
     management-egress = {
       type              = "egress"
       security_group_id = module.security_group.security_group_ids["management"]
 
-      ip_protocol = "-1"
+      ip_protocol = local.security_groups.rules.management_egress.ip_protocol
 
-      cidr_ipv4 = "0.0.0.0/0"
+      cidr_ipv4 = local.security_groups.rules.management_egress.cidr_ipv4
     }
 
     core-ssh-from-recovery-access = {
       type              = "ingress"
       security_group_id = module.security_group.security_group_ids["core"]
 
-      ip_protocol = "tcp"
-      from_port   = 22
-      to_port     = 22
+      ip_protocol = local.security_groups.rules.core_ssh.ip_protocol
+      from_port   = local.security_groups.rules.core_ssh.from_port
+      to_port     = local.security_groups.rules.core_ssh.to_port
 
       cidr_ipv4 = module.recovery_access.vpc_cidr
     }
@@ -97,9 +97,9 @@ module "security_group_rule" {
       type              = "ingress"
       security_group_id = module.security_group.security_group_ids["core"]
 
-      ip_protocol = "tcp"
-      from_port   = 22
-      to_port     = 22
+      ip_protocol = local.security_groups.rules.core_ssh.ip_protocol
+      from_port   = local.security_groups.rules.core_ssh.from_port
+      to_port     = local.security_groups.rules.core_ssh.to_port
 
       cidr_ipv4 = module.protected_data.vpc_cidr
     }
@@ -108,18 +108,18 @@ module "security_group_rule" {
       type              = "egress"
       security_group_id = module.security_group.security_group_ids["core"]
 
-      ip_protocol = "-1"
+      ip_protocol = local.security_groups.rules.core_egress.ip_protocol
 
-      cidr_ipv4 = "0.0.0.0/0"
+      cidr_ipv4 = local.security_groups.rules.core_egress.cidr_ipv4
     }
 
     protected-ssh = {
       type              = "ingress"
       security_group_id = module.security_group.security_group_ids["protected"]
 
-      ip_protocol = "tcp"
-      from_port   = 22
-      to_port     = 22
+      ip_protocol = local.security_groups.rules.protected_ssh.ip_protocol
+      from_port   = local.security_groups.rules.protected_ssh.from_port
+      to_port     = local.security_groups.rules.protected_ssh.to_port
 
       cidr_ipv4 = module.core_recovery.vpc_cidr
     }
@@ -128,9 +128,9 @@ module "security_group_rule" {
       type              = "egress"
       security_group_id = module.security_group.security_group_ids["protected"]
 
-      ip_protocol = "-1"
+      ip_protocol = local.security_groups.rules.protected_egress.ip_protocol
 
-      cidr_ipv4 = "0.0.0.0/0"
+      cidr_ipv4 = local.security_groups.rules.protected_egress.cidr_ipv4
     }
 
   }
@@ -144,9 +144,9 @@ module "security_group_rule" {
 module "kms" {
   source = "../../modules/kms"
 
-  description = "Customer managed KMS key for the IRE sandbox"
+  description = local.kms.description
 
-  alias = "ire-sandbox"
+  alias = local.kms.alias
 
   tags = local.default_tags
 }

@@ -25,7 +25,7 @@ module "backup_standard_vault" {
 
   source = "../../modules/backup-standard-vault"
 
-  name = "ire-standard-backup-vault"
+  name = local.backup.standard_vault_name
 
   tags = local.default_tags
 
@@ -45,11 +45,11 @@ module "backup_logically_air_gapped_vault" {
 
   source = "../../modules/backup-logically-air-gapped-vault"
 
-  name = "ire-airgap-backup-vault"
+  name = local.backup.air_gapped_vault_name
 
-  min_retention_days = 30
+  min_retention_days = local.backup.air_gapped_min_retention_days
 
-  max_retention_days = 365
+  max_retention_days = local.backup.air_gapped_max_retention_days
 
   tags = local.default_tags
 
@@ -71,7 +71,7 @@ module "backup_plan" {
 
   source = "../../modules/backup-plan"
 
-  name = "ire-backup-plan"
+  name = local.backup.plan_name
 
   backup_vault_name = module.backup_standard_vault.name
 
@@ -79,17 +79,17 @@ module "backup_plan" {
 
     daily = {
 
-      schedule = "cron(0 5 ? * * *)"
+      schedule = local.backup.plan_rules.daily.schedule
 
-      start_window = 60
+      start_window = local.backup.plan_rules.daily.start_window
 
-      completion_window = 180
+      completion_window = local.backup.plan_rules.daily.completion_window
 
       lifecycle = {
 
-        cold_storage_after = 30
+        cold_storage_after = local.backup.plan_rules.daily.cold_storage_after
 
-        delete_after = 365
+        delete_after = local.backup.plan_rules.daily.delete_after
 
       }
 
@@ -101,7 +101,7 @@ module "backup_plan" {
 
           lifecycle = {
 
-            delete_after = 365
+            delete_after = local.backup.plan_rules.daily.cyber_recovery_delete_after
 
           }
 
@@ -133,7 +133,7 @@ module "backup_role" {
 
   source = "../../modules/backup-role"
 
-  name = "ire-backup-role"
+  name = local.backup.role_name
 
   tags = local.default_tags
 
@@ -155,7 +155,7 @@ module "backup_selection" {
 
   source = "../../modules/backup-selection"
 
-  name = "ire-backup-selection"
+  name = local.backup.selection_name
 
   backup_plan_id = module.backup_plan.id
 

@@ -37,17 +37,17 @@ data "aws_ami" "amazon_linux" {
 
   filter {
     name   = "name"
-    values = ["al2023-ami-2023*-x86_64"]
+    values = local.ec2.ami_data_source_filter.name_values
   }
 
   filter {
     name   = "architecture"
-    values = ["x86_64"]
+    values = local.ec2.ami_data_source_filter.architecture_values
   }
 
   filter {
     name   = "virtualization-type"
-    values = ["hvm"]
+    values = local.ec2.ami_data_source_filter.virtualization_type_values
   }
 
 }
@@ -68,11 +68,11 @@ module "ec2" {
   instances = {
 
     management = {
-      ami           = "ami-00adf8f2fe708c532" # Amazon Linux 2023 (x86_64) - us-east-1
-      instance_type = "t3.micro"
+      ami           = local.ec2.ami
+      instance_type = local.ec2.instance_type
 
       subnet_id                   = module.recovery_access.private_subnet_ids[1] # create on 2nd subnet and changed to private subnet to avoid public IPs in sandbox
-      associate_public_ip_address = false                                        # true when we want public IPs on instances in this subnet
+      associate_public_ip_address = local.ec2.associate_public_ip_address        # true when we want public IPs on instances in this subnet
 
       key_name = module.key_pair.key_names["management"]
 
@@ -83,8 +83,8 @@ module "ec2" {
 
     core = {
       #ami           = data.aws_ami.amazon_linux.id
-      ami           = "ami-00adf8f2fe708c532" # Amazon Linux 2023 (x86_64) - us-east-1
-      instance_type = "t3.micro"
+      ami           = local.ec2.ami
+      instance_type = local.ec2.instance_type
 
       subnet_id = module.core_recovery.private_subnet_ids[0]
 
@@ -97,8 +97,8 @@ module "ec2" {
 
     protected = {
       #ami           = data.aws_ami.amazon_linux.id
-      ami           = "ami-00adf8f2fe708c532" # Amazon Linux 2023 (x86_64) - us-east-1 
-      instance_type = "t3.micro"
+      ami           = local.ec2.ami
+      instance_type = local.ec2.instance_type
 
       subnet_id = module.protected_data.private_subnet_ids[0]
 
