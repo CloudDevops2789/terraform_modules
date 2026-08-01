@@ -33,5 +33,5 @@ resource "aws_ec2_client_vpn_network_association" "this" {
     create = "30m"
     delete = "30m"
   }
-  
+
 }
