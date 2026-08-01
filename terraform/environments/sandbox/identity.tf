@@ -1,7 +1,7 @@
 ############################################################
 # Identity
 ############################################################
-/*
+
 module "managed_microsoft_ad" {
   source = "../../modules/managed-microsoft-ad"
 
@@ -21,4 +21,3 @@ module "managed_microsoft_ad" {
   tags       = local.default_tags
   depends_on = [module.core_recovery]
 }
-*/

@@ -1,0 +1,50 @@
+locals {
+
+  ##################################################################################################
+  # Common Tags
+  ##################################################################################################
+  default_tags = {
+    TestedModule = "ec2"
+  }
+
+  ##################################################################################################
+  # Supporting VPC
+  ##################################################################################################
+  # The ec2 module places instances into a subnet it does not create - a
+  # minimal VPC with one subnet exists only to give the instance somewhere
+  # to live. The VPC itself is not under test.
+  vpc = {
+    vpc_name                = "module-test-ec2-vpc"
+    cidr_block              = "10.252.0.0/16"
+    availability_zone_count = 2
+
+    private_subnets = {
+      private-a = "10.252.11.0/24"
+    }
+  }
+
+  ##################################################################################################
+  # Supporting Security Group
+  ##################################################################################################
+  # aws_instance requires a security group; the ec2 module does not create
+  # one itself, so one is created here with no rules. AWS still attaches its
+  # default allow-all egress rule automatically, which is all this test
+  # needs. Ingress/egress rule behavior is validated by the security-group
+  # module test, not here.
+  security_group = {
+    description = "Module test - EC2"
+  }
+
+  ##################################################################################################
+  # EC2 Under Test
+  ##################################################################################################
+  # A single instance is the minimum shape that exercises the module's
+  # for_each over var.instances, its tag-merging locals, and its optional
+  # attributes resolving to their defaults (no key pair, no root block
+  # device override, no public IP).
+  ec2 = {
+    ami                         = "ami-00adf8f2fe708c532" # Amazon Linux 2023 (x86_64) - us-east-1
+    instance_type               = "t3.micro"
+    associate_public_ip_address = false
+  }
+}
