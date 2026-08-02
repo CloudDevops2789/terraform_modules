@@ -17,10 +17,10 @@ locals {
     vpc_name                = "module-test-ec2-vpc"
     cidr_block              = "10.252.0.0/16"
     availability_zone_count = 2
-    
+
     public_subnets = {
       public-a = "10.252.10.0/24"
-    }  
+    }
     private_subnets = {
       private-a = "10.252.11.0/24"
     }

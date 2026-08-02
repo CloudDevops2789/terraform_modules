@@ -14,11 +14,11 @@ module "ec2" {
   instances = {
 
     management = {
-      ami           = local.ec2.ami
-      instance_type = local.ec2.instance_type
+      ami                         = local.ec2.ami
+      instance_type               = local.ec2.instance_type
       subnet_id                   = module.vpc.public_subnet_map["public-a"]
       associate_public_ip_address = local.ec2.associate_public_ip_address
-      key_name = module.key_pair.key_names["management"]
+      key_name                    = module.key_pair.key_names["management"]
       vpc_security_group_ids = [
         module.security_group.security_group_ids["management"]
       ]
