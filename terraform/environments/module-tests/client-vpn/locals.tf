@@ -49,10 +49,10 @@ locals {
   # variables.tf) to point this test at existing ACM certificates, and
   # generation is skipped entirely - see "Certificate Source" below.
   certificates = {
-    ca_common_name        = "Module Test Root CA"
-    server_common_name    = "module-test-client-vpn"
-    organization          = "AWS-IRE"
-    validity_period_hours = 8760 # 1 year - long enough for a throwaway test environment
+  ca_common_name        = "AWS IRE Root CA"
+  server_common_name    = "vpn.aws-ire.lab"
+  organization          = "AWS-IRE"
+  validity_period_hours = 8760 # 1 year
   }
 
   ##################################################################################################

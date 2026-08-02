@@ -73,6 +73,7 @@ resource "tls_private_key" "server" {
 }
 
 resource "tls_cert_request" "server" {
+
   count = local.generate_certificates ? 1 : 0
 
   private_key_pem = tls_private_key.server[0].private_key_pem
@@ -81,6 +82,10 @@ resource "tls_cert_request" "server" {
     common_name  = local.certificates.server_common_name
     organization = local.certificates.organization
   }
+
+  dns_names = [
+    local.certificates.server_common_name
+  ]
 }
 
 resource "tls_locally_signed_cert" "server" {

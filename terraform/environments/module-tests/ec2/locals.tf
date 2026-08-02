@@ -17,7 +17,10 @@ locals {
     vpc_name                = "module-test-ec2-vpc"
     cidr_block              = "10.252.0.0/16"
     availability_zone_count = 2
-
+    
+    public_subnets = {
+      public-a = "10.252.10.0/24"
+    }  
     private_subnets = {
       private-a = "10.252.11.0/24"
     }
@@ -31,8 +34,25 @@ locals {
   # default allow-all egress rule automatically, which is all this test
   # needs. Ingress/egress rule behavior is validated by the security-group
   # module test, not here.
-  security_group = {
-    description = "Module test - EC2"
+  security_groups = {
+    tiers = {
+      management = {
+        description = "Module test - EC2"
+      }
+    }
+    rules = {
+      ssh_ingress = {
+        ip_protocol = "tcp"
+        from_port   = 22
+        to_port     = 22
+        cidr_ipv4   = "0.0.0.0/0"
+      }
+
+      all_egress = {
+        ip_protocol = "-1"
+        cidr_ipv4   = "0.0.0.0/0"
+      }
+    }
   }
 
   ##################################################################################################
@@ -45,6 +65,6 @@ locals {
   ec2 = {
     ami                         = "ami-00adf8f2fe708c532" # Amazon Linux 2023 (x86_64) - us-east-1
     instance_type               = "t3.micro"
-    associate_public_ip_address = false
+    associate_public_ip_address = true
   }
 }

@@ -12,6 +12,7 @@ module "vpc" {
   availability_zone_count = local.vpc.availability_zone_count
 
   private_subnets = local.vpc.private_subnets
+  public_subnets  = local.vpc.public_subnets
 
   tags = local.default_tags
 }
