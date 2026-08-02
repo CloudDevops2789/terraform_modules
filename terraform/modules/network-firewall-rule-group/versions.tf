@@ -1,9 +1,7 @@
 ##################################################################################################
 # Terraform
 ##################################################################################################
-# Defines the Terraform and provider versions required by this module. Keeping
-# these constraints here ensures consistent behaviour across environments while
-# allowing future provider upgrades without modifying resource definitions.
+# Defines the Terraform and provider versions required by this module.
 terraform {
   required_version = ">= 1.5.0"
   required_providers {
