@@ -1,13 +1,14 @@
 ##################################################################################################
-# Terraform
+# Terraform and Provider Requirements
 ##################################################################################################
-# Defines the Terraform and provider versions required by this module.
+# The module declares provider requirements only. Provider authentication, Region selection, and
+# provider-level default tags remain the responsibility of the consuming Terraform root module.
 terraform {
   required_version = ">= 1.5.0"
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 6.0"
+      version = ">= 6.0, < 7.0"
     }
   }
 }
