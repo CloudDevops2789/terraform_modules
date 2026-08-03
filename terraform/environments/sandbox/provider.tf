@@ -3,7 +3,7 @@
 # none are hardcoded here - the right approach).
 provider "aws" {
 
-  region = "us-east-1"
+  region = var.aws_region
 
   # default_tags are applied by the PROVIDER to every taggable resource it
   # creates, without repeating them on each resource. Resource-level tags are
