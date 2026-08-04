@@ -1,2 +1,11 @@
 # Copy to terraform.tfvars and adjust. terraform.tfvars is gitignored.
 aws_region = "us-east-1"
+
+### Tags ####
+org_it_cost_center       = "999999999"
+org_department           = "cloud"
+org_cmdb_calculated_app  = "cloud_app"
+org_business_criticality = "4"
+org_environment          = "dev"
+org_data_classification  = "internal"
+project_name = "AWS-IRE"

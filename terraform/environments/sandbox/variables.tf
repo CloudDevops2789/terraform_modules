@@ -32,3 +32,38 @@ variable "ami_id" {
   description = "EC2 AMI ID"
   type        = string
 }
+
+#### Tagging Variables ###
+
+variable "org_it_cost_center" {
+  type = string
+}
+
+variable "org_department" {
+  type = string
+}
+
+variable "org_cmdb_calculated_app" {
+  type = string
+}
+
+variable "org_business_criticality" {
+  type = string
+}
+
+variable "org_environment" {
+  type = string
+}
+
+variable "org_data_classification" {
+  type = string
+}
+
+variable "project_name" {
+  type = string
+}
+
+variable "additional_tags" {
+  type    = map(string)
+  default = {}
+}
