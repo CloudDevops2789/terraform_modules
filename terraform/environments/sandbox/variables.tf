@@ -27,3 +27,8 @@ variable "managed_ad_password" {
   type        = string
   sensitive   = true
 }
+
+variable "ami_id" {
+  description = "EC2 AMI ID"
+  type        = string
+}

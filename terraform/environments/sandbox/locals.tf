@@ -182,7 +182,7 @@ locals {
   # (subnet_id), key material, and security group membership are relationships
   # and remain in compute.tf.
   ec2 = {
-    ami                         = "ami-00adf8f2fe708c532" # Amazon Linux 2023 (x86_64) - us-east-1
+    ami                         = var.ami_id # Amazon Linux 2023 (x86_64) - us-east-1
     instance_type               = "t3.micro"
     associate_public_ip_address = false
 
