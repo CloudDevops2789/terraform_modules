@@ -28,10 +28,10 @@ Then pass the public half in.
 module "key_pair" {
   source = "../../modules/key-pair"
 
-  default_tags = {
-    Environment = "Sandbox"
-    Project     = "AWS-IRE"
-    ManagedBy   = "Terraform"
+  tags = {
+    org_environment = "replace-with-approved-environment"
+    org_project_name = "replace-with-approved-project-name"
+    org_managed_by = "Terraform"
   }
 
   key_pairs = {
@@ -83,14 +83,14 @@ module "ec2" {
 | Name | Type | Default | Required | Description |
 |---|---|---|:---:|---|
 | `key_pairs` | `map(object)` | `{}` | no | Key pairs to create. The map key becomes the AWS key pair name. |
-| `default_tags` | `map(string)` | `{}` | no | Tags applied to every key pair, before per-key overrides. |
+| `tags` | `map(string)` | `{}` | no | Tags applied to every key pair, before per-key overrides. |
 
 ### `key_pairs` object
 
 | Attribute | Type | Default | Description |
 |---|---|---|---|
 | `public_key` | `string` | required | OpenSSH-format public key material. |
-| `tags` | `map(string)` | `{}` | Tags for this key pair, merged over `default_tags`. |
+| `tags` | `map(string)` | `{}` | Tags for this key pair, merged over the module-level `tags` input. |
 
 ---
 

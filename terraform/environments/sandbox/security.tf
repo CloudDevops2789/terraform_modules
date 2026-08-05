@@ -13,8 +13,7 @@ module "security_group" {
 
   source = "../../modules/security-group"
 
-  default_tags = local.default_tags
-
+  tags = local.org_tags
   security_groups = {
 
     management = {
@@ -148,5 +147,5 @@ module "kms" {
 
   alias = local.kms.alias
 
-  tags = local.default_tags
+  tags = local.org_tags
 }

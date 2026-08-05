@@ -79,7 +79,7 @@ module "backup_standard_vault" {
 
   name = "ire-standard-backup-vault"
 
-  tags = local.default_tags
+  tags = local.org_tags
 
 }
 ```

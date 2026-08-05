@@ -89,7 +89,7 @@ module "backup_logically_air_gapped_vault" {
 
   max_retention_days = 365
 
-  tags = local.default_tags
+  tags = local.org_tags
 
 }
 ```

@@ -16,7 +16,7 @@ module "backup_standard_vault" {
 
   name = local.backup.standard_vault_name
 
-  tags = local.default_tags
+  tags = local.org_tags
 
 }
 
@@ -33,7 +33,7 @@ module "backup_logically_air_gapped_vault" {
 
   max_retention_days = local.backup.air_gapped_max_retention_days
 
-  tags = local.default_tags
+  tags = local.org_tags
 
 }
 
@@ -86,7 +86,7 @@ module "backup_plan" {
 
   }
 
-  tags = local.default_tags
+  tags = local.org_tags
 
 }
 
@@ -99,7 +99,7 @@ module "backup_role" {
 
   name = local.backup.role_name
 
-  tags = local.default_tags
+  tags = local.org_tags
 
 }
 
@@ -122,6 +122,6 @@ module "backup_selection" {
 
   ]
 
-  tags = local.default_tags
+  tags = local.org_tags
 
 }

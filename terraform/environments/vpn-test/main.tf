@@ -2,6 +2,8 @@ module "recovery_access" {
 
   source = "../../modules/vpc"
 
+  tags = local.org_tags
+
   vpc_name                = local.recovery_access.vpc_name
   cidr_block              = local.recovery_access.cidr_block
   availability_zone_count = local.recovery_access.availability_zone_count
@@ -14,6 +16,7 @@ module "security_group" {
 
   source = "../../modules/security-group"
 
+  tags = local.org_tags
 
   security_groups = {
 
@@ -68,8 +71,7 @@ module "key_pair" {
 
   source = "../../modules/key-pair"
 
-  default_tags = local.default_tags
-
+  tags = local.org_tags
   key_pairs = {
     management = {
       public_key = file(var.public_key_path)
@@ -82,7 +84,7 @@ module "ec2" {
 
   source = "../../modules/ec2"
 
-
+  tags = local.org_tags
 
   instances = {
 
@@ -106,10 +108,12 @@ module "client_vpn" {
 
   source = "../../modules/client-vpn"
 
+  tags = local.org_tags
+
   name = local.client_vpn.name
 
-  server_certificate_arn     = local.client_vpn.server_certificate_arn
-  root_certificate_chain_arn = local.client_vpn.root_certificate_chain_arn
+  server_certificate_arn     = var.server_certificate_arn
+  root_certificate_chain_arn = var.root_certificate_chain_arn
 
 
   client_cidr_block = local.client_vpn.client_cidr_block

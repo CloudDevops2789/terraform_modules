@@ -24,7 +24,7 @@ resource "tls_self_signed_cert" "outbound_ca" {
 resource "aws_acm_certificate" "outbound_ca" {
   certificate_body = tls_self_signed_cert.outbound_ca.cert_pem
   private_key      = tls_private_key.outbound_ca.private_key_pem
-  tags             = local.default_tags
+  tags             = local.org_tags
   lifecycle {
     create_before_destroy = true
   }

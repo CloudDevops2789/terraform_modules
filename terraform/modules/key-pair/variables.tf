@@ -1,7 +1,8 @@
-variable "default_tags" {
-  description = "Default tags applied to all key pairs."
+variable "tags" {
+  description = "Tags supplied by the calling root module."
   type        = map(string)
   default     = {}
+  nullable    = false
 }
 
 # public_key is required; tags is optional with a {} default so callers

@@ -6,10 +6,10 @@
 resource "aws_cloudwatch_log_group" "alert" {
   name              = "/aws/network-firewall/module-test/alert"
   retention_in_days = 1
-  tags              = local.default_tags
+  tags              = local.org_tags
 }
 resource "aws_cloudwatch_log_group" "flow" {
   name              = "/aws/network-firewall/module-test/flow"
   retention_in_days = 1
-  tags              = local.default_tags
+  tags              = local.org_tags
 }

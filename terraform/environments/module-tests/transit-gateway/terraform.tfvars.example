@@ -1,4 +1,19 @@
-# Copy to terraform.tfvars and adjust if needed.
-# aws_region defaults to "us-east-1"; override only if this module needs to
-# be validated against a different Region.
-# aws_region = "us-east-1"
+# Copy this file to terraform.tfvars and replace the placeholder values.
+aws_region = "us-east-1"
+
+################################################################################
+# Enterprise tags
+################################################################################
+
+org_it_cost_center       = "replace-with-approved-cost-center"
+org_department           = "replace-with-approved-department"
+org_cmdb_calculated_app  = "replace-with-approved-cmdb-application"
+org_business_criticality = "replace-with-approved-criticality"
+org_environment          = "replace-with-approved-environment"
+org_data_classification  = "replace-with-approved-data-classification"
+org_project_name         = "replace-with-approved-project-name"
+org_managed_by           = "Terraform"
+
+org_additional_tags = {
+  org_service_name = "replace-with-service-name"
+}

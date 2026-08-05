@@ -1,7 +1,8 @@
-variable "default_tags" {
-  description = "Default tags applied to all security groups."
+variable "tags" {
+  description = "Tags supplied by the calling root module."
   type        = map(string)
   default     = {}
+  nullable    = false
 }
 
 # description is required because AWS requires a non-empty description on

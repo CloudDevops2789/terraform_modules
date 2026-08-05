@@ -1,7 +1,20 @@
-# Copy to terraform.tfvars, set a real password, and never commit the copy.
-# aws_region = "us-east-1"
+# Copy this file to terraform.tfvars and replace the placeholder values.
+aws_region          = "us-east-1"
+managed_ad_password = "Replace-With-Approved-Password-1!"
 
-# AWS Managed Microsoft AD requires a strong password: 8-64 characters,
-# including at least one character from three of the four categories
-# (lowercase, uppercase, numbers, symbols).
-managed_ad_password = "CHANGE_ME-Str0ng-Passw0rd!"
+################################################################################
+# Enterprise tags
+################################################################################
+
+org_it_cost_center       = "replace-with-approved-cost-center"
+org_department           = "replace-with-approved-department"
+org_cmdb_calculated_app  = "replace-with-approved-cmdb-application"
+org_business_criticality = "replace-with-approved-criticality"
+org_environment          = "replace-with-approved-environment"
+org_data_classification  = "replace-with-approved-data-classification"
+org_project_name         = "replace-with-approved-project-name"
+org_managed_by           = "Terraform"
+
+org_additional_tags = {
+  org_service_name = "replace-with-service-name"
+}

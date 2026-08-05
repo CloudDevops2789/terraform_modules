@@ -111,7 +111,7 @@ The sandbox environment is a composition, not a monolith. Each module owns one c
 flowchart TB
     subgraph env["environments/sandbox"]
         direction TB
-        LOCALS["locals.default_tags"]
+        LOCALS["locals.org_tags"]
     end
 
     VPC["module.vpc ×3\nrecovery_access · core_recovery · protected_data"]
@@ -131,7 +131,7 @@ flowchart TB
     VPC -->|subnet_ids| EC2
     KP -->|key_names| EC2
     AMI -->|id| EC2
-    LOCALS -.->|default_tags| SG & KP & EC2
+    LOCALS -.->|tags| SG & KP & EC2
 
     classDef net fill:#1e3a5f,stroke:#60a5fa,color:#f0f9ff,stroke-width:1.5px;
     classDef compute fill:#3f2d1a,stroke:#f59e0b,color:#fff7ed,stroke-width:1.5px;
@@ -401,7 +401,7 @@ terraform destroy
 
 **Routing is passed in, not inferred.** The VPC module accepts a list of Transit Gateway routes instead of discovering peers itself. The module has no knowledge of the IRE topology, which is what keeps it reusable in an unrelated environment.
 
-**Tagging has a single precedence order.** Provider-level `default_tags` apply to everything; module-level tags merge on top; per-resource tags merge on top of those; `Name` is always authoritative. The order is the same in every module.
+**Tagging has a single precedence order.** Deployable roots compose protected mandatory organization tags in `local.org_tags` and pass them through provider-level `default_tags` and generic module `tags` inputs. Per-resource tags merge on top, while the AWS display tag `Name` remains resource-specific.
 
 **Backups are separated by concern, the same way networking is.** Vault, plan, role, and selection are four modules instead of one, so a plan can target a different vault, or a selection can reuse the same plan across resources, without touching unrelated Terraform.
 

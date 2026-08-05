@@ -18,6 +18,6 @@
     module.core_recovery.private_subnet_ids[1]
   ]
 
-  tags       = local.default_tags
+  tags       = local.org_tags
   depends_on = [module.core_recovery]
 }*/

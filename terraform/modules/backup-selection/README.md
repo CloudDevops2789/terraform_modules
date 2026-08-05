@@ -125,7 +125,7 @@ module "backup_selection" {
 
   ]
 
-  tags = local.default_tags
+  tags = local.org_tags
 
 }
 ```

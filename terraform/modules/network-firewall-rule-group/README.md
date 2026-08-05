@@ -109,8 +109,8 @@ module "network_firewall_rule_groups" {
     }
   }
   tags = {
-    Project   = "AWS-IRE"
-    ManagedBy = "Terraform"
+    org_project_name = "replace-with-approved-project-name"
+    org_managed_by = "Terraform"
   }
 }
 ```

@@ -10,7 +10,7 @@ provider "aws" {
   # visually distinct from sandbox/vpn-test in the AWS console and in cost
   # reports, since nothing here is meant to be long-lived.
   default_tags {
-    tags = local.default_tags
+    tags = local.org_tags
   }
 
 }

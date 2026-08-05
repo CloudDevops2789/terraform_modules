@@ -134,7 +134,7 @@ module "backup_plan" {
 
   }
 
-  tags = local.default_tags
+  tags = local.org_tags
 
 }
 ```

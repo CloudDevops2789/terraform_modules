@@ -1,6 +1,10 @@
 # Copy this file to terraform.tfvars and replace the placeholder values.
-aws_region = "us-east-1"
-vpc_cidr   = "10.254.0.0/16"
+# terraform.tfvars is intentionally ignored by Git.
+
+aws_region                 = "us-east-1"
+public_key_path            = "replace-with-approved-public-key-path"
+server_certificate_arn     = "replace-with-approved-server-certificate-arn"
+root_certificate_chain_arn = "replace-with-approved-root-certificate-chain-arn"
 
 ################################################################################
 # Enterprise tags

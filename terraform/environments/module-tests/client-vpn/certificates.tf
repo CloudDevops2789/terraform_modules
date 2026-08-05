@@ -58,7 +58,7 @@ resource "aws_acm_certificate" "root_ca" {
   private_key      = tls_private_key.ca[0].private_key_pem
   certificate_body = tls_self_signed_cert.ca[0].cert_pem
 
-  tags = local.default_tags
+  tags = local.org_tags
 }
 
 ############################################
@@ -111,5 +111,5 @@ resource "aws_acm_certificate" "server" {
   certificate_body  = tls_locally_signed_cert.server[0].cert_pem
   certificate_chain = tls_self_signed_cert.ca[0].cert_pem
 
-  tags = local.default_tags
+  tags = local.org_tags
 }
