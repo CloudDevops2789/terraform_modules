@@ -98,7 +98,7 @@ Every folder follows the same internal shape:
 
 ```
 <name>/
-├── backend.tf                   <- S3 state, unique key per test
+├── backend.tf                   <- empty S3 backend block; values stay local or in CI
 ├── provider.tf                  <- AWS provider (+ tls provider where needed)
 ├── versions.tf                  <- Terraform/provider version constraints
 ├── variables.tf                 <- inputs, heavily commented (see below)
@@ -123,17 +123,28 @@ Each folder is a complete, independent Terraform root:
 
 ```bash
 cd module-tests/<name>
-cp terraform.tfvars.example terraform.tfvars
-# edit terraform.tfvars if the test has anything to configure -
-# see that folder's own README.md and terraform.tfvars.example
-terraform init
-terraform plan
-terraform apply
-terraform destroy
+terraform init -backend=false -input=false
+terraform validate
 ```
 
-That's the whole workflow - no bootstrap scripts, no ordering between
-folders, no shared state to initialize first.
+This validation-only workflow does not require or copy a backend
+configuration into each test root. For an independently approved AWS-backed
+integration test, copy `terraform.tfvars.example` to the ignored
+`terraform.tfvars` file and supply a local or CI-managed backend configuration
+with a unique state key:
+
+```bash
+cp terraform.tfvars.example terraform.tfvars
+# Update only local values.
+terraform init -backend-config=backend.hcl
+terraform plan
+```
+
+Each collaborator owns their local `terraform.tfvars` and backend
+configuration. These files, credentials, generated plans, state, and logs must
+not be committed. CI/CD must supply its own values through approved
+authentication and configuration mechanisms. Check `git status` before every
+commit.
 
 ## Why every module test contains minimal supporting infrastructure
 
@@ -176,9 +187,10 @@ deliberate trade for keeping every test provably independent.
 
 ## Why there is one Terraform state per module test
 
-Every folder's `backend.tf` points at the same S3 bucket sandbox uses,
-but with a unique state key
-(`module-tests/<name>/terraform.tfstate`). One state per test means:
+Every folder's `backend.tf` declares an empty S3 backend block. Local or
+CI-managed backend configuration selects the approved bucket and must provide
+a unique state key such as `module-tests/<name>/terraform.tfstate`. One state
+per test means:
 
 - Applying or destroying one test can never lock, corrupt, or otherwise
   affect another test's state.

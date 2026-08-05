@@ -5,12 +5,21 @@ locals {
   ##################################################################################################
   # Applied to resources created by this environment. Deployment-level
   # configuration, not infrastructure logic.
-  default_tags = {
-    Environment = "Sandbox"
-    Project     = "AWS-IRE"
-    Owner       = "CloudEngineering"
-    ManagedBy   = "Terraform"
+  org_required_tags = {
+    org_it_cost_center       = var.org_it_cost_center
+    org_department           = var.org_department
+    org_cmdb_calculated_app  = var.org_cmdb_calculated_app
+    org_business_criticality = var.org_business_criticality
+    org_environment          = var.org_environment
+    org_data_classification  = var.org_data_classification
+    org_project_name         = var.org_project_name
+    org_managed_by           = var.org_managed_by
   }
+
+  org_tags = merge(
+    var.org_additional_tags,
+    local.org_required_tags
+  )
 
   ##################################################################################################
   # Recovery Access VPC
@@ -85,9 +94,6 @@ locals {
   # CIDR are relationships and remain inline in main.tf.
   client_vpn = {
     name = "ire-client-vpn"
-
-    server_certificate_arn     = "arn:aws:acm:us-east-1:781436988948:certificate/5bf9218b-6fbc-4cb3-a02b-0eb291d771b5"
-    root_certificate_chain_arn = "arn:aws:acm:us-east-1:781436988948:certificate/fc51c80f-aa8a-4830-ad23-5a3f42ffd26f"
 
     client_cidr_block     = "192.168.0.0/16"
     split_tunnel          = true

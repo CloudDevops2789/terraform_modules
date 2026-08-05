@@ -2,10 +2,11 @@
  * General
  */
 
-variable "default_tags" {
-  description = "Default tags applied to all EC2 instances."
+variable "tags" {
+  description = "Tags supplied by the calling root module."
   type        = map(string)
   default     = {}
+  nullable    = false
 }
 
 /*

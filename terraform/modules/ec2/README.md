@@ -22,10 +22,10 @@ data "aws_ami" "amazon_linux" {
 module "ec2" {
   source = "../../modules/ec2"
 
-  default_tags = {
-    Environment = "Sandbox"
-    Project     = "AWS-IRE"
-    ManagedBy   = "Terraform"
+  tags = {
+    org_environment = "replace-with-approved-environment"
+    org_project_name = "replace-with-approved-project-name"
+    org_managed_by = "Terraform"
   }
 
   instances = {
@@ -92,7 +92,7 @@ output "core_private_ip" {
 | Name | Type | Default | Required | Description |
 |---|---|---|:---:|---|
 | `instances` | `map(object)` | `{}` | no | Instances to create. The map key becomes the `Name` tag. |
-| `default_tags` | `map(string)` | `{}` | no | Tags applied to every instance, before per-instance overrides. |
+| `tags` | `map(string)` | `{}` | no | Tags applied to every instance, before per-instance overrides. |
 
 ### `instances` object
 
@@ -107,7 +107,7 @@ output "core_private_ip" {
 | `private_ip` | `string` | `null` | Fixed private IP. Omit to let AWS assign one. |
 | `associate_public_ip_address` | `bool` | `false` | Assign a public IP. Only meaningful in a subnet with an IGW route. |
 | `root_block_device` | `object` | `null` | Root volume settings. Omit to use the AMI default. |
-| `tags` | `map(string)` | `{}` | Tags for this instance, merged over `default_tags`. |
+| `tags` | `map(string)` | `{}` | Tags for this instance, merged over the module-level `tags` input. |
 
 ### `root_block_device` object
 

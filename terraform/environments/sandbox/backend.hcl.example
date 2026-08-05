@@ -1,0 +1,8 @@
+# Copy this file to backend.hcl and replace the placeholder values.
+# backend.hcl is intentionally ignored by Git.
+
+bucket         = "replace-with-approved-state-bucket"
+key            = "replace-with-environment/state.tfstate"
+region         = "replace-with-approved-region"
+encrypt        = true
+dynamodb_table = "replace-with-approved-lock-table"

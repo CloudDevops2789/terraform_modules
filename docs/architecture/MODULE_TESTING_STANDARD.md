@@ -317,15 +317,20 @@ Validation resources shall include standard repository tags.
 
 Example:
 
-Environment = ModuleTest
+```hcl
+org_it_cost_center       = "replace-with-approved-cost-center"
+org_department           = "replace-with-approved-department"
+org_cmdb_calculated_app  = "replace-with-approved-cmdb-application"
+org_business_criticality = "replace-with-approved-criticality"
+org_environment          = "replace-with-approved-environment"
+org_data_classification  = "replace-with-approved-data-classification"
+org_project_name         = "replace-with-approved-project-name"
+org_managed_by           = "Terraform"
 
-ManagedBy = Terraform
-
-Project = AWS-IRE
-
-Owner = CloudEngineering
-
-TestedModule = client-vpn
+org_additional_tags = {
+  org_tested_module = "client-vpn"
+}
+```
 
 Additional tags may be added where appropriate.
 

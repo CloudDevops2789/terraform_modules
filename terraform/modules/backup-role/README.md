@@ -84,7 +84,7 @@ module "backup_role" {
 
   name = "ire-backup-role"
 
-  tags = local.default_tags
+  tags = local.org_tags
 
 }
 ```

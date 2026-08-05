@@ -7,7 +7,7 @@ resource "aws_vpc" "this" {
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
   enable_dns_support   = true
-  tags = merge(local.default_tags, {
+  tags = merge(local.org_tags, {
     Name = "module-test-network-firewall-vpc"
   })
 }
@@ -17,7 +17,7 @@ resource "aws_subnet" "firewall" {
   cidr_block              = each.value.cidr_block
   map_public_ip_on_launch = false
   vpc_id                  = aws_vpc.this.id
-  tags = merge(local.default_tags, {
+  tags = merge(local.org_tags, {
     Name = "module-test-network-firewall-${each.key}"
     Tier = "NetworkFirewall"
   })

@@ -9,8 +9,7 @@ module "ec2" {
 
   source = "../../../modules/ec2"
 
-  default_tags = local.default_tags
-
+  tags = local.org_tags
   instances = {
 
     management = {

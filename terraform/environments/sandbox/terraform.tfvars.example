@@ -1,2 +1,26 @@
-# Copy to terraform.tfvars and adjust. terraform.tfvars is gitignored.
-aws_region = "us-east-1"
+# Copy this file to terraform.tfvars and replace the placeholder values.
+# terraform.tfvars is intentionally ignored by Git.
+
+aws_region                 = "us-east-1"
+public_key_path            = "replace-with-approved-public-key-path"
+server_certificate_arn     = "replace-with-approved-server-certificate-arn"
+root_certificate_chain_arn = "replace-with-approved-root-certificate-chain-arn"
+managed_ad_password        = "Replace-With-Approved-Password-1!"
+ami_id                     = "replace-with-approved-ami-id"
+
+################################################################################
+# Enterprise tags
+################################################################################
+
+org_it_cost_center       = "replace-with-approved-cost-center"
+org_department           = "replace-with-approved-department"
+org_cmdb_calculated_app  = "replace-with-approved-cmdb-application"
+org_business_criticality = "replace-with-approved-criticality"
+org_environment          = "replace-with-approved-environment"
+org_data_classification  = "replace-with-approved-data-classification"
+org_project_name         = "replace-with-approved-project-name"
+org_managed_by           = "Terraform"
+
+org_additional_tags = {
+  org_service_name = "replace-with-service-name"
+}

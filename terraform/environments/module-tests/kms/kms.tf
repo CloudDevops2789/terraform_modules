@@ -12,5 +12,5 @@ module "kms" {
 
   alias = local.kms.alias
 
-  tags = local.default_tags
+  tags = local.org_tags
 }

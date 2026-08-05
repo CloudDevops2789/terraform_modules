@@ -21,5 +21,5 @@ module "managed_microsoft_ad" {
     module.vpc.private_subnet_map["private-b"]
   ]
 
-  tags = local.default_tags
+  tags = local.org_tags
 }

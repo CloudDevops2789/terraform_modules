@@ -4,5 +4,5 @@
 module "network_firewall_tls_inspection" {
   source                        = "../../../modules/network-firewall-tls-inspection"
   tls_inspection_configurations = local.tls_inspection_configurations
-  tags                          = local.default_tags
+  tags                          = local.org_tags
 }

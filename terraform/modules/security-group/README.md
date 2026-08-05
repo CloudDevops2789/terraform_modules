@@ -30,10 +30,10 @@ flowchart LR
 module "security_group" {
   source = "../../modules/security-group"
 
-  default_tags = {
-    Environment = "Sandbox"
-    Project     = "AWS-IRE"
-    ManagedBy   = "Terraform"
+  tags = {
+    org_environment = "replace-with-approved-environment"
+    org_project_name = "replace-with-approved-project-name"
+    org_managed_by = "Terraform"
   }
 
   security_groups = {
@@ -88,7 +88,7 @@ module "security_group_rule" {
 | Name | Type | Default | Required | Description |
 |---|---|---|:---:|---|
 | `security_groups` | `map(object)` | `{}` | no | Security groups to create. The map key becomes the group name. |
-| `default_tags` | `map(string)` | `{}` | no | Tags applied to every group, before per-group overrides. |
+| `tags` | `map(string)` | `{}` | no | Tags applied to every group, before per-group overrides. |
 
 ### `security_groups` object
 
@@ -96,7 +96,7 @@ module "security_group_rule" {
 |---|---|---|---|
 | `description` | `string` | required | Group description. AWS requires a non-empty value and rejects the request otherwise. |
 | `vpc_id` | `string` | required | VPC the group belongs to. |
-| `tags` | `map(string)` | `{}` | Tags for this group, merged over `default_tags`. |
+| `tags` | `map(string)` | `{}` | Tags for this group, merged over the module-level `tags` input. |
 
 ---
 

@@ -1,0 +1,8 @@
+# Copy this file beside a deployable root as backend.hcl and replace the
+# placeholder values. Never commit the resulting backend.hcl file.
+
+bucket         = "replace-with-approved-state-bucket"
+key            = "replace-with-environment/state.tfstate"
+region         = "replace-with-approved-region"
+encrypt        = true
+dynamodb_table = "replace-with-approved-lock-table"

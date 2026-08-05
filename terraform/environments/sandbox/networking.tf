@@ -214,7 +214,7 @@ module "transit_gateway" {
   }
 
   tags = merge(
-    local.default_tags,
+    local.org_tags,
     {
       Name = local.transit_gateway.name
     }

@@ -97,8 +97,8 @@ module "transit_gateway" {
 
   tags = {
     Name        = "ire-transit-gateway"
-    Project     = "AWS-IRE"
-    Environment = "Sandbox"
+    org_project_name = "replace-with-approved-project-name"
+    org_environment = "replace-with-approved-environment"
   }
 }
 ```
