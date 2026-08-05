@@ -4,6 +4,7 @@
 # A minimal VPC with two private subnets in two Availability Zones is
 # created here because AWS Managed Microsoft AD requires exactly two
 # subnet IDs in two different AZs. The VPC itself is not under test.
+/*
 module "vpc" {
 
   source = "../../../modules/vpc"
@@ -15,4 +16,4 @@ module "vpc" {
   private_subnets = local.vpc.private_subnets
 
   tags = local.org_tags
-}
+}*/

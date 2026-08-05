@@ -61,27 +61,64 @@ locals {
   # Backup assumes, a plan with a daily rule and a copy action, and a
   # selection binding the supporting EC2 instance to that plan.
   backup = {
+    # Standard AWS Backup vault used for primary recovery points.
     standard_vault_name = "module-test-standard-backup-vault"
 
-    air_gapped_vault_name         = "module-test-airgap-backup-vault"
-    air_gapped_min_retention_days = 7
-    air_gapped_max_retention_days = 30
+    # Logically air-gapped vault used as the immutable destination
+    # for copies created by the backup plan.
+    air_gapped_vault_name = "module-test-airgap-backup-vault"
 
+    # Minimum and maximum retention limits enforced by the
+    # logically air-gapped vault.
+    #
+    # The maximum was increased from 30 to 90 days because the backup
+    # plan retains copied cyber-recovery recovery points for 90 days.
+    # Copy-action retention must remain within the vault's configured
+    # minimum and maximum retention limits.
+    air_gapped_min_retention_days = 7
+    air_gapped_max_retention_days = 90
+
+    # Name of the AWS Backup plan under test.
     plan_name = "module-test-backup-plan"
 
+    # IAM role assumed by AWS Backup when protecting the selected resources.
     role_name = "module-test-backup-role"
 
+    # Name of the backup selection that associates the supporting
+    # EC2 instance with the backup plan.
     selection_name = "module-test-backup-selection"
 
     plan_rules = {
       daily = {
-        schedule          = "cron(0 5 ? * * *)"
-        start_window      = 60
+        # Run the backup job every day at 05:00 UTC.
+        schedule = "cron(0 5 ? * * *)"
+
+        # AWS Backup must start the job within 60 minutes
+        # of the scheduled start time.
+        start_window = 60
+
+        # AWS Backup must complete the job within 180 minutes
+        # after the job starts.
         completion_window = 180
 
+        # Move the primary recovery point to cold storage
+        # after 30 days.
         cold_storage_after = 30
-        delete_after       = 90
 
+        # Changed from 90 to 120 days.
+        #
+        # AWS Backup requires a recovery point moved to cold storage
+        # to remain in cold storage for at least 90 days.
+        #
+        # 30 days before transition + 90 days in cold storage
+        # = 120 days minimum total retention.
+        delete_after = 120
+
+        # Retain the copy stored in the logically air-gapped vault
+        # for 90 days.
+        #
+        # This value must be between the vault's configured minimum
+        # and maximum retention limits of 7 and 90 days.
         cyber_recovery_delete_after = 90
       }
     }

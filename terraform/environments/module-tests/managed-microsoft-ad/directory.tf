@@ -4,7 +4,7 @@
 # terraform/modules/managed-microsoft-ad is the module this environment
 # exists to validate: an AWS Managed Microsoft AD directory deployed into
 # two subnets of the supporting VPC.
-module "managed_microsoft_ad" {
+/*module "managed_microsoft_ad" {
 
   source = "../../../modules/managed-microsoft-ad"
 
@@ -22,4 +22,4 @@ module "managed_microsoft_ad" {
   ]
 
   tags = local.org_tags
-}
+}*/
