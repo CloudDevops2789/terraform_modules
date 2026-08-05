@@ -63,8 +63,11 @@ output "public_route_table_id" {
   value = try(aws_route_table.public[0].id, null)
 }
 
+# Legacy compatibility output. Advanced topology may contain several private
+# route tables, so this returns null when the module uses advanced mode.
 output "private_route_table_id" {
-  value = aws_route_table.private.id
+  description = "Legacy shared private route table ID, or null in advanced topology mode."
+  value       = try(aws_route_table.legacy_private["legacy"].id, null)
 }
 
 ############################################
