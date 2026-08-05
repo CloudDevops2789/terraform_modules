@@ -1,0 +1,8 @@
+# Copy to terraform.tfvars and adjust if needed.
+# aws_region defaults to "us-east-1"; override only if this module needs to
+# be validated against a different Region.
+# aws_region = "us-east-1"
+
+# Path to the SSH public key used to create the supporting key pair - the
+# same variable name and purpose as terraform/environments/sandbox.
+public_key_path = "~/.ssh/management.pub"

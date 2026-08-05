@@ -2,9 +2,14 @@
 # Test Inputs
 ##################################################################################################
 variable "aws_region" {
-  description = "AWS Region used to validate the Network Firewall TLS inspection module."
+  description = "AWS Region used to validate the Network Firewall routing module."
   type        = string
   default     = "us-east-1"
+}
+variable "vpc_cidr" {
+  description = "IPv4 CIDR block for the isolated module-test VPC."
+  type        = string
+  default     = "10.254.0.0/16"
 }
 
 variable "org_it_cost_center" {
@@ -60,11 +65,6 @@ variable "org_data_classification" {
 
 variable "project_name" {
   description = "Project name."
-  type        = string
-}
-
-variable "org_security_trust_zone" {
-  description = "Fairview security trust zone classification."
   type        = string
 }
 

@@ -1,8 +1,9 @@
-##################################################################################################
-# Test Inputs
-##################################################################################################
+# Exists so this test can be pointed at a different Region without editing
+# code. Optional - a default is set, so plan/apply never prompts for it;
+# terraform.tfvars can override it. Unrelated to any generated resource in
+# this environment; this environment has none that can be overridden.
 variable "aws_region" {
-  description = "AWS Region used to validate the Network Firewall TLS inspection module."
+  description = "AWS Region this module test deploys into."
   type        = string
   default     = "us-east-1"
 }
@@ -60,11 +61,6 @@ variable "org_data_classification" {
 
 variable "project_name" {
   description = "Project name."
-  type        = string
-}
-
-variable "org_security_trust_zone" {
-  description = "Fairview security trust zone classification."
   type        = string
 }
 

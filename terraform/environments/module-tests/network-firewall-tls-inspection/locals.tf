@@ -1,15 +1,15 @@
 locals {
   default_tags = merge(
     {
-      org_it_cost_center       = var.org_it_cost_center
-      org_department           = var.org_department
-      org_cmdb_calculated_app  = var.org_cmdb_calculated_app
-      org_business_criticality = var.org_business_criticality
-      org_environment          = var.org_environment
-      org_data_classification  = var.org_data_classification
-
-      Project   = var.project_name
-      ManagedBy = "Terraform"
+      fv_it_cost_center       = var.org_it_cost_center
+      fv_department           = var.org_department
+      fv_cmdb_calculated_app  = var.org_cmdb_calculated_app
+      fv_business_criticality = var.org_business_criticality
+      fv_environment          = var.org_environment
+      fv_security_trust_zone  = var.org_security_trust_zone
+      fv_data_classification  = var.org_data_classification
+      Project                 = var.project_name
+      ManagedBy               = "Terraform"
     },
     var.additional_tags
   )

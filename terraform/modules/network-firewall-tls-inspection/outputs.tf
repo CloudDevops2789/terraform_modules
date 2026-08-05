@@ -11,10 +11,10 @@ output "tls_inspection_configurations" {
       id                              = configuration.id
       name                            = configuration.name
       tls_inspection_configuration_id = configuration.tls_inspection_configuration_id
-      number_of_associations          = configuration.number_of_associations
-      update_token                    = configuration.update_token
-      certificate_authority           = configuration.certificate_authority
-      certificates                    = configuration.certificates
+      #number_of_associations          = configuration.number_of_associations
+      update_token          = configuration.update_token
+      certificate_authority = configuration.certificate_authority
+      certificates          = configuration.certificates
     }
   }
 }

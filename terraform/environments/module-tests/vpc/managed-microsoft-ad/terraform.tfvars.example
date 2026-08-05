@@ -1,0 +1,7 @@
+# Copy to terraform.tfvars, set a real password, and never commit the copy.
+# aws_region = "us-east-1"
+
+# AWS Managed Microsoft AD requires a strong password: 8-64 characters,
+# including at least one character from three of the four categories
+# (lowercase, uppercase, numbers, symbols).
+managed_ad_password = "CHANGE_ME-Str0ng-Passw0rd!"

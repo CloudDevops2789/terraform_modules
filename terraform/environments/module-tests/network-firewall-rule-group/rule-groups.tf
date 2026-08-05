@@ -1,6 +1,3 @@
-##################################################################################################
-# Module Under Test: Network Firewall Rule Groups
-##################################################################################################
 # No supporting infrastructure is required because rule groups are regional control-plane resources.
 module "network_firewall_rule_groups" {
   source                = "../../../modules/network-firewall-rule-group"

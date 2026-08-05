@@ -1,8 +1,8 @@
 ##################################################################################################
-# Test Inputs
+# AWS Region
 ##################################################################################################
 variable "aws_region" {
-  description = "AWS Region used to validate the Network Firewall TLS inspection module."
+  description = "AWS Region used to validate the Network Firewall policy module."
   type        = string
   default     = "us-east-1"
 }
@@ -60,11 +60,6 @@ variable "org_data_classification" {
 
 variable "project_name" {
   description = "Project name."
-  type        = string
-}
-
-variable "org_security_trust_zone" {
-  description = "Fairview security trust zone classification."
   type        = string
 }
 

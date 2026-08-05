@@ -33,7 +33,7 @@ variable "ami_id" {
   type        = string
 }
 
-#### Tagging Variables ###
+#### Tagging Variables #######
 
 variable "org_it_cost_center" {
   type = string

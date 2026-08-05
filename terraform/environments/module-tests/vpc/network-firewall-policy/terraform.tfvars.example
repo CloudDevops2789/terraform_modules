@@ -1,0 +1,2 @@
+# The module test has no required deployment-specific inputs.
+aws_region = "us-east-1"
