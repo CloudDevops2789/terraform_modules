@@ -26,3 +26,9 @@ terraform.rc
 # Keep the provider lock file
 !.terraform.lock.hcl
 backend.hcl
+
+# Generated test output and Terraform plan artifacts
+**/test-logs/
+*.tfplan
+tfplan
+tfplan.*
