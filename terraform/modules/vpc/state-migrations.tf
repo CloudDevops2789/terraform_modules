@@ -2,17 +2,11 @@
 # Terraform State Migrations
 ##################################################################################################
 #
-# This file preserves resource identity when internal Terraform addresses
-# change between module versions.
+# This file will contain moved blocks that preserve existing AWS resources
+# when consumers migrate from the previous VPC interface.
 #
-# Moved blocks do not create AWS resources. They tell Terraform that an
-# existing resource has a new configuration address, preventing unnecessary
-# destruction and recreation during module upgrades.
+# Migration mappings will be added after the existing environment roots have
+# standardized their subnet and route-table keys.
 #
-# Do not remove a moved block until every supported consumer has upgraded
-# beyond the module version that introduced the migration.
-
-moved {
-  from = aws_route_table.private
-  to   = aws_route_table.legacy_private["legacy"]
-}
+# Do not add speculative moved blocks. Every source and destination address
+# must correspond to a reviewed migration path.

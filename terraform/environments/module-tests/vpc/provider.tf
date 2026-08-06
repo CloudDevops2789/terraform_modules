@@ -5,10 +5,9 @@ provider "aws" {
 
   region = var.aws_region
 
-  # default_tags are applied by the PROVIDER to every taggable resource it
-  # creates. Environment = "ModuleTest" keeps these throwaway resources
-  # visually distinct from sandbox/vpn-test in the AWS console and in cost
-  # reports, since nothing here is meant to be long-lived.
+  # Provider default tags are applied to every supported resource created by
+  # this test root. local.org_tags contains the mandatory enterprise tags and
+  # any approved additional tags supplied through terraform.tfvars.
   default_tags {
     tags = local.org_tags
   }

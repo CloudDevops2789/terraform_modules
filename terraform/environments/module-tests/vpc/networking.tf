@@ -1,21 +1,30 @@
 ##################################################################################################
-# Module Under Test: vpc
+# Module Under Test: VPC
 ##################################################################################################
-# terraform/modules/vpc is the module this environment exists to validate.
-# Every input below is either a static value from locals.tf (deployment
-# configuration) or omitted entirely to exercise the module's own defaults
-# (public_subnets, DNS settings, Transit Gateway routes) - there is nothing
-# here for those inputs to depend on, since this environment has no other
-# infrastructure.
-module "vpc" {
+#
+# This root validates the reusable VPC module using one scalable topology
+# interface.
+#
+# The module receives:
+#
+# - one VPC CIDR;
+# - caller-defined route tables;
+# - caller-defined subnets;
+# - explicit subnet-to-route-table relationships.
+#
+# The Internet Gateway is enabled to validate the module's optional owned
+# resource. The VPC module must not create Internet Gateway routes automatically.
 
+module "vpc" {
   source = "../../../modules/vpc"
 
-  vpc_name                = local.vpc.vpc_name
-  cidr_block              = local.vpc.cidr_block
-  availability_zone_count = local.vpc.availability_zone_count
+  vpc_name   = local.vpc.vpc_name
+  cidr_block = local.vpc.cidr_block
 
-  private_subnets = local.vpc.private_subnets
+  route_tables = local.vpc.route_tables
+  subnets      = local.vpc.subnets
+
+  create_internet_gateway = true
 
   tags = local.org_tags
 }

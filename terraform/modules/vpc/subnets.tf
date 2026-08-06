@@ -1,59 +1,54 @@
-# FOR_EACH: creates one subnet per entry of the var.public_subnets map.
-# each.key is the map key ("public-a"), each.value the CIDR string. Unlike
-# count, for_each addresses resources by key, so adding/removing one subnet
-# never shifts (and thus destroys/recreates) the others.
-# map_public_ip_on_launch=true auto-assigns public IPs to instances launched
-# here - what makes these subnets 'public' besides the IGW route.
-resource "aws_subnet" "public" {
+##################################################################################################
+# Subnets
+##################################################################################################
+#
+# One subnet is created for every entry in var.subnets.
+#
+# The caller-defined map key becomes the stable Terraform identity:
+#
+#   var.subnets["firewall-a"]
+#
+# creates:
+#
+#   aws_subnet.this["firewall-a"]
+#
+# Multiple subnets may use the same Availability Zone, group, or route table.
+# Adding another subnet does not renumber or recreate existing subnets.
 
-  for_each = var.public_subnets
-
-  vpc_id = aws_vpc.this.id
-
-  cidr_block = each.value
-
-  # Spreads subnets across AZs deterministically: index() finds this subnet's
-  # position in the ordered key list, which selects the matching AZ from the
-  # locals list (subnet 0 -> AZ 0, subnet 1 -> AZ 1, ...).
-  availability_zone = local.availability_zones[
-    index(local.public_subnet_keys, each.key)
-  ]
-
-  map_public_ip_on_launch = false # true when we want public IPs on instances in this subnet
-
-  # merge() combines maps left-to-right; later keys win. Common tags come
-  # first, then subnet-specific Name/Tier overrides.
-  tags = merge(
-    local.common_tags,
-    {
-      Name = "${var.vpc_name}-${each.key}"
-      Tier = "Public"
-    }
-  )
-
-}
-
-# Private subnets: same for_each pattern but NO map_public_ip_on_launch and
-# (see routing.tf) no route to an Internet Gateway. Workloads and TGW
-# attachments live here.
-resource "aws_subnet" "private" {
-
-  for_each = var.private_subnets
+resource "aws_subnet" "this" {
+  for_each = local.subnets
 
   vpc_id = aws_vpc.this.id
 
-  cidr_block = each.value
+  cidr_block = each.value.cidr_block
 
-  availability_zone = local.availability_zones[
-    index(local.private_subnet_keys, each.key)
-  ]
+  # Only one of these values is populated.
+  #
+  # An AZ index is converted into an AZ name in locals.tf.
+  # An explicit AZ ID remains an AZ ID so multi-account deployments can align
+  # workloads with the same physical Availability Zone.
+  availability_zone    = each.value.availability_zone
+  availability_zone_id = each.value.availability_zone_id
 
-  tags = merge(
-    local.common_tags,
-    {
-      Name = "${var.vpc_name}-${each.key}"
-      Tier = "Private"
+  # This setting controls automatic public-IP assignment only.
+  #
+  # It does not make the subnet public. Public reachability also requires an
+  # Internet Gateway and an explicit route to that gateway.
+  map_public_ip_on_launch = each.value.map_public_ip_on_launch
+
+  tags = each.value.tags
+
+  lifecycle {
+    # An index larger than the number of AZs available in the selected region
+    # resolves to null in locals.tf. This produces a clear Terraform error
+    # instead of allowing AWS to select an unintended Availability Zone.
+    precondition {
+      condition = (
+        each.value.availability_zone != null ||
+        each.value.availability_zone_id != null
+      )
+
+      error_message = "Subnet ${each.key} could not resolve its Availability Zone. Verify availability_zone, availability_zone_id, or availability_zone_index."
     }
-  )
-
+  }
 }
