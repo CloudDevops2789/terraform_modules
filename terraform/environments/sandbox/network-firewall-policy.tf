@@ -7,14 +7,14 @@
 locals {
   sandbox_network_firewall_policies = {
     centralized_inspection = {
-      name        = "ire-sandbox-centralized-inspection"
-      description = "Strict centralized inspection policy for the AWS IRE Sandbox."
+      name        = local.resource_names.network_firewall_policy
+      description = "Strict centralized inspection policy for the AWS ${var.naming.project_display_name} ${var.naming.environment_display_name}."
 
       firewall_policy = {
         policy_variables = {
           rule_variables = {
             HOME_NET = {
-              definition = ["10.213.252.0/22"]
+              definition = [local.network_cidrs.account]
             }
           }
         }

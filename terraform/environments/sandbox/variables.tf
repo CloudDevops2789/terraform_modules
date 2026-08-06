@@ -1,10 +1,12 @@
-# Environment-level input. Because a `default` is set, running plan/apply
-# never prompts for it; terraform.tfvars can override it. No `type` is
-# declared, so Terraform infers it ("any" constrained by the default's type).
 variable "aws_region" {
+  description = "AWS Region for this environment."
+  type        = string
+  nullable    = false
 
-  default = "us-east-1"
-
+  validation {
+    condition     = length(trimspace(var.aws_region)) > 0
+    error_message = "aws_region must not be empty."
+  }
 }
 
 variable "public_key_path" {
@@ -149,5 +151,173 @@ variable "org_additional_tags" {
   validation {
     condition     = alltrue([for key in keys(var.org_additional_tags) : startswith(key, "org_")])
     error_message = "Every org_additional_tags key must start with org_."
+  }
+}
+
+##################################################################################################
+# Portable environment naming
+##################################################################################################
+
+variable "naming" {
+  description = "Naming components used to derive consistent environment resource names."
+
+  type = object({
+    organization             = string
+    project                  = string
+    project_display_name     = string
+    environment              = string
+    environment_display_name = string
+    region_code              = optional(string)
+    suffix                   = optional(string)
+  })
+
+  nullable = false
+
+  validation {
+    condition = alltrue([
+      length(trimspace(var.naming.organization)) > 0,
+      length(trimspace(var.naming.project)) > 0,
+      length(trimspace(var.naming.project_display_name)) > 0,
+      length(trimspace(var.naming.environment)) > 0,
+      length(trimspace(var.naming.environment_display_name)) > 0,
+      var.naming.region_code == null ? true : length(trimspace(var.naming.region_code)) > 0,
+      var.naming.suffix == null ? true : length(trimspace(var.naming.suffix)) > 0,
+    ])
+
+    error_message = "Naming components must be non-empty when supplied."
+  }
+}
+
+variable "resource_name_overrides" {
+  description = "Optional exact resource names approved for this environment. Null values use derived names."
+
+  type = object({
+    recovery_access_vpc                = optional(string)
+    core_recovery_vpc                  = optional(string)
+    protected_data_vpc                 = optional(string)
+    inspection_vpc                     = optional(string)
+    transit_gateway                    = optional(string)
+    transit_gateway_recovery_access_rt = optional(string)
+    transit_gateway_core_recovery_rt   = optional(string)
+    transit_gateway_protected_data_rt  = optional(string)
+    transit_gateway_inspection_rt      = optional(string)
+    client_vpn                         = optional(string)
+    standard_backup_vault              = optional(string)
+    air_gapped_backup_vault            = optional(string)
+    backup_plan                        = optional(string)
+    backup_role                        = optional(string)
+    backup_selection                   = optional(string)
+    general_kms_alias                  = optional(string)
+    network_firewall                   = optional(string)
+    network_firewall_policy            = optional(string)
+    network_firewall_rule_group        = optional(string)
+    network_firewall_logging_kms_alias = optional(string)
+    network_firewall_log_group_prefix  = optional(string)
+  })
+
+  default  = {}
+  nullable = false
+
+  validation {
+    condition = alltrue([
+      for name in values(var.resource_name_overrides) :
+      name == null ? true : length(trimspace(name)) > 0
+    ])
+
+    error_message = "Resource-name overrides must be null or non-empty strings."
+  }
+}
+
+##################################################################################################
+# Portable environment network allocation
+##################################################################################################
+
+variable "network_config" {
+  description = "Environment-specific IRE VPC, subnet, and Client VPN CIDR allocation."
+
+  type = object({
+    account_cidr_block    = string
+    client_vpn_cidr_block = string
+
+    vpcs = object({
+      recovery_access = object({
+        cidr_block = string
+        subnet_cidrs = object({
+          client_vpn_a      = string
+          client_vpn_b      = string
+          admin_tools_a     = string
+          admin_tools_b     = string
+          endpoints_a       = string
+          endpoints_b       = string
+          transit_gateway_a = string
+          transit_gateway_b = string
+        })
+      })
+
+      core_recovery = object({
+        cidr_block = string
+        subnet_cidrs = object({
+          recovery_services_a  = string
+          recovery_services_b  = string
+          directory_services_a = string
+          directory_services_b = string
+          endpoints_a          = string
+          endpoints_b          = string
+          transit_gateway_a    = string
+          transit_gateway_b    = string
+        })
+      })
+
+      protected_data = object({
+        cidr_block = string
+        subnet_cidrs = object({
+          protected_workloads_a = string
+          protected_workloads_b = string
+          ingestion_a           = string
+          ingestion_b           = string
+          database_a            = string
+          database_b            = string
+          file_services_a       = string
+          file_services_b       = string
+          endpoints_a           = string
+          endpoints_b           = string
+          transit_gateway_a     = string
+          transit_gateway_b     = string
+        })
+      })
+
+      inspection = object({
+        cidr_block = string
+        subnet_cidrs = object({
+          firewall_a        = string
+          firewall_b        = string
+          transit_gateway_a = string
+          transit_gateway_b = string
+        })
+      })
+    })
+  })
+
+  nullable = false
+
+  validation {
+    condition = alltrue([
+      for cidr in concat(
+        [
+          var.network_config.account_cidr_block,
+          var.network_config.client_vpn_cidr_block,
+          var.network_config.vpcs.recovery_access.cidr_block,
+          var.network_config.vpcs.core_recovery.cidr_block,
+          var.network_config.vpcs.protected_data.cidr_block,
+          var.network_config.vpcs.inspection.cidr_block,
+        ],
+        values(var.network_config.vpcs.recovery_access.subnet_cidrs),
+        values(var.network_config.vpcs.core_recovery.subnet_cidrs),
+        values(var.network_config.vpcs.protected_data.subnet_cidrs),
+        values(var.network_config.vpcs.inspection.subnet_cidrs),
+      ) : can(cidrhost(cidr, 0))
+    ])
+
+    error_message = "Every network_config address must be a valid CIDR block."
   }
 }

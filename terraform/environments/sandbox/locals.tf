@@ -1,6 +1,136 @@
 locals {
 
   ##################################################################################################
+  # Portable naming and network inputs
+  ##################################################################################################
+
+  name_prefix = join("-", compact([
+    lower(trimspace(var.naming.organization)),
+    lower(trimspace(var.naming.project)),
+    lower(trimspace(var.naming.environment)),
+    var.naming.region_code == null ? "" : lower(trimspace(var.naming.region_code)),
+    var.naming.suffix == null ? "" : lower(trimspace(var.naming.suffix)),
+  ]))
+
+  derived_network_firewall_name = "${local.name_prefix}-centralized-inspection"
+
+  resource_names = {
+    recovery_access_vpc = coalesce(
+      var.resource_name_overrides.recovery_access_vpc,
+      "${local.name_prefix}-recovery-access-vpc"
+    )
+
+    core_recovery_vpc = coalesce(
+      var.resource_name_overrides.core_recovery_vpc,
+      "${local.name_prefix}-core-recovery-vpc"
+    )
+
+    protected_data_vpc = coalesce(
+      var.resource_name_overrides.protected_data_vpc,
+      "${local.name_prefix}-protected-data-vpc"
+    )
+
+    inspection_vpc = coalesce(
+      var.resource_name_overrides.inspection_vpc,
+      "${local.name_prefix}-inspection-vpc"
+    )
+
+    transit_gateway = coalesce(
+      var.resource_name_overrides.transit_gateway,
+      "${local.name_prefix}-tgw"
+    )
+
+    transit_gateway_recovery_access_rt = coalesce(
+      var.resource_name_overrides.transit_gateway_recovery_access_rt,
+      "${local.name_prefix}-recovery-access-tgw-rt"
+    )
+
+    transit_gateway_core_recovery_rt = coalesce(
+      var.resource_name_overrides.transit_gateway_core_recovery_rt,
+      "${local.name_prefix}-core-recovery-tgw-rt"
+    )
+
+    transit_gateway_protected_data_rt = coalesce(
+      var.resource_name_overrides.transit_gateway_protected_data_rt,
+      "${local.name_prefix}-protected-data-tgw-rt"
+    )
+
+    transit_gateway_inspection_rt = coalesce(
+      var.resource_name_overrides.transit_gateway_inspection_rt,
+      "${local.name_prefix}-inspection-tgw-rt"
+    )
+
+    client_vpn = coalesce(
+      var.resource_name_overrides.client_vpn,
+      "${local.name_prefix}-client-vpn"
+    )
+
+    standard_backup_vault = coalesce(
+      var.resource_name_overrides.standard_backup_vault,
+      "${local.name_prefix}-standard-backup-vault"
+    )
+
+    air_gapped_backup_vault = coalesce(
+      var.resource_name_overrides.air_gapped_backup_vault,
+      "${local.name_prefix}-airgap-backup-vault"
+    )
+
+    backup_plan = coalesce(
+      var.resource_name_overrides.backup_plan,
+      "${local.name_prefix}-backup-plan"
+    )
+
+    backup_role = coalesce(
+      var.resource_name_overrides.backup_role,
+      "${local.name_prefix}-backup-role"
+    )
+
+    backup_selection = coalesce(
+      var.resource_name_overrides.backup_selection,
+      "${local.name_prefix}-backup-selection"
+    )
+
+    general_kms_alias = coalesce(
+      var.resource_name_overrides.general_kms_alias,
+      local.name_prefix
+    )
+
+    network_firewall = coalesce(
+      var.resource_name_overrides.network_firewall,
+      local.derived_network_firewall_name
+    )
+
+    network_firewall_policy = coalesce(
+      var.resource_name_overrides.network_firewall_policy,
+      "${local.name_prefix}-centralized-inspection-policy"
+    )
+
+    network_firewall_rule_group = coalesce(
+      var.resource_name_overrides.network_firewall_rule_group,
+      "${local.name_prefix}-segmentation"
+    )
+
+    network_firewall_logging_kms_alias = coalesce(
+      var.resource_name_overrides.network_firewall_logging_kms_alias,
+      "${local.name_prefix}-network-firewall-logs"
+    )
+
+    network_firewall_log_group_prefix = coalesce(
+      var.resource_name_overrides.network_firewall_log_group_prefix,
+      "/aws/network-firewall/${coalesce(var.resource_name_overrides.network_firewall, local.derived_network_firewall_name)}"
+    )
+  }
+
+  network_cidrs = {
+    account         = var.network_config.account_cidr_block
+    client_vpn      = var.network_config.client_vpn_cidr_block
+    recovery_access = var.network_config.vpcs.recovery_access.cidr_block
+    core_recovery   = var.network_config.vpcs.core_recovery.cidr_block
+    protected_data  = var.network_config.vpcs.protected_data.cidr_block
+    inspection      = var.network_config.vpcs.inspection.cidr_block
+  }
+
+  ##################################################################################################
   # Common Tags
   ##################################################################################################
   # Applied to the majority of resources created by the environment. Individual
@@ -24,15 +154,13 @@ locals {
   ##################################################################################################
   # Recovery Access VPC
   ##################################################################################################
-  # Static network definition for the Recovery Access tier. This VPC is the
-  # administrative entry point into the IRE and is intentionally allocated the
-  # 10.213.252.0/24 address space. These values define the environment's network
-  # architecture rather than deployment-time configuration.
+  # Network definition for the Recovery Access tier. The approved VPC and subnet CIDRs are
+  # supplied by var.network_config while topology and route-table relationships remain in code.
   recovery_access = {
-    vpc_name   = "recovery-access"
-    cidr_block = "10.213.252.0/24"
+    vpc_name   = local.resource_names.recovery_access_vpc
+    cidr_block = local.network_cidrs.recovery_access
 
-    # 10.213.252.192/26 is reserved for future Recovery Access services.
+    # Unallocated address space remains reserved for future Recovery Access services.
     route_tables = {
       client-vpn-a = {
         group = "client-vpn"
@@ -62,49 +190,49 @@ locals {
 
     subnets = {
       client-vpn-a = {
-        cidr_block              = "10.213.252.0/27"
+        cidr_block              = var.network_config.vpcs.recovery_access.subnet_cidrs.client_vpn_a
         availability_zone_index = 0
         group                   = "client-vpn"
         route_table_key         = "client-vpn-a"
       }
       client-vpn-b = {
-        cidr_block              = "10.213.252.32/27"
+        cidr_block              = var.network_config.vpcs.recovery_access.subnet_cidrs.client_vpn_b
         availability_zone_index = 1
         group                   = "client-vpn"
         route_table_key         = "client-vpn-b"
       }
       admin-tools-a = {
-        cidr_block              = "10.213.252.64/27"
+        cidr_block              = var.network_config.vpcs.recovery_access.subnet_cidrs.admin_tools_a
         availability_zone_index = 0
         group                   = "admin-tools"
         route_table_key         = "admin-tools-a"
       }
       admin-tools-b = {
-        cidr_block              = "10.213.252.96/27"
+        cidr_block              = var.network_config.vpcs.recovery_access.subnet_cidrs.admin_tools_b
         availability_zone_index = 1
         group                   = "admin-tools"
         route_table_key         = "admin-tools-b"
       }
       endpoints-a = {
-        cidr_block              = "10.213.252.128/28"
+        cidr_block              = var.network_config.vpcs.recovery_access.subnet_cidrs.endpoints_a
         availability_zone_index = 0
         group                   = "endpoints"
         route_table_key         = "endpoints-a"
       }
       endpoints-b = {
-        cidr_block              = "10.213.252.144/28"
+        cidr_block              = var.network_config.vpcs.recovery_access.subnet_cidrs.endpoints_b
         availability_zone_index = 1
         group                   = "endpoints"
         route_table_key         = "endpoints-b"
       }
       transit-gateway-a = {
-        cidr_block              = "10.213.252.160/28"
+        cidr_block              = var.network_config.vpcs.recovery_access.subnet_cidrs.transit_gateway_a
         availability_zone_index = 0
         group                   = "transit-gateway"
         route_table_key         = "transit-gateway-a"
       }
       transit-gateway-b = {
-        cidr_block              = "10.213.252.176/28"
+        cidr_block              = var.network_config.vpcs.recovery_access.subnet_cidrs.transit_gateway_b
         availability_zone_index = 1
         group                   = "transit-gateway"
         route_table_key         = "transit-gateway-b"
@@ -119,11 +247,10 @@ locals {
   # recovery tooling and acts as the central routing domain between Recovery
   # Access and Protected Data.
   core_recovery = {
-    vpc_name   = "core-recovery"
-    cidr_block = "10.213.253.0/24"
+    vpc_name   = local.resource_names.core_recovery_vpc
+    cidr_block = local.network_cidrs.core_recovery
 
-    # 10.213.253.224/28 and 10.213.253.240/28 are reserved for
-    # distributed Network Firewall endpoints if that design is selected.
+    # Unallocated address space remains reserved for future Core Recovery services.
     route_tables = {
       recovery-services-a = {
         group = "recovery-services"
@@ -153,49 +280,49 @@ locals {
 
     subnets = {
       recovery-services-a = {
-        cidr_block              = "10.213.253.0/26"
+        cidr_block              = var.network_config.vpcs.core_recovery.subnet_cidrs.recovery_services_a
         availability_zone_index = 0
         group                   = "recovery-services"
         route_table_key         = "recovery-services-a"
       }
       recovery-services-b = {
-        cidr_block              = "10.213.253.64/26"
+        cidr_block              = var.network_config.vpcs.core_recovery.subnet_cidrs.recovery_services_b
         availability_zone_index = 1
         group                   = "recovery-services"
         route_table_key         = "recovery-services-b"
       }
       directory-services-a = {
-        cidr_block              = "10.213.253.128/28"
+        cidr_block              = var.network_config.vpcs.core_recovery.subnet_cidrs.directory_services_a
         availability_zone_index = 0
         group                   = "directory-services"
         route_table_key         = "directory-services-a"
       }
       directory-services-b = {
-        cidr_block              = "10.213.253.144/28"
+        cidr_block              = var.network_config.vpcs.core_recovery.subnet_cidrs.directory_services_b
         availability_zone_index = 1
         group                   = "directory-services"
         route_table_key         = "directory-services-b"
       }
       endpoints-a = {
-        cidr_block              = "10.213.253.160/28"
+        cidr_block              = var.network_config.vpcs.core_recovery.subnet_cidrs.endpoints_a
         availability_zone_index = 0
         group                   = "endpoints"
         route_table_key         = "endpoints-a"
       }
       endpoints-b = {
-        cidr_block              = "10.213.253.176/28"
+        cidr_block              = var.network_config.vpcs.core_recovery.subnet_cidrs.endpoints_b
         availability_zone_index = 1
         group                   = "endpoints"
         route_table_key         = "endpoints-b"
       }
       transit-gateway-a = {
-        cidr_block              = "10.213.253.192/28"
+        cidr_block              = var.network_config.vpcs.core_recovery.subnet_cidrs.transit_gateway_a
         availability_zone_index = 0
         group                   = "transit-gateway"
         route_table_key         = "transit-gateway-a"
       }
       transit-gateway-b = {
-        cidr_block              = "10.213.253.208/28"
+        cidr_block              = var.network_config.vpcs.core_recovery.subnet_cidrs.transit_gateway_b
         availability_zone_index = 1
         group                   = "transit-gateway"
         route_table_key         = "transit-gateway-b"
@@ -210,10 +337,10 @@ locals {
   # backup storage and recovery data and is isolated from direct access by the
   # Recovery Access VPC through Transit Gateway routing.
   protected_data = {
-    vpc_name   = "protected-data"
-    cidr_block = "10.213.254.0/24"
+    vpc_name   = local.resource_names.protected_data_vpc
+    cidr_block = local.network_cidrs.protected_data
 
-    # 10.213.254.224/27 is reserved for future protected-data services.
+    # Unallocated address space remains reserved for future Protected Data services.
     route_tables = {
       protected-workloads-a = {
         group = "protected-workloads"
@@ -255,73 +382,73 @@ locals {
 
     subnets = {
       protected-workloads-a = {
-        cidr_block              = "10.213.254.0/27"
+        cidr_block              = var.network_config.vpcs.protected_data.subnet_cidrs.protected_workloads_a
         availability_zone_index = 0
         group                   = "protected-workloads"
         route_table_key         = "protected-workloads-a"
       }
       protected-workloads-b = {
-        cidr_block              = "10.213.254.32/27"
+        cidr_block              = var.network_config.vpcs.protected_data.subnet_cidrs.protected_workloads_b
         availability_zone_index = 1
         group                   = "protected-workloads"
         route_table_key         = "protected-workloads-b"
       }
       ingestion-a = {
-        cidr_block              = "10.213.254.64/28"
+        cidr_block              = var.network_config.vpcs.protected_data.subnet_cidrs.ingestion_a
         availability_zone_index = 0
         group                   = "ingestion"
         route_table_key         = "ingestion-a"
       }
       ingestion-b = {
-        cidr_block              = "10.213.254.80/28"
+        cidr_block              = var.network_config.vpcs.protected_data.subnet_cidrs.ingestion_b
         availability_zone_index = 1
         group                   = "ingestion"
         route_table_key         = "ingestion-b"
       }
       database-a = {
-        cidr_block              = "10.213.254.96/28"
+        cidr_block              = var.network_config.vpcs.protected_data.subnet_cidrs.database_a
         availability_zone_index = 0
         group                   = "database"
         route_table_key         = "database-a"
       }
       database-b = {
-        cidr_block              = "10.213.254.112/28"
+        cidr_block              = var.network_config.vpcs.protected_data.subnet_cidrs.database_b
         availability_zone_index = 1
         group                   = "database"
         route_table_key         = "database-b"
       }
       file-services-a = {
-        cidr_block              = "10.213.254.128/28"
+        cidr_block              = var.network_config.vpcs.protected_data.subnet_cidrs.file_services_a
         availability_zone_index = 0
         group                   = "file-services"
         route_table_key         = "file-services-a"
       }
       file-services-b = {
-        cidr_block              = "10.213.254.144/28"
+        cidr_block              = var.network_config.vpcs.protected_data.subnet_cidrs.file_services_b
         availability_zone_index = 1
         group                   = "file-services"
         route_table_key         = "file-services-b"
       }
       endpoints-a = {
-        cidr_block              = "10.213.254.160/28"
+        cidr_block              = var.network_config.vpcs.protected_data.subnet_cidrs.endpoints_a
         availability_zone_index = 0
         group                   = "endpoints"
         route_table_key         = "endpoints-a"
       }
       endpoints-b = {
-        cidr_block              = "10.213.254.176/28"
+        cidr_block              = var.network_config.vpcs.protected_data.subnet_cidrs.endpoints_b
         availability_zone_index = 1
         group                   = "endpoints"
         route_table_key         = "endpoints-b"
       }
       transit-gateway-a = {
-        cidr_block              = "10.213.254.192/28"
+        cidr_block              = var.network_config.vpcs.protected_data.subnet_cidrs.transit_gateway_a
         availability_zone_index = 0
         group                   = "transit-gateway"
         route_table_key         = "transit-gateway-a"
       }
       transit-gateway-b = {
-        cidr_block              = "10.213.254.208/28"
+        cidr_block              = var.network_config.vpcs.protected_data.subnet_cidrs.transit_gateway_b
         availability_zone_index = 1
         group                   = "transit-gateway"
         route_table_key         = "transit-gateway-b"
@@ -344,7 +471,7 @@ locals {
   # The 'name' attribute is simply the display name shown in the AWS Console.
   transit_gateway = {
 
-    name = "ire-transit-gateway"
+    name = local.resource_names.transit_gateway
 
     default_route_table_association = "disable"
     default_route_table_propagation = "disable"
@@ -352,15 +479,15 @@ locals {
     route_tables = {
 
       recovery_access = {
-        name = "Recovery Access Route Table"
+        name = local.resource_names.transit_gateway_recovery_access_rt
       }
 
       core_recovery = {
-        name = "Core Recovery Route Table"
+        name = local.resource_names.transit_gateway_core_recovery_rt
       }
 
       protected_data = {
-        name = "Protected Data Route Table"
+        name = local.resource_names.transit_gateway_protected_data_rt
       }
 
     }
@@ -469,8 +596,8 @@ locals {
   # membership, and authorization target CIDRs describe relationships to
   # other resources and remain in client_vpn.tf.
   client_vpn = {
-    name                  = "ire-client-vpn"
-    client_cidr_block     = "192.168.0.0/16"
+    name                  = local.resource_names.client_vpn
+    client_cidr_block     = local.network_cidrs.client_vpn
     split_tunnel          = true
     transport_protocol    = "udp"
     vpn_port              = 443
@@ -487,17 +614,17 @@ locals {
   # and protected resource references are relationships between the backup
   # modules and remain in backup_vault.tf.
   backup = {
-    standard_vault_name = "ire-standard-backup-vault"
+    standard_vault_name = local.resource_names.standard_backup_vault
 
-    air_gapped_vault_name         = "ire-airgap-backup-vault"
+    air_gapped_vault_name         = local.resource_names.air_gapped_backup_vault
     air_gapped_min_retention_days = 30
     air_gapped_max_retention_days = 365
 
-    plan_name = "ire-backup-plan"
+    plan_name = local.resource_names.backup_plan
 
-    role_name = "ire-backup-role"
+    role_name = local.resource_names.backup_role
 
-    selection_name = "ire-backup-selection"
+    selection_name = local.resource_names.backup_selection
 
     plan_rules = {
       daily = {
@@ -520,7 +647,7 @@ locals {
   # Static configuration for the customer managed KMS key used across the
   # sandbox.
   kms = {
-    description = "Customer managed KMS key for the IRE sandbox"
-    alias       = "ire-sandbox"
+    description = "Customer managed KMS key for the ${var.naming.project_display_name} ${var.naming.environment}"
+    alias       = local.resource_names.general_kms_alias
   }
 }

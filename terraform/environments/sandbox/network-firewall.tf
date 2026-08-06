@@ -9,8 +9,8 @@ module "network_firewall" {
 
   firewalls = {
     inspection = {
-      name        = "ire-sandbox-centralized-inspection"
-      description = "Two-AZ centralized inspection firewall for the AWS IRE Sandbox."
+      name        = local.resource_names.network_firewall
+      description = "Two-AZ centralized inspection firewall for the AWS ${var.naming.project_display_name} ${var.naming.environment_display_name}."
 
       firewall_policy_arn = (
         module.network_firewall_policy
@@ -53,7 +53,7 @@ module "network_firewall" {
 ##################################################################################################
 
 output "network_firewall_arn" {
-  description = "ARN of the centralized Sandbox Network Firewall."
+  description = "ARN of the centralized environment Network Firewall."
   value       = module.network_firewall.firewall_arns["inspection"]
 }
 
