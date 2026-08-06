@@ -24,3 +24,91 @@ org_managed_by           = "Terraform"
 org_additional_tags = {
   org_service_name = "replace-with-service-name"
 }
+
+################################################################################
+# Portable environment naming
+################################################################################
+
+naming = {
+  organization             = "replace-with-organization-code"
+  project                  = "ire"
+  project_display_name     = "IRE"
+  environment              = "sandbox"
+  environment_display_name = "Sandbox"
+  region_code              = "use1"
+  suffix                   = null
+}
+
+# All entries are optional. Omit an entry or set it to null to use the derived
+# enterprise name based on the naming object above.
+resource_name_overrides = {
+  # network_firewall = "approved-exact-firewall-name"
+  # transit_gateway  = "approved-exact-transit-gateway-name"
+}
+
+################################################################################
+# Portable environment network allocation
+################################################################################
+
+network_config = {
+  account_cidr_block    = "10.213.252.0/22"
+  client_vpn_cidr_block = "192.168.0.0/16"
+
+  vpcs = {
+    recovery_access = {
+      cidr_block = "10.213.252.0/24"
+      subnet_cidrs = {
+        client_vpn_a      = "10.213.252.0/27"
+        client_vpn_b      = "10.213.252.32/27"
+        admin_tools_a     = "10.213.252.64/27"
+        admin_tools_b     = "10.213.252.96/27"
+        endpoints_a       = "10.213.252.128/28"
+        endpoints_b       = "10.213.252.144/28"
+        transit_gateway_a = "10.213.252.160/28"
+        transit_gateway_b = "10.213.252.176/28"
+      }
+    }
+
+    core_recovery = {
+      cidr_block = "10.213.253.0/24"
+      subnet_cidrs = {
+        recovery_services_a  = "10.213.253.0/26"
+        recovery_services_b  = "10.213.253.64/26"
+        directory_services_a = "10.213.253.128/28"
+        directory_services_b = "10.213.253.144/28"
+        endpoints_a           = "10.213.253.160/28"
+        endpoints_b           = "10.213.253.176/28"
+        transit_gateway_a     = "10.213.253.192/28"
+        transit_gateway_b     = "10.213.253.208/28"
+      }
+    }
+
+    protected_data = {
+      cidr_block = "10.213.254.0/24"
+      subnet_cidrs = {
+        protected_workloads_a = "10.213.254.0/27"
+        protected_workloads_b = "10.213.254.32/27"
+        ingestion_a           = "10.213.254.64/28"
+        ingestion_b           = "10.213.254.80/28"
+        database_a            = "10.213.254.96/28"
+        database_b            = "10.213.254.112/28"
+        file_services_a       = "10.213.254.128/28"
+        file_services_b       = "10.213.254.144/28"
+        endpoints_a            = "10.213.254.160/28"
+        endpoints_b            = "10.213.254.176/28"
+        transit_gateway_a      = "10.213.254.192/28"
+        transit_gateway_b      = "10.213.254.208/28"
+      }
+    }
+
+    inspection = {
+      cidr_block = "10.213.255.0/24"
+      subnet_cidrs = {
+        firewall_a        = "10.213.255.0/28"
+        firewall_b        = "10.213.255.16/28"
+        transit_gateway_a = "10.213.255.32/28"
+        transit_gateway_b = "10.213.255.48/28"
+      }
+    }
+  }
+}

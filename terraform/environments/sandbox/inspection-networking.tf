@@ -1,7 +1,7 @@
 ##################################################################################################
 # Centralized Inspection VPC
 ##################################################################################################
-# This VPC uses the fourth /24 inside the account-approved 10.213.252.0/22 allocation.
+# The approved Inspection VPC and subnet CIDRs are supplied by var.network_config.
 #
 # It contains two dedicated Network Firewall endpoint subnets and two Transit Gateway attachment
 # subnets. routing.tf provides the same-Availability-Zone path from each TGW attachment subnet to its
@@ -11,11 +11,10 @@
 
 locals {
   inspection_vpc = {
-    vpc_name   = "centralized-inspection"
-    cidr_block = "10.213.255.0/24"
+    vpc_name   = local.resource_names.inspection_vpc
+    cidr_block = local.network_cidrs.inspection
 
-    # 10.213.255.64/26 and 10.213.255.128/25 remain reserved for future
-    # inspection services, controlled egress, endpoints, or growth.
+    # Unallocated address space remains reserved for future inspection services and growth.
     route_tables = {
       firewall-a = {
         group = "network-firewall"
@@ -36,28 +35,28 @@ locals {
 
     subnets = {
       firewall-a = {
-        cidr_block              = "10.213.255.0/28"
+        cidr_block              = var.network_config.vpcs.inspection.subnet_cidrs.firewall_a
         availability_zone_index = 0
         group                   = "network-firewall"
         route_table_key         = "firewall-a"
       }
 
       firewall-b = {
-        cidr_block              = "10.213.255.16/28"
+        cidr_block              = var.network_config.vpcs.inspection.subnet_cidrs.firewall_b
         availability_zone_index = 1
         group                   = "network-firewall"
         route_table_key         = "firewall-b"
       }
 
       transit-gateway-a = {
-        cidr_block              = "10.213.255.32/28"
+        cidr_block              = var.network_config.vpcs.inspection.subnet_cidrs.transit_gateway_a
         availability_zone_index = 0
         group                   = "transit-gateway"
         route_table_key         = "transit-gateway-a"
       }
 
       transit-gateway-b = {
-        cidr_block              = "10.213.255.48/28"
+        cidr_block              = var.network_config.vpcs.inspection.subnet_cidrs.transit_gateway_b
         availability_zone_index = 1
         group                   = "transit-gateway"
         route_table_key         = "transit-gateway-b"

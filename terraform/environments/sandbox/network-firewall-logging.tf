@@ -15,19 +15,19 @@ data "aws_caller_identity" "network_firewall_logging" {}
 
 locals {
   network_firewall_logging = {
-    kms_alias       = "ire-sandbox-network-firewall-logs"
-    kms_description = "Customer managed KMS key for encrypted AWS Network Firewall CloudWatch log groups in the IRE Sandbox"
+    kms_alias       = local.resource_names.network_firewall_logging_kms_alias
+    kms_description = "Customer managed KMS key for encrypted AWS Network Firewall CloudWatch log groups in the ${var.naming.project_display_name} ${var.naming.environment_display_name}"
 
     retention_in_days = 30
 
     log_groups = {
       alert = {
-        name     = "/aws/network-firewall/ire-sandbox-centralized-inspection/alert"
+        name     = "${local.resource_names.network_firewall_log_group_prefix}/alert"
         log_type = "ALERT"
       }
 
       flow = {
-        name     = "/aws/network-firewall/ire-sandbox-centralized-inspection/flow"
+        name     = "${local.resource_names.network_firewall_log_group_prefix}/flow"
         log_type = "FLOW"
       }
     }
@@ -68,7 +68,7 @@ data "aws_iam_policy_document" "network_firewall_logging_kms" {
       variable = "kms:EncryptionContext:aws:logs:arn"
 
       values = [
-        "arn:${data.aws_partition.network_firewall_logging.partition}:logs:${var.aws_region}:${data.aws_caller_identity.network_firewall_logging.account_id}:log-group:/aws/network-firewall/ire-sandbox-centralized-inspection/*"
+        "arn:${data.aws_partition.network_firewall_logging.partition}:logs:${var.aws_region}:${data.aws_caller_identity.network_firewall_logging.account_id}:log-group:${local.resource_names.network_firewall_log_group_prefix}/*"
       ]
     }
   }

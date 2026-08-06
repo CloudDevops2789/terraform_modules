@@ -189,3 +189,17 @@ CIDRs back to Transit Gateway.
 
 Recovery Access and Protected Data have no direct VPC route, no direct TGW
 static route, and no firewall pass rule.
+
+## Portable environment inputs
+
+Environment-specific network allocations are supplied through `network_config`
+in the selected `.tfvars` file. Standard resource names are derived from the
+`naming` object, while `resource_name_overrides` supports exact organization-
+approved names without changing Terraform resource addresses or logical keys.
+
+Terraform logical keys, trust relationships, routing intent, Network Firewall
+actions, and Suricata SIDs remain reviewed code. The security-policy value
+`0.0.0.0/0` is intentionally not treated as an environment address allocation.
+
+Backend configuration remains separate and must be paired with the matching
+variable file for each environment.

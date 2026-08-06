@@ -64,7 +64,7 @@ module "transit_gateway" {
     local.transit_gateway.route_tables,
     {
       inspection = {
-        name = "Centralized Inspection Route Table"
+        name = local.resource_names.transit_gateway_inspection_rt
       }
     }
   )
