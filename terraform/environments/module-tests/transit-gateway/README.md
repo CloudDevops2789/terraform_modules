@@ -19,6 +19,8 @@ The test exercises:
 - one VPC attachment;
 - one route-table association;
 - one route-table propagation;
+- appliance mode enabled on the VPC attachment;
+- attachment ID output for external static routing;
 - explicit subnet selection through a VPC subnet group;
 - disabled default association and propagation settings where configured.
 
@@ -97,6 +99,7 @@ Expected outputs:
 
 - `transit_gateway_id`;
 - `transit_gateway_arn`;
+- `attachment_ids`;
 - `route_table_ids`.
 
 ## Destroy

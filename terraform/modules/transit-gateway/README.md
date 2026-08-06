@@ -190,6 +190,7 @@ Note that the values in `route_table` and `propagate_to` are validated by Terraf
 |---|---|---|
 | `id` | `string` | Transit Gateway ID. This is what VPC route tables use as a route target. |
 | `arn` | `string` | Transit Gateway ARN. |
+| `attachment_ids` | `map(string)` | Attachment key → ID, for static TGW routes and inspection routing. |
 | `route_table_ids` | `map(string)` | Route table key → ID, for adding static routes outside this module. |
 | `association_default_route_table_id` | `string` | The default association route table AWS creates automatically. |
 | `propagation_default_route_table_id` | `string` | The default propagation route table AWS creates automatically. |
@@ -199,6 +200,12 @@ The two default route table outputs are exposed for inspection. When association
 ---
 
 ## Design notes
+
+**Attachment IDs support external routing.** The `attachment_ids`
+output allows an environment or dedicated routing module to create static
+Transit Gateway routes toward a named VPC attachment. This is required for
+centralized inspection patterns where spoke route tables direct approved
+destinations toward an Inspection VPC attachment.
 
 **Attachments belong in private subnets.** The attachment ENIs need no public addressing. Listing one subnet per AZ gives the attachment high availability.
 

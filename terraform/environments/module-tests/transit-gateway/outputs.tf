@@ -12,3 +12,8 @@ output "route_table_ids" {
   description = "Transit Gateway Route Table IDs created by the module under test."
   value       = module.transit_gateway.route_table_ids
 }
+
+output "attachment_ids" {
+  description = "Transit Gateway VPC attachment IDs exposed by the module under test."
+  value       = module.transit_gateway.attachment_ids
+}
