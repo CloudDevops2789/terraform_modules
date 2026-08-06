@@ -58,7 +58,9 @@ module "security_group_rule" {
       from_port   = local.security_groups.rules.management_ssh.from_port
       to_port     = local.security_groups.rules.management_ssh.to_port
 
-      cidr_ipv4 = local.security_groups.rules.management_ssh.cidr_ipv4
+      references = [
+        module.security_group.security_group_ids["management"]
+      ]
     }
 
     management-ping = {
@@ -69,7 +71,9 @@ module "security_group_rule" {
       from_port   = local.security_groups.rules.management_ping.from_port
       to_port     = local.security_groups.rules.management_ping.to_port
 
-      cidr_ipv4 = local.security_groups.rules.management_ping.cidr_ipv4
+      references = [
+        module.security_group.security_group_ids["management"]
+      ]
     }
 
     management-egress = {
