@@ -22,7 +22,7 @@ module "client_vpn" {
 
   network_associations = {
     az1 = {
-      subnet_id = module.vpc.private_subnet_map["private-a"]
+      subnet_id = module.vpc.subnet_ids["private-a"]
     }
   }
 

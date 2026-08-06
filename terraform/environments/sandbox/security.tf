@@ -42,8 +42,8 @@ module "security_group" {
 # to the CIDR of the adjacent, trusted VPC only (e.g. Protected Data only
 # accepts SSH from Core Recovery), mirroring the no-direct-path rule
 # enforced at the network layer. Management is the exception, since it is
-# the administrator entry point and is reachable from 0.0.0.0/0 in this
-# sandbox configuration.
+# the administrator entry point and accepts management traffic only from
+# the authenticated Client VPN client CIDR.
 module "security_group_rule" {
 
   source = "../../modules/security-group-rule"

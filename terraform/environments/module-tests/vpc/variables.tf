@@ -1,7 +1,8 @@
-# Exists so this test can be pointed at a different Region without editing
-# code. Optional - a default is set, so plan/apply never prompts for it;
-# terraform.tfvars can override it. Unrelated to any generated resource in
-# this environment; this environment has none that can be overridden.
+# Allows this module test to run in a different AWS Region without modifying
+# Terraform code. The value controls the Region used by the AWS provider and
+# therefore the Region where all test resources are created.
+#
+# A default is supplied for convenience, and terraform.tfvars may override it.
 variable "aws_region" {
   description = "AWS Region this module test deploys into."
   type        = string

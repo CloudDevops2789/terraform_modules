@@ -20,7 +20,7 @@ module "transit_gateway" {
     test = {
 
       vpc_id     = module.vpc.vpc_id
-      subnet_ids = module.vpc.private_subnet_ids
+      subnet_ids = module.vpc.subnet_ids_by_group["transit-gateway"]
 
       # Associates this attachment with the "main" route table and
       # propagates its CIDR back into the same table - the minimum wiring

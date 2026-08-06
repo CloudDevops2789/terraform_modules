@@ -36,8 +36,8 @@ module "ec2" {
       ami           = data.aws_ami.amazon_linux.id
       instance_type = "t3.micro"
 
-      subnet_id                   = module.recovery_access.public_subnet_ids[0]
-      associate_public_ip_address = true
+      subnet_id                   = module.recovery_access.subnet_ids["admin-tools-a"]
+      associate_public_ip_address = false
 
       key_name = module.key_pair.key_names["management"]
 
@@ -51,7 +51,7 @@ module "ec2" {
       ami           = data.aws_ami.amazon_linux.id
       instance_type = "t3.micro"
 
-      subnet_id = module.core_recovery.private_subnet_ids[0]
+      subnet_id = module.core_recovery.subnet_ids["recovery-services-a"]
 
       key_name = module.key_pair.key_names["management"]
 

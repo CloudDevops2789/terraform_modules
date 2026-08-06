@@ -26,15 +26,34 @@ locals {
   # minimal VPC with one subnet exists only to give the instance somewhere
   # to live. The VPC itself is not under test.
   vpc = {
-    vpc_name                = "module-test-ec2-vpc"
-    cidr_block              = "10.252.0.0/16"
-    availability_zone_count = 2
+    vpc_name   = "module-test-ec2-vpc"
+    cidr_block = "10.252.0.0/16"
 
-    public_subnets = {
-      public-a = "10.252.10.0/24"
+    route_tables = {
+      public-a = {
+        group = "public"
+      }
+
+      private-a = {
+        group = "private"
+      }
     }
-    private_subnets = {
-      private-a = "10.252.11.0/24"
+
+    subnets = {
+      public-a = {
+        cidr_block              = "10.252.10.0/24"
+        availability_zone_index = 0
+        group                   = "public"
+        route_table_key         = "public-a"
+        map_public_ip_on_launch = true
+      }
+
+      private-a = {
+        cidr_block              = "10.252.11.0/24"
+        availability_zone_index = 0
+        group                   = "private"
+        route_table_key         = "private-a"
+      }
     }
   }
 

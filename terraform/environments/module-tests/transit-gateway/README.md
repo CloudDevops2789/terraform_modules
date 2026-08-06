@@ -1,58 +1,113 @@
-# Purpose
+# Transit Gateway Module Test
 
-Validates that the `transit-gateway` module (`terraform/modules/transit-gateway`)
-deploys successfully: the Transit Gateway itself, a Transit Gateway Route
-Table, a VPC attachment, a route table association, and a route table
-propagation.
+## Purpose
 
-# Module Under Test
+This Terraform root validates:
 
-`terraform/modules/transit-gateway`
+```text
+terraform/modules/transit-gateway
+```
 
-This test exercises gateway creation, one route table, one VPC attachment,
-and both the association and propagation resources that wire the
-attachment to that route table. It does not attempt to model a multi-VPC,
-multi-route-table segmented routing topology - that composition lives in
-`sandbox`, not here, because reproducing it would test the topology, not
-the module.
+The test proves that the Transit Gateway module can create a gateway, route table, VPC attachment, association, and propagation using real VPC and subnet IDs.
 
-# Supporting Resources
+## What the test validates
 
-- `module.vpc` (`networking.tf`) - the Transit Gateway attachment resource
-  the module under test creates requires a real `vpc_id` and real
-  `subnet_ids` to attach to; a Transit Gateway cannot exist in isolation.
-  One private subnet is the minimum shape that satisfies this. The VPC
-  itself is not under test - see the `vpc/` module test for that.
+The test exercises:
 
-# Deployment
+- Transit Gateway creation;
+- one Transit Gateway route table;
+- one VPC attachment;
+- one route-table association;
+- one route-table propagation;
+- explicit subnet selection through a VPC subnet group;
+- disabled default association and propagation settings where configured.
+
+The test intentionally does not reproduce the complete multi-VPC IRE segmentation model.
+
+## Supporting VPC topology
+
+The supporting VPC uses:
+
+- route table key `attachment-a`;
+- route-table group `transit-gateway`;
+- subnet key `private-a`;
+- subnet group `transit-gateway`;
+- `availability_zone_index = 0`;
+- explicit association to route table `attachment-a`;
+- `create_internet_gateway = false`;
+- no `aws_route` resources.
+
+The attachment consumes:
+
+```hcl
+module.vpc.subnet_ids_by_group["transit-gateway"]
+```
+
+```mermaid
+flowchart LR
+    VPC["Supporting VPC"]
+    RT["VPC route table<br/>attachment-a"]
+    SUBNET["Attachment subnet<br/>private-a<br/>Group: transit-gateway"]
+    ATTACH["TGW VPC attachment"]
+    TGW["Transit Gateway"]
+    TGWRT["Transit Gateway route table"]
+    ASSOC["Association"]
+    PROP["Propagation"]
+
+    VPC --> RT
+    VPC --> SUBNET
+    SUBNET --> RT
+    SUBNET --> ATTACH
+    ATTACH --> TGW
+    TGW --> TGWRT
+    ATTACH --> ASSOC
+    ASSOC --> TGWRT
+    ATTACH --> PROP
+    PROP --> TGWRT
+```
+
+## Deployment
 
 ```bash
 cp terraform.tfvars.example terraform.tfvars
-terraform init
-terraform plan
-terraform apply
+terraform init -input=false -reconfigure -backend-config=backend.hcl
+terraform fmt -check -recursive
+terraform validate
+terraform plan -input=false -out=tfplan
+terraform apply -input=false tfplan
+rm -f tfplan
 ```
 
-# Destroy
+Current plan expectation:
+
+```text
+Plan: 9 to add, 0 to change, 0 to destroy.
+```
+
+## Verification
 
 ```bash
-terraform destroy
+terraform output
+terraform state list
+terraform plan -input=false -detailed-exitcode
+echo $?
 ```
 
-Nothing in this environment has a retention/lock that would block
-destroy - a plain `terraform destroy` removes the Transit Gateway, its
-route table, the attachment, and the supporting VPC together.
+Expected outputs:
 
-# Expected Outcome
+- `transit_gateway_id`;
+- `transit_gateway_arn`;
+- `route_table_ids`.
 
-`terraform apply` completes with no errors and reports one VPC, one Transit
-Gateway, one Transit Gateway Route Table, one VPC attachment, one
-association, and one propagation. `transit_gateway_id` and
-`route_table_ids` are populated outputs.
+## Destroy
 
-# Notes
+```bash
+terraform plan -destroy -input=false -out=tfplan
+terraform apply -input=false tfplan
+rm -f tfplan
+terraform state list
+```
 
-The VPC in this environment exists only to satisfy the Transit Gateway
-module's dependency on a real VPC/subnet to attach to. It is not itself
-under test - any change to VPC behavior belongs in the `vpc/` module test,
-not here.
+## Scope boundary
+
+This root validates the Transit Gateway module's resource behaviour, not the entire IRE routing architecture. Recovery Access, Core Recovery, Protected Data, and a possible centralized Inspection VPC must be composed and segmented by the environment. VPC routes and Transit Gateway routing policy remain explicit environment or routing-module responsibilities.

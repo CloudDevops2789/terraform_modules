@@ -1,23 +1,20 @@
-############################################################
+##################################################################################################
 # Identity
-############################################################
+##################################################################################################
+# Managed Microsoft AD remains disabled until its security workflow is
+# approved. The directory-services group already spans two AZs.
 
-/*module "managed_microsoft_ad" {
+/*
+module "managed_microsoft_ad" {
   source = "../../modules/managed-microsoft-ad"
 
   domain_name = "recovery.example.com"
+  password    = var.managed_ad_password
+  edition     = "Enterprise"
 
-  password = var.managed_ad_password
+  vpc_id     = module.core_recovery.vpc_id
+  subnet_ids = module.core_recovery.subnet_ids_by_group["directory-services"]
 
-  edition = "Enterprise"
-
-  vpc_id = module.core_recovery.vpc_id
-
-  subnet_ids = [
-    module.core_recovery.private_subnet_ids[0],
-    module.core_recovery.private_subnet_ids[1]
-  ]
-
-  tags       = local.org_tags
-  depends_on = [module.core_recovery]
-}*/
+  tags = local.org_tags
+}
+*/

@@ -24,21 +24,79 @@ locals {
   ##################################################################################################
   # VPC Under Test
   ##################################################################################################
-  # This is the ONLY thing this environment exists to validate: that the vpc
-  # module accepts these inputs and successfully creates a VPC with a
-  # private subnet, a private route table, and the association between them.
   #
-  # A single private subnet is the minimum shape that exercises every
-  # required code path in the module (VPC, subnet, route table,
-  # association) without exercising the optional public-subnet / Internet
-  # Gateway path, which is not needed to answer "does this module deploy?".
-  vpc = {
-    vpc_name                = "module-test-vpc"
-    cidr_block              = "10.250.0.0/16"
-    availability_zone_count = 2
+  # This test intentionally creates several subnet patterns:
+  #
+  # - application-a-1 and application-a-2 use the same Availability Zone;
+  # - application-a-1 and application-a-2 share one route table;
+  # - firewall-a uses the same Availability Zone but a different route table;
+  # - application-b uses a second Availability Zone;
+  # - subnet groups allow consumers to select related subnet IDs.
+  #
+  # This proves the module can scale to multiple subnet roles and multiple
+  # subnets per Availability Zone without changing the module.
 
-    private_subnets = {
-      private-a = "10.250.11.0/24"
+  vpc = {
+    vpc_name   = "module-test-vpc"
+    cidr_block = "10.250.0.0/16"
+
+    route_tables = {
+      application-a = {
+        name  = "module-test-vpc-application-a"
+        group = "application"
+      }
+
+      application-b = {
+        name  = "module-test-vpc-application-b"
+        group = "application"
+      }
+
+      firewall-a = {
+        name  = "module-test-vpc-firewall-a"
+        group = "firewall"
+      }
+    }
+
+    subnets = {
+      ################################################################################################
+      # Availability Zone index 0
+      ################################################################################################
+
+      application-a-1 = {
+        cidr_block              = "10.250.11.0/24"
+        availability_zone_index = 0
+        group                   = "application"
+        route_table_key         = "application-a"
+      }
+
+      # A second application subnet in the same Availability Zone and using
+      # the same route table. This is the scaling behaviour under test.
+      application-a-2 = {
+        cidr_block              = "10.250.12.0/24"
+        availability_zone_index = 0
+        group                   = "application"
+        route_table_key         = "application-a"
+      }
+
+      # A firewall subnet in the same Availability Zone but associated with a
+      # different route table.
+      firewall-a = {
+        cidr_block              = "10.250.21.0/28"
+        availability_zone_index = 0
+        group                   = "firewall"
+        route_table_key         = "firewall-a"
+      }
+
+      ################################################################################################
+      # Availability Zone index 1
+      ################################################################################################
+
+      application-b = {
+        cidr_block              = "10.250.31.0/24"
+        availability_zone_index = 1
+        group                   = "application"
+        route_table_key         = "application-b"
+      }
     }
   }
 }

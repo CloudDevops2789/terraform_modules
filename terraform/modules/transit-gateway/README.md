@@ -72,7 +72,7 @@ module "transit_gateway" {
 
     recovery_access = {
       vpc_id     = module.recovery_access.vpc_id
-      subnet_ids = module.recovery_access.private_subnet_ids
+      subnet_ids = module.recovery_access.subnet_ids_by_group["transit-gateway"]
 
       route_table  = "recovery_access"
       propagate_to = ["core_recovery"]
@@ -80,7 +80,7 @@ module "transit_gateway" {
 
     core_recovery = {
       vpc_id     = module.core_recovery.vpc_id
-      subnet_ids = module.core_recovery.private_subnet_ids
+      subnet_ids = module.core_recovery.subnet_ids_by_group["transit-gateway"]
 
       route_table  = "core_recovery"
       propagate_to = ["recovery_access", "protected_data"]
@@ -88,7 +88,7 @@ module "transit_gateway" {
 
     protected_data = {
       vpc_id     = module.protected_data.vpc_id
-      subnet_ids = module.protected_data.private_subnet_ids
+      subnet_ids = module.protected_data.subnet_ids_by_group["transit-gateway"]
 
       route_table  = "protected_data"
       propagate_to = ["core_recovery"]
@@ -128,14 +128,14 @@ module "transit_gateway" {
   vpc_attachments = {
     app = {
       vpc_id       = module.app_vpc.vpc_id
-      subnet_ids   = module.app_vpc.private_subnet_ids
+      subnet_ids   = module.app_vpc.subnet_ids_by_group["transit-gateway"]
       route_table  = "main"
       propagate_to = ["main"]
     }
 
     data = {
       vpc_id       = module.data_vpc.vpc_id
-      subnet_ids   = module.data_vpc.private_subnet_ids
+      subnet_ids   = module.data_vpc.subnet_ids_by_group["transit-gateway"]
       route_table  = "main"
       propagate_to = ["main"]
     }

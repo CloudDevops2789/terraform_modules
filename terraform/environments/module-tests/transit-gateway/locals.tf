@@ -28,12 +28,22 @@ locals {
   # attach to; the VPC itself is not under test (see the vpc/ module test
   # for that).
   vpc = {
-    vpc_name                = "module-test-tgw-vpc"
-    cidr_block              = "10.251.0.0/16"
-    availability_zone_count = 2
+    vpc_name   = "module-test-tgw-vpc"
+    cidr_block = "10.251.0.0/16"
 
-    private_subnets = {
-      private-a = "10.251.11.0/24"
+    route_tables = {
+      attachment-a = {
+        group = "transit-gateway"
+      }
+    }
+
+    subnets = {
+      private-a = {
+        cidr_block              = "10.251.11.0/24"
+        availability_zone_index = 0
+        group                   = "transit-gateway"
+        route_table_key         = "attachment-a"
+      }
     }
   }
 
