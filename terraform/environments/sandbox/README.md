@@ -15,8 +15,8 @@
 Recovery Access <-> Core Recovery <-> Protected Data
 ```
 
-There is no direct Recovery Access-to-Protected Data route. The restriction is
-enforced by VPC routes and Transit Gateway propagation.
+There is no direct Recovery Access-to-Protected Data route. Approved adjacent-tier
+traffic is steered through the centralized Inspection VPC and AWS Network Firewall.
 
 ## Subnet groups
 
@@ -48,8 +48,12 @@ Protected Data:
 
 ## Routing ownership
 
-The VPC module creates VPC-local resources and no routes. Current TGW routes
-are declared in `routing.tf`.
+The VPC module creates VPC-local resources and no routes. `routing.tf` uses the
+reusable `network-firewall-routing` module for all standalone VPC and Transit
+Gateway static routes.
+
+The Transit Gateway module remains the only owner of attachment associations
+and route propagation.
 
 No VPC creates an Internet Gateway or NAT Gateway.
 
@@ -72,15 +76,14 @@ terraform plan -input=false -var-file=terraform.tfvars -out=tfplan
 Confirm the plan has no IGW, NAT Gateway, or direct Recovery Access-to-
 Protected Data route.
 
-## Firewall evolution
+## Firewall architecture
 
-For distributed inspection, add the two reserved Core firewall subnets and
-redirect selected routes in `routing.tf` to firewall endpoint IDs.
+The selected design is centralized inspection using the dedicated
+`10.213.255.0/24` Inspection VPC. The previously reserved Core Recovery CIDRs
+remain unused and are not part of the active firewall path.
 
-For centralized inspection, instantiate the same VPC module for
-`10.213.255.0/24` and update TGW/routing composition.
-
-Neither decision requires redesigning the reusable VPC module.
+The reusable VPC, Transit Gateway, Network Firewall, logging, and routing
+modules remain independently reusable.
 
 ## Centralized Inspection VPC foundation
 
@@ -98,11 +101,9 @@ Its initial subnet allocation is:
 
 The Inspection VPC attachment enables Transit Gateway appliance mode.
 
-This foundation commit does not yet steer traffic through the Inspection VPC.
-It creates no Network Firewall, Internet Gateway, NAT Gateway, default route,
-or firewall endpoint route. Traffic steering will be introduced separately
-after the firewall policy, firewall endpoints, and same-AZ return paths have
-been validated together.
+The Inspection VPC contains the active centralized firewall path. It still
+creates no Internet Gateway, NAT Gateway, public subnet, or internet default
+route.
 
 ## Centralized Network Firewall
 
@@ -118,9 +119,9 @@ Recovery Access <-> Core Recovery <-> Protected Data
 There is no rule permitting direct Recovery Access-to-Protected Data traffic.
 Unmatched stateful traffic is dropped and alerted.
 
-This stage creates the rule group, firewall policy, and firewall endpoints
-only. No existing VPC or Transit Gateway route points to the firewall yet, so
-current Sandbox traffic paths remain unchanged.
+The rule group, firewall policy, and two firewall endpoints are integrated
+with Transit Gateway routing. Approved inter-VPC traffic is inspected in both
+directions.
 
 TLS traffic analysis is enabled for metadata visibility, but TLS decryption is
 not configured. TLS inspection requires an organization-approved certificate
@@ -149,4 +150,42 @@ detailed Network Firewall monitoring dashboard also remains disabled during
 infrastructure validation to avoid automatic CloudWatch Logs Insights query
 costs.
 
-This logging stage does not introduce or modify traffic-steering routes.
+Logging remains independent of routing lifecycle and records traffic processed
+by the stateful inspection engine.
+
+## Centralized traffic steering
+
+The final routing path is:
+
+```text
+Source spoke subnet
+  -> Transit Gateway
+  -> spoke TGW route table
+  -> Inspection VPC attachment
+  -> same-AZ Network Firewall endpoint
+  -> Inspection TGW route table
+  -> destination spoke attachment
+  -> destination subnet
+```
+
+The return path follows the same firewall endpoint and Availability Zone
+because appliance mode is enabled on the Inspection VPC attachment.
+
+Transit Gateway behavior:
+
+| Associated TGW route table | Approved static destination | Next hop |
+|---|---|---|
+| Recovery Access | Core Recovery | Inspection attachment |
+| Core Recovery | Recovery Access | Inspection attachment |
+| Core Recovery | Protected Data | Inspection attachment |
+| Protected Data | Core Recovery | Inspection attachment |
+
+The Inspection TGW route table learns all three spoke CIDRs through
+propagation. The spoke route tables do not learn one another directly.
+
+Inside the Inspection VPC, each TGW attachment subnet routes all three spoke
+CIDRs to its same-AZ firewall endpoint, and each firewall subnet routes those
+CIDRs back to Transit Gateway.
+
+Recovery Access and Protected Data have no direct VPC route, no direct TGW
+static route, and no firewall pass rule.

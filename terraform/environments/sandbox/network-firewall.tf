@@ -1,8 +1,8 @@
 ##################################################################################################
 # Centralized AWS Network Firewall
 ##################################################################################################
-# One endpoint is deployed in each dedicated firewall subnet. No routes point at these endpoints
-# yet, so this commit does not alter any current Sandbox traffic path.
+# One endpoint is deployed in each dedicated firewall subnet. routing.tf selects the endpoint in the
+# same Availability Zone as the Transit Gateway attachment subnet for every inspected flow.
 
 module "network_firewall" {
   source = "../../modules/network-firewall"

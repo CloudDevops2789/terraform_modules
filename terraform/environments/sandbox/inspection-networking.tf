@@ -1,18 +1,13 @@
 ##################################################################################################
-# Centralized Inspection VPC Foundation
+# Centralized Inspection VPC
 ##################################################################################################
-# This VPC reserves the fourth /24 inside the account-approved 10.213.252.0/22 allocation.
+# This VPC uses the fourth /24 inside the account-approved 10.213.252.0/22 allocation.
 #
-# This stage creates only:
-# - the Inspection VPC;
-# - two dedicated Network Firewall subnets;
-# - two Transit Gateway attachment subnets;
-# - explicit route tables and subnet associations;
-# - an appliance-mode Transit Gateway attachment.
+# It contains two dedicated Network Firewall endpoint subnets and two Transit Gateway attachment
+# subnets. routing.tf provides the same-Availability-Zone path from each TGW attachment subnet to its
+# firewall endpoint and the return path from each firewall subnet to Transit Gateway.
 #
-# It does not yet create AWS Network Firewall, firewall policies, logging destinations, Internet
-# Gateways, NAT Gateways, default routes, or traffic-steering routes. Existing Sandbox traffic paths
-# therefore remain unchanged until the dedicated firewall-routing stage is introduced.
+# The VPC has no Internet Gateway, NAT Gateway, public subnet, or internet default route.
 
 locals {
   inspection_vpc = {

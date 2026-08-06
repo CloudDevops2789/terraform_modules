@@ -49,8 +49,8 @@ module "protected_data" {
 ##################################################################################################
 # Transit Gateway
 ##################################################################################################
-# Recovery Access <-> Core Recovery <-> Protected Data
-# Recovery Access receives no route to Protected Data.
+# Every approved inter-VPC path is steered first to the centralized Inspection VPC attachment.
+# Recovery Access and Protected Data still receive no route to one another.
 
 module "transit_gateway" {
   source = "../../modules/transit-gateway"
@@ -74,24 +74,21 @@ module "transit_gateway" {
       vpc_id       = module.recovery_access.vpc_id
       subnet_ids   = module.recovery_access.subnet_ids_by_group["transit-gateway"]
       route_table  = "recovery_access"
-      propagate_to = ["core_recovery"]
+      propagate_to = ["inspection"]
     }
 
     core_recovery = {
-      vpc_id      = module.core_recovery.vpc_id
-      subnet_ids  = module.core_recovery.subnet_ids_by_group["transit-gateway"]
-      route_table = "core_recovery"
-      propagate_to = [
-        "recovery_access",
-        "protected_data",
-      ]
+      vpc_id       = module.core_recovery.vpc_id
+      subnet_ids   = module.core_recovery.subnet_ids_by_group["transit-gateway"]
+      route_table  = "core_recovery"
+      propagate_to = ["inspection"]
     }
 
     protected_data = {
       vpc_id       = module.protected_data.vpc_id
       subnet_ids   = module.protected_data.subnet_ids_by_group["transit-gateway"]
       route_table  = "protected_data"
-      propagate_to = ["core_recovery"]
+      propagate_to = ["inspection"]
     }
 
     inspection = {
