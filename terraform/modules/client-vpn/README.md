@@ -180,15 +180,11 @@ module "client_vpn" {
   vpc_id = module.recovery_access.vpc_id
 
   network_associations = {
-
-    az1 = {
-      subnet_id = module.recovery_access.private_subnet_ids[0]
+    for key, subnet in module.recovery_access.subnets :
+    key => {
+      subnet_id = subnet.id
     }
-
-    az2 = {
-      subnet_id = module.recovery_access.private_subnet_ids[1]
-    }
-
+    if subnet.group == "client-vpn"
   }
 
   security_group_ids = [

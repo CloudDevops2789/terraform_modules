@@ -27,13 +27,33 @@ locals {
   # validation). A minimal VPC with two private subnets exists only to
   # satisfy that requirement; the VPC itself is not under test.
   vpc = {
-    vpc_name                = "module-test-ad-vpc"
-    cidr_block              = "10.249.0.0/16"
-    availability_zone_count = 2
+    vpc_name   = "module-test-ad-vpc"
+    cidr_block = "10.249.0.0/16"
 
-    private_subnets = {
-      private-a = "10.249.11.0/24"
-      private-b = "10.249.12.0/24"
+    route_tables = {
+      directory-services-a = {
+        group = "directory-services"
+      }
+
+      directory-services-b = {
+        group = "directory-services"
+      }
+    }
+
+    subnets = {
+      directory-services-a = {
+        cidr_block              = "10.249.11.0/24"
+        availability_zone_index = 0
+        group                   = "directory-services"
+        route_table_key         = "directory-services-a"
+      }
+
+      directory-services-b = {
+        cidr_block              = "10.249.12.0/24"
+        availability_zone_index = 1
+        group                   = "directory-services"
+        route_table_key         = "directory-services-b"
+      }
     }
   }
 

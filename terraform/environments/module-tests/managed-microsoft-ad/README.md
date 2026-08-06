@@ -1,65 +1,70 @@
-# Purpose
+# Managed Microsoft AD Module Test
 
-Validates that the `managed-microsoft-ad` module
-(`terraform/modules/managed-microsoft-ad`) deploys successfully: an AWS
-Managed Microsoft AD directory placed into two subnets in two
+## Purpose
+
+Validates `terraform/modules/managed-microsoft-ad` by deploying one AWS
+Managed Microsoft AD directory into two dedicated private subnets in different
 Availability Zones.
 
-# Module Under Test
+The supporting VPC is not the module under test.
 
-`terraform/modules/managed-microsoft-ad`
+## Supporting topology
 
-This test exercises directory creation with the `Standard` edition (the
-cheapest option that still proves the module deploys) and the module's
-`vpc_settings` wiring against two real subnets.
+The VPC uses the keyed VPC interface:
 
-# Supporting Resources
+- route-table group: `directory-services`
+- subnet keys: `directory-services-a`, `directory-services-b`
+- Internet Gateway: disabled
+- NAT Gateway: not created
+- environment routes: none
 
-- `module.vpc` (`networking.tf`) - the module's own variable validation
-  requires exactly two subnet IDs in two different Availability Zones;
-  this VPC exists solely to provide those two subnets. Not under test.
+The directory consumes:
 
-# Deployment
+```hcl
+subnet_ids = module.vpc.subnet_ids_by_group["directory-services"]
+```
+
+## Local configuration
 
 ```bash
 cp terraform.tfvars.example terraform.tfvars
-# edit terraform.tfvars and set a real managed_ad_password
-terraform init
-terraform plan
-terraform apply
+cp backend.hcl.example backend.hcl
 ```
 
-AWS Managed Microsoft AD directories typically take 20-45 minutes to
-finish provisioning; `terraform apply` will not return until that
-completes.
+Set an approved value for `managed_ad_password` in the ignored
+`terraform.tfvars` file or through `TF_VAR_managed_ad_password`.
 
-# Destroy
+Never commit passwords, backend configuration, state, plans, or logs.
+
+## Initialize and validate
 
 ```bash
-terraform destroy
+terraform init -input=false -reconfigure -backend-config=backend.hcl
+terraform fmt -check -recursive
+terraform validate
+terraform plan -input=false -var-file=terraform.tfvars
 ```
 
-Directory deletion also takes some time to complete; `terraform destroy`
-will not return until AWS confirms the directory is gone.
+## Expected plan
 
-# Expected Outcome
+The supporting VPC creates:
 
-`terraform apply` completes with no errors and reports one VPC, two
-subnets, and one AWS Managed Microsoft AD directory. `directory_id`,
-`dns_ip_addresses`, and `directory_name` are all populated outputs.
+- one VPC
+- two private subnets
+- two route tables
+- two subnet-to-route-table associations
 
-# Notes
+The module under test creates one AWS Managed Microsoft AD directory.
 
-The VPC in this environment exists only to satisfy the module's
-requirement for two subnets in two Availability Zones. It is not itself
-under test - changes to VPC behavior belong in the `vpc/` module test.
-AWS Managed Microsoft AD has a non-trivial hourly cost even for the
-`Standard` edition - destroy this environment promptly after validating
-the module.
+No Internet Gateway, NAT Gateway, public subnet, or default route is expected.
 
-`managed_ad_password` intentionally uses the same variable name as
-`terraform/environments/sandbox`, so it's immediately recognizable to
-anyone already familiar with sandbox. Unlike the Client VPN test's
-certificates, there is no supporting resource that could generate a
-directory password automatically, so this variable has no default and is
-always required.
+## Apply and destroy
+
+AWS Managed Microsoft AD has a non-trivial hourly cost and can take a
+significant amount of time to provision or delete. Apply only during an
+approved deployment test and destroy immediately after validation.
+
+```bash
+terraform apply -var-file=terraform.tfvars
+terraform destroy -var-file=terraform.tfvars
+```
