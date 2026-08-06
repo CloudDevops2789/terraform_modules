@@ -238,3 +238,22 @@ The `flatten()` expression in `propagations.tf` is worth reading closely — it 
 |---|---|
 | Terraform | `>= 1.6.0` |
 | AWS provider | `~> 6.0` |
+
+## Current Sandbox centralized-inspection composition
+
+The Sandbox uses four attachments:
+
+- `recovery_access`
+- `core_recovery`
+- `protected_data`
+- `inspection`
+
+All spoke attachments propagate only into the `inspection` Transit Gateway route
+table. The Inspection attachment propagates nowhere. Static routes in each spoke
+TGW route table point approved destinations to the Inspection attachment.
+
+The Inspection attachment enables appliance mode so stateful traffic remains
+symmetric through the same Availability Zone and firewall endpoint.
+
+This is an environment composition. The reusable Transit Gateway module does not
+assume IRE names, CIDRs, or firewall placement.

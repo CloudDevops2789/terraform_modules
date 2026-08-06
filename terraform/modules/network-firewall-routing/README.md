@@ -123,3 +123,9 @@ The companion apply test creates:
 - Two Transit Gateway route tables
 - One association, one propagation, one attachment route, and one blackhole route
 AWS Network Firewall and Transit Gateway resources are billable. Destroy the test immediately after validation.
+
+## Repository integration status
+
+The Sandbox uses this module as the sole owner of standalone VPC routes and
+static Transit Gateway routes for centralized inspection. The Transit Gateway
+module remains the owner of attachment associations and propagation.

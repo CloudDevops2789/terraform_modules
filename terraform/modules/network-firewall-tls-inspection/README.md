@@ -171,3 +171,10 @@ The isolated apply test creates:
 The test PKI is strictly non-production and exists only to validate the Terraform module.
 
 The generated private key is stored in Terraform state. Use only an isolated, encrypted, access-controlled test backend. Do not reuse the key, certificate, or CA as an organizational trust anchor. Destroy the environment immediately after validation.
+
+## Repository integration status
+
+The reusable TLS-inspection module is implemented and independently testable.
+The Sandbox does not enable TLS decryption. Its firewall currently performs
+HTTP host and TLS SNI metadata analysis only; production decryption requires an
+organization-approved PKI and trust-distribution process.

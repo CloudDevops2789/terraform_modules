@@ -18,12 +18,12 @@ module-tests/network-firewall/terraform.tfstate
 Supply shared backend settings using the repository's standard backend configuration.
 ## Deployment
 ```bash
-terraform init -reconfigure
-terraform fmt -recursive
+terraform init -input=false -reconfigure -backend-config=backend.hcl
+terraform fmt -check -recursive
 terraform validate
-terraform plan -out=tfplan
-terraform apply tfplan
-terraform plan
+terraform plan -input=false -out=tfplan
+terraform apply -input=false tfplan
+terraform plan -input=false
 ```
 The firewall can take several minutes to become ready.
 ## Expected post-apply result
@@ -34,7 +34,7 @@ No changes. Your infrastructure matches the configuration.
 The outputs should contain one Network Firewall endpoint ID for each selected Availability Zone.
 ## Destroy
 ```bash
-terraform destroy
+terraform destroy -input=false
 ```
 Protection settings are disabled in this test so destroy can complete without an intermediate update.
 ## Scope

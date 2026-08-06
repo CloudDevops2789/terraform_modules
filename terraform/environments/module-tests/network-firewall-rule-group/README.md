@@ -19,15 +19,15 @@ module-tests/network-firewall-rule-group/terraform.tfstate
 Supply the shared bucket, Region, encryption, and locking settings using the repository's normal backend configuration.
 ## Deployment
 ```bash
-terraform init -reconfigure -backend-config=../../../../backend.hcl
-terraform fmt -check
+terraform init -input=false -reconfigure -backend-config=backend.hcl
+terraform fmt -check -recursive
 terraform validate
-terraform plan
-terraform apply
+terraform plan -input=false
+terraform apply -input=false
 ```
 ## Destroy
 ```bash
-terraform destroy
+terraform destroy -input=false
 ```
 ## Expected outcome
 Terraform creates four independent rule groups and returns their ARNs, IDs, names, types, and update tokens.

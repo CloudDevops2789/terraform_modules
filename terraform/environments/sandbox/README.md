@@ -1,43 +1,67 @@
 # Sandbox Environment
 
-## Account CIDR allocation
+The Sandbox is the integrated Terraform root for the AWS Isolated Recovery
+Environment. It composes four VPCs, Transit Gateway segmentation, centralized
+AWS Network Firewall inspection, administrative Client VPN access, security
+groups, representative EC2 resources, KMS, and AWS Backup modules.
 
-| CIDR | Purpose |
+> **Current status:** formatted, validated, and planned successfully. No
+> Terraform apply was performed during the current implementation work.
+
+## Portable inputs
+
+Environment-specific values are defined in the selected `.tfvars` file:
+
+- `network_config` contains the account allocation, VPC CIDRs, subnet CIDRs,
+  Client VPN CIDR, and future hybrid network ranges.
+- `naming` supplies standard naming components.
+- `resource_name_overrides` permits exact organization-approved names without
+  changing Terraform logical keys.
+- `org_*` variables supply mandatory enterprise tags.
+
+`terraform.tfvars.example` is shareable. `terraform.tfvars` is local and ignored.
+
+The example file currently demonstrates the approved Sandbox allocation:
+
+| Logical network | Example CIDR |
 |---|---|
-| `10.213.252.0/24` | Recovery Access VPC |
-| `10.213.253.0/24` | Core Recovery VPC |
-| `10.213.254.0/24` | Protected Data VPC |
-| `10.213.255.0/24` | Centralized Inspection VPC |
+| Account allocation | `10.213.252.0/22` |
+| Recovery Access | `10.213.252.0/24` |
+| Core Recovery | `10.213.253.0/24` |
+| Protected Data | `10.213.254.0/24` |
+| Centralized Inspection | `10.213.255.0/24` |
+| Client VPN clients | `192.168.0.0/16` |
 
-## Trust path
+These are input values, not hardcoded reusable-module assumptions.
 
-```text
-Recovery Access <-> Core Recovery <-> Protected Data
-```
+## Four-VPC topology
 
-There is no direct Recovery Access-to-Protected Data route. Approved adjacent-tier
-traffic is steered through the centralized Inspection VPC and AWS Network Firewall.
+### Recovery Access
 
-## Subnet groups
-
-Recovery Access:
+Subnet groups:
 
 - `client-vpn`
 - `admin-tools`
 - `endpoints`
 - `transit-gateway`
 
-Core Recovery:
+Client VPN associates only with the `client-vpn` subnets. Administrators reach
+approved management hosts in the `admin-tools` subnets.
+
+### Core Recovery
+
+Subnet groups:
 
 - `recovery-services`
 - `directory-services`
 - `endpoints`
 - `transit-gateway`
 
-`10.213.253.224/28` and `10.213.253.240/28` are reserved for distributed
-Network Firewall endpoints if that option is selected.
+Core Recovery hosts recovery tooling and the administrative control plane.
 
-Protected Data:
+### Protected Data
+
+Subnet groups:
 
 - `protected-workloads`
 - `ingestion`
@@ -46,160 +70,200 @@ Protected Data:
 - `endpoints`
 - `transit-gateway`
 
+Protected Data has no direct route from Recovery Access or Client VPN.
+
+### Centralized Inspection
+
+Subnet groups:
+
+- `network-firewall`
+- `transit-gateway`
+
+Two firewall subnets and two Transit Gateway attachment subnets are distributed
+across two Availability Zones. The Inspection attachment enables appliance mode.
+
+The Inspection VPC has no Internet Gateway, NAT Gateway, public subnet, or
+internet default route.
+
+## Approved traffic model
+
+| Flow | Treatment |
+|---|---|
+| Recovery Access ↔ Core Recovery | Inspected centrally |
+| Core Recovery ↔ Protected Data | Inspected centrally |
+| Recovery Access ↔ Protected Data | No route |
+| Client VPN → Recovery Access admin host | Local Recovery Access path; no firewall hairpin |
+| Admin host → Core Recovery | Inspected centrally |
+| Site-to-Site VPN → Core Recovery | Planned; must traverse inspection |
+| Site-to-Site VPN → Protected Data | No general route |
+| Intra-VPC traffic | Security groups and workload controls |
+
+## Centralized inspection path
+
+```text
+Source spoke subnet
+  → source VPC route table
+  → Transit Gateway
+  → source TGW route table
+  → Inspection VPC attachment
+  → same-AZ Network Firewall endpoint
+  → Inspection TGW route table
+  → destination attachment
+  → destination VPC route table
+  → destination subnet
+```
+
+The return path uses the same Availability Zone and firewall endpoint.
+
+### Transit Gateway policy
+
+- Default route-table association is disabled.
+- Default route propagation is disabled.
+- Spoke attachments propagate only into the Inspection TGW route table.
+- Spoke TGW route tables contain explicit static routes to the Inspection
+  attachment.
+- The Inspection TGW route table learns the three spoke CIDRs.
+- Recovery Access and Protected Data never learn or receive a direct route to
+  one another.
+
+## Network Firewall policy
+
+The Sandbox deploys:
+
+- one centralized two-AZ firewall;
+- one strict-order stateful segmentation rule group;
+- one strict-order firewall policy;
+- stateless forwarding to the stateful engine;
+- default strict drop and alert actions;
+- metadata analysis for HTTP host and TLS SNI;
+- no TLS decryption.
+
+The approved stateful trust relationships are:
+
+```text
+Recovery Access ↔ Core Recovery ↔ Protected Data
+```
+
+Security groups continue to enforce workload-level protocols and ports.
+
+## Encrypted logging
+
+Network Firewall sends separate `ALERT` and `FLOW` logs to CloudWatch Logs.
+
+The log-group names are derived from portable naming inputs. Both log groups:
+
+- retain data for 30 days in the current example;
+- use a dedicated customer-managed KMS key;
+- use the regional CloudWatch Logs service principal;
+- restrict KMS use with the log-group encryption context;
+- remain separate from the general Sandbox KMS key.
+
+TLS logging is disabled because TLS decryption is not configured.
+
+## Client VPN boundary
+
+Client VPN terminates in Recovery Access. The Sandbox currently defines:
+
+- mutual certificate authentication;
+- target-network associations in Recovery Access;
+- authorization only for the Recovery Access CIDR;
+- no explicit Client VPN route to Core Recovery;
+- no Client VPN route to Protected Data.
+
+The intended administrative flow is:
+
+```text
+Administrator
+  → Client VPN
+  → Recovery Access admin host
+  → centralized inspection
+  → Core Recovery
+```
+
 ## Routing ownership
 
-The VPC module creates VPC-local resources and no routes. `routing.tf` uses the
-reusable `network-firewall-routing` module for all standalone VPC and Transit
-Gateway static routes.
+- `module.vpc` creates VPC-local networking resources and no routes.
+- `module.transit_gateway` creates TGW attachments, TGW route tables,
+  associations, and propagation.
+- `module.network_firewall_routing` creates standalone VPC routes and static TGW
+  routes.
+- The environment owns topology, security intent, and route composition.
 
-The Transit Gateway module remains the only owner of attachment associations
-and route propagation.
-
-No VPC creates an Internet Gateway or NAT Gateway.
-
-## Local configuration
+## Local setup
 
 ```bash
 cp terraform.tfvars.example terraform.tfvars
 cp backend.hcl.example backend.hcl
 ```
 
-## Validation
+Do not commit either local file.
+
+## Initialize, validate, and plan
 
 ```bash
-terraform init -input=false -reconfigure -backend-config=backend.hcl
+terraform init \
+  -input=false \
+  -reconfigure \
+  -backend-config=backend.hcl
+
 terraform fmt -check -recursive
 terraform validate
-terraform plan -input=false -var-file=terraform.tfvars -out=tfplan
+
+terraform plan \
+  -input=false \
+  -var-file=terraform.tfvars \
+  -out=tfplan
 ```
 
-Confirm the plan has no IGW, NAT Gateway, or direct Recovery Access-to-
-Protected Data route.
-
-## Firewall architecture
-
-The selected design is centralized inspection using the dedicated
-`10.213.255.0/24` Inspection VPC. The previously reserved Core Recovery CIDRs
-remain unused and are not part of the active firewall path.
-
-The reusable VPC, Transit Gateway, Network Firewall, logging, and routing
-modules remain independently reusable.
-
-## Centralized Inspection VPC foundation
-
-The Sandbox now includes a dedicated centralized Inspection VPC using
-`10.213.255.0/24`.
-
-Its initial subnet allocation is:
-
-| Subnet key | CIDR | Availability Zone index | Purpose |
-|---|---|---:|---|
-| `firewall-a` | `10.213.255.0/28` | 0 | Network Firewall endpoint |
-| `firewall-b` | `10.213.255.16/28` | 1 | Network Firewall endpoint |
-| `transit-gateway-a` | `10.213.255.32/28` | 0 | TGW VPC attachment |
-| `transit-gateway-b` | `10.213.255.48/28` | 1 | TGW VPC attachment |
-
-The Inspection VPC attachment enables Transit Gateway appliance mode.
-
-The Inspection VPC contains the active centralized firewall path. It still
-creates no Internet Gateway, NAT Gateway, public subnet, or internet default
-route.
-
-## Centralized Network Firewall
-
-The centralized Inspection VPC contains a two-Availability-Zone AWS Network
-Firewall deployment.
-
-The initial strict-order policy permits only these VPC trust relationships:
+Current empty-state expectation:
 
 ```text
-Recovery Access <-> Core Recovery <-> Protected Data
+Plan: 187 to add, 0 to change, 0 to destroy.
 ```
 
-There is no rule permitting direct Recovery Access-to-Protected Data traffic.
-Unmatched stateful traffic is dropped and alerted.
+Review and remove the plan:
 
-The rule group, firewall policy, and two firewall endpoints are integrated
-with Transit Gateway routing. Approved inter-VPC traffic is inspected in both
-directions.
-
-TLS traffic analysis is enabled for metadata visibility, but TLS decryption is
-not configured. TLS inspection requires an organization-approved certificate
-and trust-distribution process and will not be enabled using test PKI.
-
-## Encrypted Network Firewall logging
-
-The Sandbox sends Network Firewall `ALERT` and `FLOW` records to separate
-CloudWatch log groups:
-
-| Log type | CloudWatch log group |
-|---|---|
-| `ALERT` | `/aws/network-firewall/ire-sandbox-centralized-inspection/alert` |
-| `FLOW` | `/aws/network-firewall/ire-sandbox-centralized-inspection/flow` |
-
-Both log groups:
-
-- retain data for 30 days;
-- use a dedicated customer-managed KMS key;
-- restrict KMS service access through the CloudWatch Logs regional service
-  principal and the `kms:EncryptionContext:aws:logs:arn` condition;
-- remain separate from the general-purpose Sandbox KMS key.
-
-TLS logging is not enabled because TLS decryption is not configured. The
-detailed Network Firewall monitoring dashboard also remains disabled during
-infrastructure validation to avoid automatic CloudWatch Logs Insights query
-costs.
-
-Logging remains independent of routing lifecycle and records traffic processed
-by the stateful inspection engine.
-
-## Centralized traffic steering
-
-The final routing path is:
-
-```text
-Source spoke subnet
-  -> Transit Gateway
-  -> spoke TGW route table
-  -> Inspection VPC attachment
-  -> same-AZ Network Firewall endpoint
-  -> Inspection TGW route table
-  -> destination spoke attachment
-  -> destination subnet
+```bash
+terraform show tfplan
+rm -f tfplan
 ```
 
-The return path follows the same firewall endpoint and Availability Zone
-because appliance mode is enabled on the Inspection VPC attachment.
+No Sandbox apply is part of the current validation workflow.
 
-Transit Gateway behavior:
+## Required plan checks
 
-| Associated TGW route table | Approved static destination | Next hop |
-|---|---|---|
-| Recovery Access | Core Recovery | Inspection attachment |
-| Core Recovery | Recovery Access | Inspection attachment |
-| Core Recovery | Protected Data | Inspection attachment |
-| Protected Data | Core Recovery | Inspection attachment |
+Confirm that the plan contains:
 
-The Inspection TGW route table learns all three spoke CIDRs through
-propagation. The spoke route tables do not learn one another directly.
+- four VPCs;
+- no Internet Gateway or NAT Gateway;
+- no IPv4 or IPv6 default route;
+- four TGW VPC attachments;
+- four TGW route-table associations;
+- three TGW route propagations;
+- four static spoke TGW routes to the Inspection attachment;
+- one Network Firewall, policy, and stateful rule group;
+- same-AZ endpoint routing;
+- encrypted `ALERT` and `FLOW` logging;
+- no direct Recovery Access-to-Protected Data route.
 
-Inside the Inspection VPC, each TGW attachment subnet routes all three spoke
-CIDRs to its same-AZ firewall endpoint, and each firewall subnet routes those
-CIDRs back to Transit Gateway.
+## Implemented versus planned
 
-Recovery Access and Protected Data have no direct VPC route, no direct TGW
-static route, and no firewall pass rule.
+Implemented in Terraform:
 
-## Portable environment inputs
+- four-VPC topology;
+- centralized Network Firewall;
+- inspected adjacent-zone paths;
+- encrypted firewall logging;
+- Recovery Access Client VPN;
+- security groups;
+- representative EC2 resources;
+- KMS and AWS Backup composition;
+- portable network and naming inputs.
 
-Environment-specific network allocations are supplied through `network_config`
-in the selected `.tfvars` file. Standard resource names are derived from the
-`naming` object, while `resource_name_overrides` supports exact organization-
-approved names without changing Terraform resource addresses or logical keys.
+Planned, not implemented:
 
-Terraform logical keys, trust relationships, routing intent, Network Firewall
-actions, and Suricata SIDs remain reviewed code. The security-policy value
-`0.0.0.0/0` is intentionally not treated as an environment address allocation.
-
-Backend configuration remains separate and must be paired with the matching
-variable file for each environment.
+- Site-to-Site VPN and hybrid TGW route table;
+- runtime packet-flow and failover testing;
+- narrowly scoped on-premises ingestion exception, if approved;
+- production PKI-backed TLS decryption;
+- production lifecycle protection settings.

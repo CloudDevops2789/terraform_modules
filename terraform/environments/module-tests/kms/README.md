@@ -25,15 +25,15 @@ test.
 
 ```bash
 cp terraform.tfvars.example terraform.tfvars
-terraform init
-terraform plan
-terraform apply
+terraform init -input=false -reconfigure -backend-config=backend.hcl
+terraform plan -input=false
+terraform apply -input=false
 ```
 
 # Destroy
 
 ```bash
-terraform destroy
+terraform destroy -input=false
 ```
 
 The KMS key enters AWS's 30-day pending-deletion window rather than

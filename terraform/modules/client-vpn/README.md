@@ -1,183 +1,58 @@
 # AWS Client VPN Terraform Module
 
-## Overview
+Creates an AWS Client VPN endpoint with mutual-certificate authentication,
+CloudWatch connection logging, target-network associations, authorization rules,
+optional routes, and caller-supplied security groups.
 
-This Terraform module provisions an AWS Client VPN endpoint using **certificate-based mutual authentication**.
+The module is reusable and does not decide the caller's network trust model.
 
-The module creates the resources required to securely connect administrators to an AWS environment while keeping the implementation modular and reusable.
+## Resources
 
-Current features include:
+- `aws_ec2_client_vpn_endpoint`
+- `aws_ec2_client_vpn_network_association`
+- `aws_ec2_client_vpn_authorization_rule`
+- optional `aws_ec2_client_vpn_route`
+- CloudWatch log group and stream when connection logging is enabled
 
-- Client VPN Endpoint
-- Mutual (certificate) authentication
-- CloudWatch connection logging
-- Network Associations
-- Authorization Rules
-- Custom Routes
-- Security Group attachment
-- Split Tunnel support
+## Required architecture inputs
 
----
+| Input | Purpose |
+|---|---|
+| `name` | Endpoint display name |
+| `client_cidr_block` | Address pool assigned to VPN clients |
+| `server_certificate_arn` | ACM server certificate |
+| `root_certificate_chain_arn` | Trusted client-certificate CA |
+| `vpc_id` | VPC containing target-network association subnets |
+| `network_associations` | Association subnet IDs keyed by logical name |
+| `security_group_ids` | Security groups attached to Client VPN ENIs |
 
-# Architecture
+Optional inputs control authorization rules, routes, split tunnel, protocol,
+port, DNS servers, session timeout, logging, retention, and tags.
 
-```mermaid
-graph TD
+## Outputs
 
-    A[Administrator Laptop]
+- endpoint ID and ARN;
+- DNS name;
+- target-network association IDs;
+- authorization rule IDs;
+- route IDs;
+- CloudWatch log-group name.
 
-    A --> B[AWS Client VPN Client]
+## Sandbox composition
 
-    B --> C[AWS Client VPN Endpoint]
-
-    C --> D[Recovery Access VPC]
-
-    D --> E[Management EC2]
-
-```
-
----
-
-# Module Architecture
-
-```mermaid
-graph LR
-
-RootModule --> VPNEndpoint
-
-VPNEndpoint --> Logging
-VPNEndpoint --> Associations
-VPNEndpoint --> AuthorizationRules
-VPNEndpoint --> Routes
-
-Logging --> CloudWatch
-Associations --> RecoveryAccessSubnet
-AuthorizationRules --> AllowedNetworks
-Routes --> DestinationNetworks
-
-```
-
----
-
-# Authentication Flow
-
-This module currently uses **Mutual Authentication**.
-
-```mermaid
-sequenceDiagram
-
-participant Client
-participant VPN
-participant ACM
-participant RootCA
-
-Client->>VPN: Connect
-
-VPN->>Client: Present Server Certificate
-
-Client->>VPN: Present Client Certificate
-
-VPN->>RootCA: Validate Certificate Chain
-
-RootCA-->>VPN: Certificate Trusted
-
-VPN-->>Client: VPN Established
-
-```
-
----
-
-# Network Flow
-
-```mermaid
-graph TD
-
-Laptop
-
-Laptop --> VPN
-
-VPN[AWS Client VPN Endpoint]
-
-VPN --> RecoverySubnet
-
-RecoverySubnet --> RecoveryAccessVPC
-
-RecoveryAccessVPC --> ManagementEC2
-
-RecoveryAccessVPC --> TransitGateway
-
-TransitGateway --> CoreRecoveryVPC
-
-TransitGateway --> ProtectedDataVPC
-
-```
-
----
-
-# Resources Created
-
-| Resource | Terraform Resource |
-|----------|--------------------|
-| Client VPN Endpoint | aws_ec2_client_vpn_endpoint |
-| Network Association | aws_ec2_client_vpn_network_association |
-| Authorization Rule | aws_ec2_client_vpn_authorization_rule |
-| Client VPN Route | aws_ec2_client_vpn_route |
-| CloudWatch Log Group | aws_cloudwatch_log_group |
-| CloudWatch Log Stream | aws_cloudwatch_log_stream |
-
----
-
-# Inputs
-
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| name | string | Yes | Name of the Client VPN endpoint |
-| client_cidr_block | string | Yes | CIDR block assigned to VPN clients |
-| server_certificate_arn | string | Yes | ACM server certificate ARN |
-| root_certificate_chain_arn | string | Yes | ACM Root CA certificate ARN |
-| vpc_id | string | Yes | VPC containing the associated subnets |
-| network_associations | map(object) | Yes | Subnets associated with the endpoint |
-| security_group_ids | list(string) | Yes | Security groups attached to VPN ENIs |
-| authorization_rules | map(object) | No | Authorization rules |
-| routes | map(object) | No | Client VPN routes |
-| split_tunnel | bool | No | Enable split tunnel |
-| transport_protocol | string | No | udp or tcp |
-| vpn_port | number | No | VPN listener port |
-| dns_servers | list(string) | No | DNS servers pushed to clients |
-| session_timeout_hours | number | No | VPN session timeout |
-| enable_connection_logging | bool | No | Enable CloudWatch logging |
-| log_retention_in_days | number | No | Log retention period |
-| tags | map(string) | No | Resource tags |
-
----
-
-# Outputs
-
-| Output | Description |
-|---------|-------------|
-| id | Client VPN Endpoint ID |
-| arn | Client VPN Endpoint ARN |
-| dns_name | Endpoint DNS name |
-| network_association_ids | Network Association IDs |
-| log_group_name | CloudWatch Log Group |
-
----
-
-# Example
+The Sandbox terminates Client VPN in the Recovery Access VPC:
 
 ```hcl
 module "client_vpn" {
-
   source = "../../modules/client-vpn"
 
-  name = "ire-client-vpn"
+  name = local.resource_names.client_vpn
 
   server_certificate_arn     = var.server_certificate_arn
   root_certificate_chain_arn = var.root_certificate_chain_arn
 
-  client_cidr_block = "192.168.0.0/16"
-
-  vpc_id = module.recovery_access.vpc_id
+  client_cidr_block = local.client_vpn.client_cidr_block
+  vpc_id            = module.recovery_access.vpc_id
 
   network_associations = {
     for key, subnet in module.recovery_access.subnets :
@@ -188,71 +63,70 @@ module "client_vpn" {
   }
 
   security_group_ids = [
-    module.security_group.security_group_ids["management"]
+    module.security_group.security_group_ids["management"],
   ]
 
   authorization_rules = {
-
     recovery_access = {
-
-      target_network_cidr = module.recovery_access.vpc_cidr
-
-      authorize_all_groups = true
-
+      target_network_cidr  = module.recovery_access.vpc_cidr
+      authorize_all_groups = local.client_vpn.authorize_all_groups
     }
-
   }
 
   routes = {}
 
+  tags = local.org_tags
 }
 ```
 
----
+This is an environment decision, not a module restriction.
 
-# Important Notes
+## Administrative traffic boundary
 
-## Automatic VPC Route
+The approved Sandbox path is:
 
-AWS automatically creates a route to the CIDR block of the VPC associated with the Client VPN endpoint.
+```text
+Administrator
+  → AWS Client VPN
+  → Recovery Access admin host
+  → Transit Gateway
+  → centralized Network Firewall
+  → Core Recovery
+```
 
-Do **not** create a duplicate route for the associated VPC.
+The Client VPN endpoint itself is not hairpinned through the centralized
+firewall to reach an admin host in the same VPC.
 
-Only create routes for remote networks such as Transit Gateway destinations.
+The Sandbox does not define:
 
----
+- a Client VPN route directly to Core Recovery;
+- a Client VPN route to Protected Data;
+- a Recovery Access-to-Protected Data route.
 
-## Certificate Requirements
+## Routes and authorization
 
-The server certificate **must** exist in AWS Certificate Manager (ACM).
+Routes and authorization rules are separate controls:
 
-The client certificate must be signed by the trusted Root Certificate Authority configured for the endpoint.
+- a route determines how the endpoint forwards to a destination;
+- an authorization rule determines whether a client is allowed to use that
+  destination.
 
----
+AWS creates local reachability for the associated VPC. Do not duplicate that
+associated-VPC route. Add explicit route resources only for approved remote
+networks.
 
-## Split Tunnel
+## Certificate boundary
 
-When enabled, only traffic destined for authorized networks traverses the VPN.
+The module consumes existing ACM certificate ARNs. Production certificate
+issuance, private-key custody, rotation, revocation, and client trust
+distribution remain outside this module.
 
-Internet-bound traffic continues to use the client's local network connection.
+## Security guidance
 
----
-
-# Future Enhancements
-
-Planned improvements include:
-
-- IAM Identity Center (SAML) authentication
-- Active Directory authentication
-- Group-based authorization
-- Certificate automation
-- Multi-region deployment
-- Client Connect Handler
-- Client Login Banner
-
----
-
-# References
-
-- AWS Client VPN Documentation
-- Terraform AWS Provider Documentation
+- Prefer organization-approved certificate and MFA processes.
+- Associate only dedicated private subnets.
+- Use split tunnel only with an explicit security decision.
+- Restrict authorization to approved networks and groups.
+- Attach narrowly scoped security groups.
+- Enable connection logging.
+- Do not treat Client VPN as a direct extension into Protected Data.

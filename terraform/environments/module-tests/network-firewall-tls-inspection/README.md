@@ -112,12 +112,12 @@ The backend should provide:
 ## Deployment
 
 ```bash
-terraform init -reconfigure
-terraform fmt -recursive
+terraform init -input=false -reconfigure -backend-config=backend.hcl
+terraform fmt -check -recursive
 terraform validate
-terraform plan -out=tfplan
-terraform apply tfplan
-terraform plan
+terraform plan -input=false -out=tfplan
+terraform apply -input=false tfplan
+terraform plan -input=false
 ```
 
 ---
@@ -149,7 +149,7 @@ The outputs should include:
 ## Destroy
 
 ```bash
-terraform destroy
+terraform destroy -input=false
 ```
 
 The destroy operation should successfully remove:

@@ -156,3 +156,14 @@ terraform plan
 terraform apply
 terraform destroy
 ```
+
+## Repository integration status
+
+The Sandbox uses this module for the reviewed trust chain:
+
+```text
+Recovery Access ↔ Core Recovery ↔ Protected Data
+```
+
+There is no direct Recovery Access-to-Protected Data pass rule. Environment
+CIDRs come from portable input variables; Suricata actions and SIDs remain code.

@@ -565,28 +565,21 @@ Consumers must enable it explicitly.
 
 ---
 
-## Relationship to future AWS Network Firewall work
+## Relationship to the current centralized Network Firewall implementation
 
-This test does not deploy AWS Network Firewall.
+This VPC module test proves the topology capabilities now consumed by the
+Sandbox centralized Inspection VPC:
 
-The test prepares the VPC module for later firewall integration by proving that:
+- multiple subnets in the same Availability Zone;
+- dedicated firewall and Transit Gateway route tables;
+- stable subnet and route-table keys;
+- group-based subnet selection;
+- optional Internet Gateway ownership without automatic routes.
 
-- firewall subnets can coexist with application subnets in the same Availability Zone;
-- firewall subnets can use dedicated route tables;
-- application subnets can share route tables;
-- route-table IDs are exposed by stable keys;
-- firewall subnet IDs can be selected by group;
-- the optional Internet Gateway can exist without automatic routing.
+The Sandbox currently deploys AWS Network Firewall through separate firewall,
+policy, rule-group, routing, and logging modules. Firewall routes remain outside
+the reusable VPC module.
 
-AWS Network Firewall integration must begin only after:
-
-- this VPC module is complete;
-- this module test passes;
-- active VPC consumers are migrated;
-- Sandbox is migrated to the new interface;
-- migration plans show no unintended replacement.
-
-Firewall routes must remain in the Sandbox environment or a dedicated routing module.
 
 ---
 
@@ -622,4 +615,4 @@ idempotency exit code 0
 Terraform state empty
 ```
 
-This confirms that the redesigned VPC module is ready for careful active-consumer migration before AWS Network Firewall is introduced into Sandbox.
+This confirms that the VPC module supports the current keyed Sandbox topology and centralized Network Firewall integration.
