@@ -280,6 +280,8 @@ locals {
   }
 }
 
+# Purpose: Creates the VPC and Transit Gateway routes that steer approved traffic through inspection.
+# Change when: Change routes as a complete forward-and-return path to preserve stateful symmetry.
 module "network_firewall_routing" {
   source = "../../modules/network-firewall-routing"
 

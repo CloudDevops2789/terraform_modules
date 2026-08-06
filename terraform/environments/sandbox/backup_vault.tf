@@ -21,6 +21,8 @@
 # Recovery points stored in this vault can
 # later be copied to a Logically Air-Gapped
 # Vault for ransomware protection.
+# Purpose: Creates the standard AWS Backup vault used by the Sandbox backup plan.
+# Change when: Change encryption, access policy, or deletion behavior only when backup policy changes.
 module "backup_standard_vault" {
 
   source = "../../modules/backup-standard-vault"
@@ -41,6 +43,8 @@ module "backup_standard_vault" {
 # This vault provides an additional layer of
 # protection against ransomware, accidental
 # deletion, and credential compromise.
+# Purpose: Creates the logically air-gapped AWS Backup vault used for protected backup copies.
+# Change when: Change retention limits only when the approved recovery policy changes.
 module "backup_logically_air_gapped_vault" {
 
   source = "../../modules/backup-logically-air-gapped-vault"
@@ -67,6 +71,8 @@ module "backup_logically_air_gapped_vault" {
 # and whether recovery points are copied
 # to additional Backup Vaults for
 # cyber recovery.
+# Purpose: Creates the backup schedule, lifecycle settings, and copy actions.
+# Change when: Change timing or retention only when RPO and retention requirements change.
 module "backup_plan" {
 
   source = "../../modules/backup-plan"
@@ -129,6 +135,8 @@ module "backup_plan" {
 # that allow AWS Backup to protect and
 # recover supported AWS resources.
 #
+# Purpose: Creates the IAM role assumed by AWS Backup.
+# Change when: Change permissions or trust only when protected resource types or governance requirements change.
 module "backup_role" {
 
   source = "../../modules/backup-role"
@@ -151,6 +159,8 @@ module "backup_role" {
 # In this environment, the Core Recovery
 # EC2 instance is designated as the
 # protected workload.
+# Purpose: Associates the selected Sandbox resources with the backup plan.
+# Change when: Change protected resource ARNs only when backup scope changes.
 module "backup_selection" {
 
   source = "../../modules/backup-selection"

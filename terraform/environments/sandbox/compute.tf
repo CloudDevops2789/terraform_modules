@@ -2,6 +2,8 @@
 # Compute
 ##################################################################################################
 
+# Purpose: Registers the supplied SSH public key for the Sandbox test instances.
+# Change when: Change the public-key input when a different administrator or workstation is used.
 module "key_pair" {
   source = "../../modules/key-pair"
 
@@ -14,6 +16,8 @@ module "key_pair" {
   tags = local.org_tags
 }
 
+# Purpose: Looks up a compatible AMI when dynamic AMI selection is used.
+# Change when: Change filters only when the operating system, architecture, or AMI ownership requirement changes.
 data "aws_ami" "amazon_linux" {
   most_recent = true
   owners      = ["amazon"]
@@ -34,6 +38,8 @@ data "aws_ami" "amazon_linux" {
   }
 }
 
+# Purpose: Creates one representative EC2 test instance in each active trust tier.
+# Change when: Change AMI, size, subnet placement, or security groups through environment inputs.
 module "ec2" {
   source = "../../modules/ec2"
 

@@ -120,6 +120,8 @@ resource "aws_cloudwatch_log_group" "network_firewall" {
 # Network Firewall Logging Configuration
 ##################################################################################################
 
+# Purpose: Sends Network Firewall flow and alert logs to the configured encrypted destinations.
+# Change when: Change destinations, retention, or encryption only through logging requirements.
 module "network_firewall_logging" {
   source = "../../modules/network-firewall-logging"
 

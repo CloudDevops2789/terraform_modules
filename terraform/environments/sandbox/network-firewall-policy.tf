@@ -59,6 +59,8 @@ locals {
   }
 }
 
+# Purpose: Creates the firewall policy that combines the approved rule groups and default actions.
+# Change when: Change rule ordering or default actions only after security review.
 module "network_firewall_policy" {
   source = "../../modules/network-firewall-policy"
 

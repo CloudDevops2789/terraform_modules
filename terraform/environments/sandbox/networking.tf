@@ -4,6 +4,8 @@
 # The environment owns CIDRs, subnet roles, AZ placement, and route-table
 # relationships. The reusable VPC module creates no routes.
 
+# Purpose: Creates the Recovery Access VPC used as the administrative entry tier.
+# Change when: Change CIDRs, subnet allocation, or naming through environment inputs.
 module "recovery_access" {
   source = "../../modules/vpc"
 
@@ -18,6 +20,8 @@ module "recovery_access" {
   tags = local.org_tags
 }
 
+# Purpose: Creates the Core Recovery VPC for shared recovery and directory services.
+# Change when: Change CIDRs, subnet allocation, or naming only when the approved topology changes.
 module "core_recovery" {
   source = "../../modules/vpc"
 
@@ -32,6 +36,8 @@ module "core_recovery" {
   tags = local.org_tags
 }
 
+# Purpose: Creates the Protected Data VPC for restored workloads and recovery data.
+# Change when: Change CIDRs, subnet allocation, or naming only when the approved isolation model changes.
 module "protected_data" {
   source = "../../modules/vpc"
 
@@ -52,6 +58,8 @@ module "protected_data" {
 # Every approved inter-VPC path is steered first to the centralized Inspection VPC attachment.
 # Recovery Access and Protected Data still receive no route to one another.
 
+# Purpose: Creates Transit Gateway, its route tables, and VPC attachment relationships.
+# Change when: Change route-table association or propagation only when an approved traffic path changes.
 module "transit_gateway" {
   source = "../../modules/transit-gateway"
 
@@ -70,6 +78,8 @@ module "transit_gateway" {
   )
 
   vpc_attachments = {
+    # Purpose: Attaches Recovery Access to its dedicated Transit Gateway route table.
+    # Change when: Change propagation only when the approved Recovery Access traffic path changes.
     recovery_access = {
       vpc_id       = module.recovery_access.vpc_id
       subnet_ids   = module.recovery_access.subnet_ids_by_group["transit-gateway"]
@@ -77,6 +87,8 @@ module "transit_gateway" {
       propagate_to = ["inspection"]
     }
 
+    # Purpose: Attaches Core Recovery to its dedicated Transit Gateway route table.
+    # Change when: Change propagation only when the approved Core Recovery traffic path changes.
     core_recovery = {
       vpc_id       = module.core_recovery.vpc_id
       subnet_ids   = module.core_recovery.subnet_ids_by_group["transit-gateway"]
@@ -84,6 +96,8 @@ module "transit_gateway" {
       propagate_to = ["inspection"]
     }
 
+    # Purpose: Attaches Protected Data to its dedicated Transit Gateway route table.
+    # Change when: Change propagation only when the approved Protected Data traffic path changes.
     protected_data = {
       vpc_id       = module.protected_data.vpc_id
       subnet_ids   = module.protected_data.subnet_ids_by_group["transit-gateway"]
@@ -91,6 +105,8 @@ module "transit_gateway" {
       propagate_to = ["inspection"]
     }
 
+    # Purpose: Attaches the Inspection VPC with appliance mode enabled for symmetric stateful inspection.
+    # Change when: Change subnets or appliance mode only with the complete centralized-inspection design.
     inspection = {
       vpc_id       = module.inspection_vpc.vpc_id
       subnet_ids   = module.inspection_vpc.subnet_ids_by_group["transit-gateway"]

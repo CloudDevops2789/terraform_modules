@@ -9,6 +9,8 @@
 # Grouping rules by tier - rather than by instance - keeps the security
 # posture legible: each tier's allowed traffic maps directly to the
 # IRE trust chain enforced by the Transit Gateway route tables above.
+# Purpose: Creates one security group for each Sandbox trust tier.
+# Change when: Add or move a group only when the workload trust boundary changes.
 module "security_group" {
 
   source = "../../modules/security-group"
@@ -42,14 +44,18 @@ module "security_group" {
 # to the CIDR of the adjacent, trusted VPC only (e.g. Protected Data only
 # accepts SSH from Core Recovery), mirroring the no-direct-path rule
 # enforced at the network layer. Management is the exception, since it is
-# the administrator entry point and accepts management traffic only from
-# the authenticated Client VPN client CIDR.
+# the administrator entry point and accepts management traffic only through
+# the security group attached to the Client VPN association.
+# Purpose: Creates the ingress and egress rules that enforce tier-level access.
+# Change when: Change protocol, ports, or source only when the approved access policy changes.
 module "security_group_rule" {
 
   source = "../../modules/security-group-rule"
 
   rules = {
 
+    # Purpose: Allows SSH to the management host from the Client VPN entry security group.
+    # Change when: Change the source only when the Client VPN security-group design changes.
     management-ssh = {
       type              = "ingress"
       security_group_id = module.security_group.security_group_ids["management"]
@@ -63,6 +69,8 @@ module "security_group_rule" {
       ]
     }
 
+    # Purpose: Allows ICMP echo requests to the management host for connectivity testing.
+    # Change when: Remove or narrow this rule when ping testing is no longer required.
     management-ping = {
       type              = "ingress"
       security_group_id = module.security_group.security_group_ids["management"]
@@ -76,6 +84,8 @@ module "security_group_rule" {
       ]
     }
 
+    # Purpose: Allows the management tier to initiate outbound traffic permitted by routing and downstream controls.
+    # Change when: Narrow the destination and protocol after the required management flows are confirmed.
     management-egress = {
       type              = "egress"
       security_group_id = module.security_group.security_group_ids["management"]
@@ -85,6 +95,8 @@ module "security_group_rule" {
       cidr_ipv4 = local.security_groups.rules.management_egress.cidr_ipv4
     }
 
+    # Purpose: Allows SSH to Core Recovery from the Recovery Access VPC.
+    # Change when: Change the source CIDR or port only when the administrative path changes.
     core-ssh-from-recovery-access = {
       type              = "ingress"
       security_group_id = module.security_group.security_group_ids["core"]
@@ -96,6 +108,8 @@ module "security_group_rule" {
       cidr_ipv4 = module.recovery_access.vpc_cidr
     }
 
+    # Purpose: Allows SSH to Core Recovery from the Protected Data VPC.
+    # Change when: Change the source CIDR or port only when the approved reverse path changes.
     core-ssh-from-protected-data = {
       type              = "ingress"
       security_group_id = module.security_group.security_group_ids["core"]
@@ -107,6 +121,8 @@ module "security_group_rule" {
       cidr_ipv4 = module.protected_data.vpc_cidr
     }
 
+    # Purpose: Allows the Core tier to initiate outbound traffic permitted by routing and downstream controls.
+    # Change when: Narrow destinations and protocols after the required recovery-service flows are confirmed.
     core-egress = {
       type              = "egress"
       security_group_id = module.security_group.security_group_ids["core"]
@@ -116,6 +132,8 @@ module "security_group_rule" {
       cidr_ipv4 = local.security_groups.rules.core_egress.cidr_ipv4
     }
 
+    # Purpose: Allows SSH to Protected Data from the Core Recovery VPC.
+    # Change when: Change the source CIDR or port only when the approved trust path changes.
     protected-ssh = {
       type              = "ingress"
       security_group_id = module.security_group.security_group_ids["protected"]
@@ -127,6 +145,8 @@ module "security_group_rule" {
       cidr_ipv4 = module.core_recovery.vpc_cidr
     }
 
+    # Purpose: Allows the Protected Data tier to initiate outbound traffic permitted by routing and downstream controls.
+    # Change when: Narrow destinations and protocols after the required workload flows are confirmed.
     protected-egress = {
       type              = "egress"
       security_group_id = module.security_group.security_group_ids["protected"]
@@ -144,6 +164,8 @@ module "security_group_rule" {
 # KMS
 ############################################
 
+# Purpose: Creates the customer-managed KMS key used by supported Sandbox services.
+# Change when: Change alias, rotation, or policy only through approved key-management requirements.
 module "kms" {
   source = "../../modules/kms"
 

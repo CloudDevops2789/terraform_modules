@@ -2,6 +2,8 @@
 # Client VPN
 ##################################################################################################
 
+# Purpose: Creates AWS Client VPN, target-network associations, authorization rules, and optional routes.
+# Change when: Change certificates, the client address pool, or authorized destinations through environment inputs.
 module "client_vpn" {
   source = "../../modules/client-vpn"
 
@@ -33,6 +35,8 @@ module "client_vpn" {
   session_timeout_hours = local.client_vpn.session_timeout_hours
 
   authorization_rules = {
+    # Purpose: Authorizes authenticated VPN users to reach the Recovery Access VPC.
+    # Change when: Change the destination or user-group scope only when Client VPN access policy changes.
     recovery_access = {
       target_network_cidr  = module.recovery_access.vpc_cidr
       authorize_all_groups = local.client_vpn.authorize_all_groups
