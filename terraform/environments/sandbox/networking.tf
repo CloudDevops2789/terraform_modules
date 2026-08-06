@@ -60,7 +60,14 @@ module "transit_gateway" {
   default_route_table_association = local.transit_gateway.default_route_table_association
   default_route_table_propagation = local.transit_gateway.default_route_table_propagation
 
-  route_tables = local.transit_gateway.route_tables
+  route_tables = merge(
+    local.transit_gateway.route_tables,
+    {
+      inspection = {
+        name = "Centralized Inspection Route Table"
+      }
+    }
+  )
 
   vpc_attachments = {
     recovery_access = {
@@ -85,6 +92,17 @@ module "transit_gateway" {
       subnet_ids   = module.protected_data.subnet_ids_by_group["transit-gateway"]
       route_table  = "protected_data"
       propagate_to = ["core_recovery"]
+    }
+
+    inspection = {
+      vpc_id       = module.inspection_vpc.vpc_id
+      subnet_ids   = module.inspection_vpc.subnet_ids_by_group["transit-gateway"]
+      route_table  = "inspection"
+      propagate_to = []
+
+      # Appliance mode preserves Availability Zone affinity and symmetric
+      # forwarding for stateful inspection when traffic steering is enabled.
+      appliance_mode_support = "enable"
     }
   }
 

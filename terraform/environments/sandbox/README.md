@@ -7,7 +7,7 @@
 | `10.213.252.0/24` | Recovery Access VPC |
 | `10.213.253.0/24` | Core Recovery VPC |
 | `10.213.254.0/24` | Protected Data VPC |
-| `10.213.255.0/24` | Reserved centralized Inspection VPC |
+| `10.213.255.0/24` | Centralized Inspection VPC |
 
 ## Trust path
 
@@ -81,3 +81,25 @@ For centralized inspection, instantiate the same VPC module for
 `10.213.255.0/24` and update TGW/routing composition.
 
 Neither decision requires redesigning the reusable VPC module.
+
+## Centralized Inspection VPC foundation
+
+The Sandbox now includes a dedicated centralized Inspection VPC using
+`10.213.255.0/24`.
+
+Its initial subnet allocation is:
+
+| Subnet key | CIDR | Availability Zone index | Purpose |
+|---|---|---:|---|
+| `firewall-a` | `10.213.255.0/28` | 0 | Network Firewall endpoint |
+| `firewall-b` | `10.213.255.16/28` | 1 | Network Firewall endpoint |
+| `transit-gateway-a` | `10.213.255.32/28` | 0 | TGW VPC attachment |
+| `transit-gateway-b` | `10.213.255.48/28` | 1 | TGW VPC attachment |
+
+The Inspection VPC attachment enables Transit Gateway appliance mode.
+
+This foundation commit does not yet steer traffic through the Inspection VPC.
+It creates no Network Firewall, Internet Gateway, NAT Gateway, default route,
+or firewall endpoint route. Traffic steering will be introduced separately
+after the firewall policy, firewall endpoints, and same-AZ return paths have
+been validated together.
