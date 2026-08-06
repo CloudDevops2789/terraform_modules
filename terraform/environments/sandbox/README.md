@@ -1,43 +1,83 @@
 # Sandbox Environment
 
-Three-VPC IRE topology (landing zone, core recovery, protected data)
-connected via Transit Gateway.
+## Account CIDR allocation
 
-> **Deviation from the IRE HLD:** the production design has no Internet
-> Gateway or NAT anywhere (access is via Client VPN only). This sandbox
-> intentionally includes an IGW + public subnets in the landing zone for
-> low-cost testing. Remove `public_subnets` to match the HLD.
+| CIDR | Purpose |
+|---|---|
+| `10.213.252.0/24` | Recovery Access VPC |
+| `10.213.253.0/24` | Core Recovery VPC |
+| `10.213.254.0/24` | Protected Data VPC |
+| `10.213.255.0/24` | Reserved centralized Inspection VPC |
 
-## Usage
+## Trust path
 
-```bash
-git switch main
-git pull --ff-only origin main
-git switch -c feature/<change-name>
-
-cd terraform/environments/sandbox
-
-cp terraform.tfvars.example terraform.tfvars
-cp backend.hcl.example backend.hcl
-
-# Update only local values.
-
-terraform init -backend-config=backend.hcl
-terraform fmt -recursive
-terraform validate
-terraform plan -var-file=terraform.tfvars
+```text
+Recovery Access <-> Core Recovery <-> Protected Data
 ```
 
-Each collaborator maintains their own `terraform.tfvars` and `backend.hcl`.
-Both files are local configuration and must not be committed. Update the
-committed example files only when the root module's supported interface
-changes.
+There is no direct Recovery Access-to-Protected Data route. The restriction is
+enforced by VPC routes and Transit Gateway propagation.
 
-AWS credentials must come from an approved authentication mechanism. Never
-place credentials in Terraform variable or backend files. CI/CD must supply
-its own backend and variable configuration rather than using a developer's
-local files.
+## Subnet groups
 
-Before committing, run `git status` and confirm that the branch contains no
-workstation-specific paths, credentials, state, plans, logs, or local backend
-configuration.
+Recovery Access:
+
+- `client-vpn`
+- `admin-tools`
+- `endpoints`
+- `transit-gateway`
+
+Core Recovery:
+
+- `recovery-services`
+- `directory-services`
+- `endpoints`
+- `transit-gateway`
+
+`10.213.253.224/28` and `10.213.253.240/28` are reserved for distributed
+Network Firewall endpoints if that option is selected.
+
+Protected Data:
+
+- `protected-workloads`
+- `ingestion`
+- `database`
+- `file-services`
+- `endpoints`
+- `transit-gateway`
+
+## Routing ownership
+
+The VPC module creates VPC-local resources and no routes. Current TGW routes
+are declared in `routing.tf`.
+
+No VPC creates an Internet Gateway or NAT Gateway.
+
+## Local configuration
+
+```bash
+cp terraform.tfvars.example terraform.tfvars
+cp backend.hcl.example backend.hcl
+```
+
+## Validation
+
+```bash
+terraform init -input=false -reconfigure -backend-config=backend.hcl
+terraform fmt -check -recursive
+terraform validate
+terraform plan -input=false -var-file=terraform.tfvars -out=tfplan
+```
+
+Confirm the plan has no IGW, NAT Gateway, or direct Recovery Access-to-
+Protected Data route.
+
+## Firewall evolution
+
+For distributed inspection, add the two reserved Core firewall subnets and
+redirect selected routes in `routing.tf` to firewall endpoint IDs.
+
+For centralized inspection, instantiate the same VPC module for
+`10.213.255.0/24` and update TGW/routing composition.
+
+Neither decision requires redesigning the reusable VPC module.

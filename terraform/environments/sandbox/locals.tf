@@ -26,16 +26,89 @@ locals {
   ##################################################################################################
   # Static network definition for the Recovery Access tier. This VPC is the
   # administrative entry point into the IRE and is intentionally allocated the
-  # 10.100.0.0/16 address space. These values define the environment's network
+  # 10.213.252.0/24 address space. These values define the environment's network
   # architecture rather than deployment-time configuration.
   recovery_access = {
-    vpc_name                = "recovery-access"
-    cidr_block              = "10.100.0.0/16"
-    availability_zone_count = 2
+    vpc_name   = "recovery-access"
+    cidr_block = "10.213.252.0/24"
 
-    private_subnets = {
-      private-a = "10.100.11.0/24"
-      private-b = "10.100.12.0/24"
+    # 10.213.252.192/26 is reserved for future Recovery Access services.
+    route_tables = {
+      client-vpn-a = {
+        group = "client-vpn"
+      }
+      client-vpn-b = {
+        group = "client-vpn"
+      }
+      admin-tools-a = {
+        group = "admin-tools"
+      }
+      admin-tools-b = {
+        group = "admin-tools"
+      }
+      endpoints-a = {
+        group = "endpoints"
+      }
+      endpoints-b = {
+        group = "endpoints"
+      }
+      transit-gateway-a = {
+        group = "transit-gateway"
+      }
+      transit-gateway-b = {
+        group = "transit-gateway"
+      }
+    }
+
+    subnets = {
+      client-vpn-a = {
+        cidr_block              = "10.213.252.0/27"
+        availability_zone_index = 0
+        group                   = "client-vpn"
+        route_table_key         = "client-vpn-a"
+      }
+      client-vpn-b = {
+        cidr_block              = "10.213.252.32/27"
+        availability_zone_index = 1
+        group                   = "client-vpn"
+        route_table_key         = "client-vpn-b"
+      }
+      admin-tools-a = {
+        cidr_block              = "10.213.252.64/27"
+        availability_zone_index = 0
+        group                   = "admin-tools"
+        route_table_key         = "admin-tools-a"
+      }
+      admin-tools-b = {
+        cidr_block              = "10.213.252.96/27"
+        availability_zone_index = 1
+        group                   = "admin-tools"
+        route_table_key         = "admin-tools-b"
+      }
+      endpoints-a = {
+        cidr_block              = "10.213.252.128/28"
+        availability_zone_index = 0
+        group                   = "endpoints"
+        route_table_key         = "endpoints-a"
+      }
+      endpoints-b = {
+        cidr_block              = "10.213.252.144/28"
+        availability_zone_index = 1
+        group                   = "endpoints"
+        route_table_key         = "endpoints-b"
+      }
+      transit-gateway-a = {
+        cidr_block              = "10.213.252.160/28"
+        availability_zone_index = 0
+        group                   = "transit-gateway"
+        route_table_key         = "transit-gateway-a"
+      }
+      transit-gateway-b = {
+        cidr_block              = "10.213.252.176/28"
+        availability_zone_index = 1
+        group                   = "transit-gateway"
+        route_table_key         = "transit-gateway-b"
+      }
     }
   }
 
@@ -46,13 +119,87 @@ locals {
   # recovery tooling and acts as the central routing domain between Recovery
   # Access and Protected Data.
   core_recovery = {
-    vpc_name                = "core-recovery"
-    cidr_block              = "10.101.0.0/16"
-    availability_zone_count = 2
+    vpc_name   = "core-recovery"
+    cidr_block = "10.213.253.0/24"
 
-    private_subnets = {
-      private-a = "10.101.11.0/24"
-      private-b = "10.101.12.0/24"
+    # 10.213.253.224/28 and 10.213.253.240/28 are reserved for
+    # distributed Network Firewall endpoints if that design is selected.
+    route_tables = {
+      recovery-services-a = {
+        group = "recovery-services"
+      }
+      recovery-services-b = {
+        group = "recovery-services"
+      }
+      directory-services-a = {
+        group = "directory-services"
+      }
+      directory-services-b = {
+        group = "directory-services"
+      }
+      endpoints-a = {
+        group = "endpoints"
+      }
+      endpoints-b = {
+        group = "endpoints"
+      }
+      transit-gateway-a = {
+        group = "transit-gateway"
+      }
+      transit-gateway-b = {
+        group = "transit-gateway"
+      }
+    }
+
+    subnets = {
+      recovery-services-a = {
+        cidr_block              = "10.213.253.0/26"
+        availability_zone_index = 0
+        group                   = "recovery-services"
+        route_table_key         = "recovery-services-a"
+      }
+      recovery-services-b = {
+        cidr_block              = "10.213.253.64/26"
+        availability_zone_index = 1
+        group                   = "recovery-services"
+        route_table_key         = "recovery-services-b"
+      }
+      directory-services-a = {
+        cidr_block              = "10.213.253.128/28"
+        availability_zone_index = 0
+        group                   = "directory-services"
+        route_table_key         = "directory-services-a"
+      }
+      directory-services-b = {
+        cidr_block              = "10.213.253.144/28"
+        availability_zone_index = 1
+        group                   = "directory-services"
+        route_table_key         = "directory-services-b"
+      }
+      endpoints-a = {
+        cidr_block              = "10.213.253.160/28"
+        availability_zone_index = 0
+        group                   = "endpoints"
+        route_table_key         = "endpoints-a"
+      }
+      endpoints-b = {
+        cidr_block              = "10.213.253.176/28"
+        availability_zone_index = 1
+        group                   = "endpoints"
+        route_table_key         = "endpoints-b"
+      }
+      transit-gateway-a = {
+        cidr_block              = "10.213.253.192/28"
+        availability_zone_index = 0
+        group                   = "transit-gateway"
+        route_table_key         = "transit-gateway-a"
+      }
+      transit-gateway-b = {
+        cidr_block              = "10.213.253.208/28"
+        availability_zone_index = 1
+        group                   = "transit-gateway"
+        route_table_key         = "transit-gateway-b"
+      }
     }
   }
 
@@ -63,13 +210,122 @@ locals {
   # backup storage and recovery data and is isolated from direct access by the
   # Recovery Access VPC through Transit Gateway routing.
   protected_data = {
-    vpc_name                = "protected-data"
-    cidr_block              = "10.102.0.0/16"
-    availability_zone_count = 2
+    vpc_name   = "protected-data"
+    cidr_block = "10.213.254.0/24"
 
-    private_subnets = {
-      private-a = "10.102.11.0/24"
-      private-b = "10.102.12.0/24"
+    # 10.213.254.224/27 is reserved for future protected-data services.
+    route_tables = {
+      protected-workloads-a = {
+        group = "protected-workloads"
+      }
+      protected-workloads-b = {
+        group = "protected-workloads"
+      }
+      ingestion-a = {
+        group = "ingestion"
+      }
+      ingestion-b = {
+        group = "ingestion"
+      }
+      database-a = {
+        group = "database"
+      }
+      database-b = {
+        group = "database"
+      }
+      file-services-a = {
+        group = "file-services"
+      }
+      file-services-b = {
+        group = "file-services"
+      }
+      endpoints-a = {
+        group = "endpoints"
+      }
+      endpoints-b = {
+        group = "endpoints"
+      }
+      transit-gateway-a = {
+        group = "transit-gateway"
+      }
+      transit-gateway-b = {
+        group = "transit-gateway"
+      }
+    }
+
+    subnets = {
+      protected-workloads-a = {
+        cidr_block              = "10.213.254.0/27"
+        availability_zone_index = 0
+        group                   = "protected-workloads"
+        route_table_key         = "protected-workloads-a"
+      }
+      protected-workloads-b = {
+        cidr_block              = "10.213.254.32/27"
+        availability_zone_index = 1
+        group                   = "protected-workloads"
+        route_table_key         = "protected-workloads-b"
+      }
+      ingestion-a = {
+        cidr_block              = "10.213.254.64/28"
+        availability_zone_index = 0
+        group                   = "ingestion"
+        route_table_key         = "ingestion-a"
+      }
+      ingestion-b = {
+        cidr_block              = "10.213.254.80/28"
+        availability_zone_index = 1
+        group                   = "ingestion"
+        route_table_key         = "ingestion-b"
+      }
+      database-a = {
+        cidr_block              = "10.213.254.96/28"
+        availability_zone_index = 0
+        group                   = "database"
+        route_table_key         = "database-a"
+      }
+      database-b = {
+        cidr_block              = "10.213.254.112/28"
+        availability_zone_index = 1
+        group                   = "database"
+        route_table_key         = "database-b"
+      }
+      file-services-a = {
+        cidr_block              = "10.213.254.128/28"
+        availability_zone_index = 0
+        group                   = "file-services"
+        route_table_key         = "file-services-a"
+      }
+      file-services-b = {
+        cidr_block              = "10.213.254.144/28"
+        availability_zone_index = 1
+        group                   = "file-services"
+        route_table_key         = "file-services-b"
+      }
+      endpoints-a = {
+        cidr_block              = "10.213.254.160/28"
+        availability_zone_index = 0
+        group                   = "endpoints"
+        route_table_key         = "endpoints-a"
+      }
+      endpoints-b = {
+        cidr_block              = "10.213.254.176/28"
+        availability_zone_index = 1
+        group                   = "endpoints"
+        route_table_key         = "endpoints-b"
+      }
+      transit-gateway-a = {
+        cidr_block              = "10.213.254.192/28"
+        availability_zone_index = 0
+        group                   = "transit-gateway"
+        route_table_key         = "transit-gateway-a"
+      }
+      transit-gateway-b = {
+        cidr_block              = "10.213.254.208/28"
+        availability_zone_index = 1
+        group                   = "transit-gateway"
+        route_table_key         = "transit-gateway-b"
+      }
     }
   }
 
@@ -135,18 +391,20 @@ locals {
 
     rules = {
 
+      # Administrative ingress is limited to addresses allocated to
+      # authenticated Client VPN users.
       management_ssh = {
         ip_protocol = "tcp"
         from_port   = 22
         to_port     = 22
-        cidr_ipv4   = "0.0.0.0/0"
+        cidr_ipv4   = local.client_vpn.client_cidr_block
       }
 
       management_ping = {
         ip_protocol = "icmp"
         from_port   = 8
         to_port     = -1
-        cidr_ipv4   = "0.0.0.0/0"
+        cidr_ipv4   = local.client_vpn.client_cidr_block
       }
 
       management_egress = {
