@@ -125,3 +125,28 @@ current Sandbox traffic paths remain unchanged.
 TLS traffic analysis is enabled for metadata visibility, but TLS decryption is
 not configured. TLS inspection requires an organization-approved certificate
 and trust-distribution process and will not be enabled using test PKI.
+
+## Encrypted Network Firewall logging
+
+The Sandbox sends Network Firewall `ALERT` and `FLOW` records to separate
+CloudWatch log groups:
+
+| Log type | CloudWatch log group |
+|---|---|
+| `ALERT` | `/aws/network-firewall/ire-sandbox-centralized-inspection/alert` |
+| `FLOW` | `/aws/network-firewall/ire-sandbox-centralized-inspection/flow` |
+
+Both log groups:
+
+- retain data for 30 days;
+- use a dedicated customer-managed KMS key;
+- restrict KMS service access through the CloudWatch Logs regional service
+  principal and the `kms:EncryptionContext:aws:logs:arn` condition;
+- remain separate from the general-purpose Sandbox KMS key.
+
+TLS logging is not enabled because TLS decryption is not configured. The
+detailed Network Firewall monitoring dashboard also remains disabled during
+infrastructure validation to avoid automatic CloudWatch Logs Insights query
+costs.
+
+This logging stage does not introduce or modify traffic-steering routes.
