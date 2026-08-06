@@ -27,12 +27,22 @@ locals {
   # only to give the module a network to associate with; the VPC itself is
   # not under test.
   vpc = {
-    vpc_name                = "module-test-client-vpn-vpc"
-    cidr_block              = "10.254.0.0/16"
-    availability_zone_count = 2
+    vpc_name   = "module-test-client-vpn-vpc"
+    cidr_block = "10.254.0.0/16"
 
-    private_subnets = {
-      private-a = "10.254.11.0/24"
+    route_tables = {
+      private-a = {
+        group = "supporting"
+      }
+    }
+
+    subnets = {
+      private-a = {
+        cidr_block              = "10.254.11.0/24"
+        availability_zone_index = 0
+        group                   = "supporting"
+        route_table_key         = "private-a"
+      }
     }
   }
 

@@ -1,53 +1,94 @@
-# Purpose
+# Security Group Module Test
 
-Validates that the `security-group` and `security-group-rule` modules
-(`terraform/modules/security-group`, `terraform/modules/security-group-rule`)
-deploy successfully. The two are tested together because a rule cannot
-exist without a group to attach it to - they are always deployed as a
-pair, in sandbox as much as here.
+## Purpose
 
-# Module Under Test
+This Terraform root validates:
 
-`terraform/modules/security-group` and `terraform/modules/security-group-rule`
+- `terraform/modules/security-group`
+- `terraform/modules/security-group-rule`
 
-This test exercises group creation, the rule module's ingress/egress split,
-and both the `aws_vpc_security_group_ingress_rule` and
-`aws_vpc_security_group_egress_rule` resource types it manages.
+They are tested together because security-group rules require a security group to attach to.
 
-# Supporting Resources
+## What the test validates
 
-- `module.vpc` (`networking.tf`) - a security group must belong to a real
-  VPC; `aws_security_group` requires a real `vpc_id`. One private subnet
-  is the minimum shape needed (the subnet itself is unused by this test,
-  but the vpc module requires at least one). Not under test.
+The test exercises:
 
-# Deployment
+- security-group creation;
+- ingress-rule creation;
+- egress-rule creation;
+- ingress/egress rule separation;
+- enterprise tagging;
+- attachment to a real VPC.
+
+## Supporting VPC
+
+The supporting VPC uses:
+
+- route table key `private-a`;
+- subnet key `private-a`;
+- subnet group `supporting`;
+- `availability_zone_index = 0`;
+- explicit route-table association;
+- `create_internet_gateway = false`;
+- no `aws_route` resources.
+
+```mermaid
+flowchart LR
+    VPC["Supporting VPC"]
+    RT["Route table<br/>private-a"]
+    SUBNET["Subnet<br/>private-a"]
+    SG["Security group under test"]
+    IN["Ingress rule"]
+    OUT["Egress rule"]
+
+    VPC --> RT
+    VPC --> SUBNET
+    SUBNET --> RT
+    VPC --> SG
+    SG --> IN
+    SG --> OUT
+```
+
+## Deployment
 
 ```bash
 cp terraform.tfvars.example terraform.tfvars
-terraform init
-terraform plan
-terraform apply
+terraform init -input=false -reconfigure -backend-config=backend.hcl
+terraform fmt -check -recursive
+terraform validate
+terraform plan -input=false -out=tfplan
+terraform apply -input=false tfplan
+rm -f tfplan
 ```
 
-# Destroy
+Current plan expectation:
+
+```text
+Plan: 7 to add, 0 to change, 0 to destroy.
+```
+
+## Verification
 
 ```bash
-terraform destroy
+terraform output
+terraform state list
+terraform plan -input=false -detailed-exitcode
+echo $?
 ```
 
-Nothing in this environment has a retention/lock that would block
-destroy - a plain `terraform destroy` removes the rules, the group, and
-the supporting VPC together.
+Expected output:
 
-# Expected Outcome
+- `security_group_ids`.
 
-`terraform apply` completes with no errors and reports one VPC, one subnet,
-one security group, and two security group rules (one ingress, one
-egress). `security_group_ids` is a populated output.
+## Destroy
 
-# Notes
+```bash
+terraform plan -destroy -input=false -out=tfplan
+terraform apply -input=false tfplan
+rm -f tfplan
+terraform state list
+```
 
-The VPC in this environment exists only to satisfy the security-group
-module's dependency on a real `vpc_id`. It is not itself under test -
-changes to VPC behavior belong in the `vpc/` module test.
+## Scope boundary
+
+The supporting VPC is not under test. Changes to VPC behaviour belong in the VPC module test. The reusable VPC module creates no routes.

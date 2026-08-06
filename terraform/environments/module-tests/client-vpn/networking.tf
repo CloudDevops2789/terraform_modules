@@ -1,17 +1,19 @@
 ##################################################################################################
 # Supporting VPC
 ##################################################################################################
-# A minimal VPC is created here because the Client VPN module requires
-# subnets for endpoint associations. The VPC itself is not under test.
-module "vpc" {
+# A minimal VPC is created because the Client VPN module requires a real
+# subnet for its target-network association. The VPC itself is not under test.
 
+module "vpc" {
   source = "../../../modules/vpc"
 
-  vpc_name                = local.vpc.vpc_name
-  cidr_block              = local.vpc.cidr_block
-  availability_zone_count = local.vpc.availability_zone_count
+  vpc_name   = local.vpc.vpc_name
+  cidr_block = local.vpc.cidr_block
 
-  private_subnets = local.vpc.private_subnets
+  route_tables = local.vpc.route_tables
+  subnets      = local.vpc.subnets
+
+  create_internet_gateway = false
 
   tags = local.org_tags
 }

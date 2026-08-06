@@ -1,18 +1,19 @@
 ##################################################################################################
 # Supporting VPC
 ##################################################################################################
-# A minimal VPC is created here because the Transit Gateway module requires
-# a real VPC ID and subnet IDs to attach to. The VPC itself is not under
-# test - see locals.tf for why one private subnet is sufficient.
-module "vpc" {
+# A minimal VPC is created because the Transit Gateway module requires a real
+# VPC and subnet IDs for its attachment. The VPC itself is not under test.
 
+module "vpc" {
   source = "../../../modules/vpc"
 
-  vpc_name                = local.vpc.vpc_name
-  cidr_block              = local.vpc.cidr_block
-  availability_zone_count = local.vpc.availability_zone_count
+  vpc_name   = local.vpc.vpc_name
+  cidr_block = local.vpc.cidr_block
 
-  private_subnets = local.vpc.private_subnets
+  route_tables = local.vpc.route_tables
+  subnets      = local.vpc.subnets
+
+  create_internet_gateway = false
 
   tags = local.org_tags
 }

@@ -1,94 +1,120 @@
-# Purpose
+# AWS Client VPN Module Test
 
-Validates that the `client-vpn` module (`terraform/modules/client-vpn`)
-deploys successfully: the Client VPN endpoint, its CloudWatch log group and
-stream, one network association, and one authorization rule. This test
-validates only the Client VPN module - everything else in this folder
-exists solely to satisfy its dependencies.
+## Purpose
 
-# Module Under Test
+This Terraform root validates:
 
-`terraform/modules/client-vpn`
+```text
+terraform/modules/client-vpn
+```
 
-This test exercises endpoint creation, mutual-authentication configuration
-against a real certificate chain, the module's internal CloudWatch logging
-resources, one network association, and one authorization rule. Client VPN
-routes are intentionally not exercised - they are not required to prove
-the endpoint deploys successfully.
+The test proves that the Client VPN module can create its endpoint and required dependent resources using a real VPC subnet and certificate chain.
 
-# Supporting Resources
+## What the test validates
 
-- `module.vpc` (`networking.tf`) - the Client VPN endpoint creates Elastic
-  Network Interfaces inside real subnets of a real VPC; one private subnet
-  is the minimum shape that satisfies this. Not under test.
-- `module.security_group` (`security.tf`) - the endpoint requires a
-  security group for traffic leaving its ENIs toward VPC resources. No
-  explicit rules are configured because AWS's default allow-all egress
-  rule is sufficient, and rule behavior is validated by the
-  `security-group/` module test, not here. Not under test.
-- `tls_private_key`, `tls_self_signed_cert`, `tls_cert_request`,
-  `tls_locally_signed_cert`, and two `aws_acm_certificate` resources
-  (`certificates.tf`) - the module requires a server certificate and a
-  root CA certificate chain to already exist in ACM; it does not issue
-  certificates itself. These generate a throwaway self-signed CA and
-  server certificate and import them into ACM, but ONLY when an operator
-  has not supplied real ones (see "Optional Certificate Override" below).
-  Certificate issuance itself is not under test.
+The test exercises:
 
-# Optional Certificate Override
+- the Client VPN endpoint;
+- CloudWatch logging resources;
+- one target-network association;
+- one authorization rule;
+- mutual-certificate authentication.
 
-By default, this test is fully self-contained: leave
-`server_certificate_arn` and `root_certificate_chain_arn` unset, and it
-generates and imports a throwaway self-signed certificate chain itself,
-using it automatically. This is the home lab path - nothing needs to
-exist beforehand.
+Client VPN route resources are intentionally outside this test's scope.
 
-If an operator supplies both variables - the same names
-`terraform/environments/sandbox` uses for the same purpose - this test
-uses those existing ACM certificates instead, and none of the
-`tls_*`/`aws_acm_certificate` resources in `certificates.tf` are created.
-This is the enterprise path: it validates the client-vpn module against
-certificates already issued and managed outside this test, exactly as a
-production deployment would use it, without changing any files. Both
-variables must be supplied together - a server certificate not signed by
-the supplied root would fail at apply time. The switch is driven by
-`local.generate_certificates` in `locals.tf`.
+## Supporting resources
 
-# Deployment
+The test uses:
+
+- `module.vpc` for one real VPC and subnet;
+- `module.security_group` for endpoint ENI traffic;
+- generated TLS and ACM resources when certificate ARNs are not supplied.
+
+### Supporting VPC topology
+
+The supporting VPC uses:
+
+- route table key `private-a`;
+- subnet key `private-a`;
+- subnet group `supporting`;
+- `availability_zone_index = 0`;
+- explicit route-table association;
+- `create_internet_gateway = false`;
+- no `aws_route` resources.
+
+```mermaid
+flowchart LR
+    VPC["Supporting VPC"]
+    RT["Route table<br/>private-a"]
+    SUBNET["Subnet<br/>private-a<br/>Group: supporting"]
+    VPN["Client VPN endpoint"]
+    ENI["Target-network association ENI"]
+
+    VPC --> RT
+    VPC --> SUBNET
+    SUBNET --> RT
+    VPN --> ENI
+    ENI --> SUBNET
+```
+
+## Certificate source
+
+When both certificate ARN variables are omitted, the test generates a temporary self-signed CA and server certificate and imports them into ACM.
+
+For the enterprise path, supply both:
+
+```hcl
+server_certificate_arn     = "arn:aws:acm:..."
+root_certificate_chain_arn = "arn:aws:acm:..."
+```
+
+Both values must be supplied together.
+
+## Deployment
 
 ```bash
 cp terraform.tfvars.example terraform.tfvars
-# optionally set server_certificate_arn / root_certificate_chain_arn -
-# see terraform.tfvars.example
-terraform init
-terraform plan
-terraform apply
+terraform init -input=false -reconfigure -backend-config=backend.hcl
+terraform fmt -check -recursive
+terraform validate
+terraform plan -input=false -out=tfplan
+terraform apply -input=false tfplan
+rm -f tfplan
 ```
 
-# Destroy
+Using the generated-certificate path, the current default plan expectation is:
+
+```text
+Plan: 17 to add, 0 to change, 0 to destroy.
+```
+
+The count can be lower when existing ACM certificates are supplied.
+
+## Verification
 
 ```bash
-terraform destroy
+terraform output
+terraform state list
+terraform plan -input=false -detailed-exitcode
+echo $?
 ```
 
-When certificates were generated by this test, they are destroyed along
-with everything else. When existing ACM certificates were supplied
-instead, they are untouched - this test only ever reads their ARNs, it
-never manages their lifecycle.
+Expected outputs:
 
-# Expected Outcome
+- `client_vpn_endpoint_id`;
+- `client_vpn_dns_name`.
 
-`terraform apply` completes with no errors and reports one VPC, one
-security group, and one Client VPN endpoint with its network association
-and authorization rule. When certificate ARNs are not supplied, it also
-reports a self-signed certificate chain imported into ACM.
-`client_vpn_endpoint_id` and `client_vpn_dns_name` are populated outputs.
+## Destroy
 
-# Notes
+```bash
+terraform plan -destroy -input=false -out=tfplan
+terraform apply -input=false tfplan
+rm -f tfplan
+terraform state list
+```
 
-The VPC and security group in this environment exist only to satisfy the
-Client VPN module's dependencies and are not themselves under test -
-changes to their behavior belong in the `vpc/` and `security-group/`
-module tests. The same is true of the generated certificates when no ARNs
-are supplied: they are throwaway material generated at apply time, not
-suitable for any use beyond this test.
+Certificates generated by this test are destroyed with it. Externally supplied ACM certificates are not managed or destroyed by this root.
+
+## Scope boundary
+
+The VPC, security group, and generated certificates are supporting resources. The VPC module creates no routes. Client VPN routing policy must be defined explicitly by the environment or routing layer.

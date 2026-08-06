@@ -26,12 +26,22 @@ locals {
   # to select. A minimal VPC and instance exist only to give the Backup
   # Selection module something to protect; neither is under test.
   vpc = {
-    vpc_name                = "module-test-backup-vpc"
-    cidr_block              = "10.255.0.0/16"
-    availability_zone_count = 2
+    vpc_name   = "module-test-backup-vpc"
+    cidr_block = "10.255.0.0/16"
 
-    private_subnets = {
-      private-a = "10.255.11.0/24"
+    route_tables = {
+      private-a = {
+        group = "supporting"
+      }
+    }
+
+    subnets = {
+      private-a = {
+        cidr_block              = "10.255.11.0/24"
+        availability_zone_index = 0
+        group                   = "supporting"
+        route_table_key         = "private-a"
+      }
     }
   }
 

@@ -1,17 +1,19 @@
 ##################################################################################################
 # Supporting VPC
 ##################################################################################################
-# A minimal VPC is created here so the supporting EC2 instance (the
-# resource AWS Backup protects) has somewhere to launch. Not under test.
-module "vpc" {
+# A minimal VPC is created so the supporting EC2 instance protected by AWS
+# Backup has a subnet in which to launch. The VPC itself is not under test.
 
+module "vpc" {
   source = "../../../modules/vpc"
 
-  vpc_name                = local.vpc.vpc_name
-  cidr_block              = local.vpc.cidr_block
-  availability_zone_count = local.vpc.availability_zone_count
+  vpc_name   = local.vpc.vpc_name
+  cidr_block = local.vpc.cidr_block
 
-  private_subnets = local.vpc.private_subnets
+  route_tables = local.vpc.route_tables
+  subnets      = local.vpc.subnets
+
+  create_internet_gateway = false
 
   tags = local.org_tags
 }
