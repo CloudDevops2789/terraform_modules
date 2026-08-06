@@ -103,3 +103,25 @@ It creates no Network Firewall, Internet Gateway, NAT Gateway, default route,
 or firewall endpoint route. Traffic steering will be introduced separately
 after the firewall policy, firewall endpoints, and same-AZ return paths have
 been validated together.
+
+## Centralized Network Firewall
+
+The centralized Inspection VPC contains a two-Availability-Zone AWS Network
+Firewall deployment.
+
+The initial strict-order policy permits only these VPC trust relationships:
+
+```text
+Recovery Access <-> Core Recovery <-> Protected Data
+```
+
+There is no rule permitting direct Recovery Access-to-Protected Data traffic.
+Unmatched stateful traffic is dropped and alerted.
+
+This stage creates the rule group, firewall policy, and firewall endpoints
+only. No existing VPC or Transit Gateway route points to the firewall yet, so
+current Sandbox traffic paths remain unchanged.
+
+TLS traffic analysis is enabled for metadata visibility, but TLS decryption is
+not configured. TLS inspection requires an organization-approved certificate
+and trust-distribution process and will not be enabled using test PKI.
