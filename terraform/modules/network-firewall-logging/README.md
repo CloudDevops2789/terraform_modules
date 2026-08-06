@@ -107,3 +107,9 @@ The companion module test creates:
 - ALERT and FLOW logging destinations
 - The detailed monitoring dashboard
 AWS Network Firewall is billable while deployed. Destroy the test immediately after lifecycle validation.
+
+## Repository integration status
+
+The Sandbox configures encrypted CloudWatch `ALERT` and `FLOW` destinations with
+a dedicated KMS key and a log-group-scoped encryption context. TLS logging and
+the detailed monitoring dashboard are disabled in the current Sandbox.

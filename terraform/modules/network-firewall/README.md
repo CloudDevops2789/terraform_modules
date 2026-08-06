@@ -171,3 +171,10 @@ The companion module test creates:
 - One VPC-attached Network Firewall
 - Routing-ready endpoint outputs
 AWS Network Firewall is billable while deployed. Destroy the test immediately after validation.
+
+## Repository integration status
+
+The module is integrated in `terraform/environments/sandbox` as one two-AZ
+firewall in the dedicated centralized Inspection VPC. The environment selects
+same-AZ endpoint IDs for Transit Gateway traffic. The module itself remains
+topology-neutral and does not create routes.

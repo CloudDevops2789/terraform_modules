@@ -34,12 +34,12 @@ module-tests/network-firewall-routing/terraform.tfstate
 ```
 ## Deployment
 ```bash
-terraform init -reconfigure
-terraform fmt -recursive
+terraform init -input=false -reconfigure -backend-config=backend.hcl
+terraform fmt -check -recursive
 terraform validate
-terraform plan -out=tfplan
-terraform apply tfplan
-terraform plan
+terraform plan -input=false -out=tfplan
+terraform apply -input=false tfplan
+terraform plan -input=false
 ```
 The firewall and Transit Gateway attachment can take several minutes to become ready.
 ## Expected result
@@ -49,6 +49,6 @@ No changes. Your infrastructure matches the configuration.
 ```
 ## Destroy
 ```bash
-terraform destroy
+terraform destroy -input=false
 ```
 Protection settings and automatic Transit Gateway route-table behavior are disabled so destroy can complete cleanly.

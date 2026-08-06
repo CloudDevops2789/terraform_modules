@@ -120,3 +120,10 @@ terraform apply
 terraform plan
 terraform destroy
 ```
+
+## Repository integration status
+
+The Sandbox uses this module for one strict-order centralized inspection policy.
+Stateless traffic is forwarded to the stateful engine, unmatched stateful
+traffic is dropped and alerted, and the policy references the Sandbox
+segmentation rule group.

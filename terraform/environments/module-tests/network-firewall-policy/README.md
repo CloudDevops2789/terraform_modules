@@ -23,16 +23,16 @@ module-tests/network-firewall-policy/terraform.tfstate
 Supply shared backend settings using the repository's standard backend configuration.
 ## Deployment
 ```bash
-terraform init -reconfigure -backend-config=../../../../backend.hcl
-terraform fmt -check
+terraform init -input=false -reconfigure -backend-config=backend.hcl
+terraform fmt -check -recursive
 terraform validate
-terraform plan -out=tfplan
-terraform apply tfplan
-terraform plan
+terraform plan -input=false -out=tfplan
+terraform apply -input=false tfplan
+terraform plan -input=false
 ```
 ## Destroy
 ```bash
-terraform destroy
+terraform destroy -input=false
 ```
 ## Expected outcome
 Terraform creates two supporting rule groups and two firewall policies. The post-apply plan should report no changes.

@@ -22,19 +22,19 @@ module-tests/network-firewall-logging/terraform.tfstate
 ```
 ## Deployment
 ```bash
-terraform init -reconfigure
-terraform fmt -recursive
+terraform init -input=false -reconfigure -backend-config=backend.hcl
+terraform fmt -check -recursive
 terraform validate
-terraform plan -out=tfplan
-terraform apply tfplan
-terraform plan
+terraform plan -input=false -out=tfplan
+terraform apply -input=false tfplan
+terraform plan -input=false
 ```
 The Network Firewall can take several minutes to become ready before logging is configured.
 ## Expected result
 The apply creates the supporting network and firewall, then attaches ALERT and FLOW CloudWatch Logs destinations. The post-apply plan should report no changes.
 ## Destroy
 ```bash
-terraform destroy
+terraform destroy -input=false
 ```
 Protection settings are disabled so destroy can complete without an intermediate firewall update.
 ## Scope
