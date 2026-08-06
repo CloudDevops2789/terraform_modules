@@ -160,17 +160,21 @@ variable "stateful_rule_groups" {
   validation {
     condition = alltrue([
       for rule_group in values(var.stateful_rule_groups) :
-      rule_group.encryption_configuration == null ||
-      contains(["AWS_OWNED_KMS_KEY", "CUSTOMER_KMS"], rule_group.encryption_configuration.type)
+      rule_group.encryption_configuration == null ? true :
+      contains(
+        ["AWS_OWNED_KMS_KEY", "CUSTOMER_KMS"],
+        rule_group.encryption_configuration.type
+      )
     ])
     error_message = "Encryption type must be AWS_OWNED_KMS_KEY or CUSTOMER_KMS."
   }
   validation {
     condition = alltrue([
       for rule_group in values(var.stateful_rule_groups) :
-      rule_group.encryption_configuration == null ||
-      rule_group.encryption_configuration.type != "CUSTOMER_KMS" ||
-      try(rule_group.encryption_configuration.key_id, null) != null
+      rule_group.encryption_configuration == null ? true : (
+        rule_group.encryption_configuration.type != "CUSTOMER_KMS" ||
+        try(rule_group.encryption_configuration.key_id, null) != null
+      )
     ])
     error_message = "CUSTOMER_KMS encryption requires key_id."
   }
@@ -314,17 +318,21 @@ variable "stateless_rule_groups" {
   validation {
     condition = alltrue([
       for rule_group in values(var.stateless_rule_groups) :
-      rule_group.encryption_configuration == null ||
-      contains(["AWS_OWNED_KMS_KEY", "CUSTOMER_KMS"], rule_group.encryption_configuration.type)
+      rule_group.encryption_configuration == null ? true :
+      contains(
+        ["AWS_OWNED_KMS_KEY", "CUSTOMER_KMS"],
+        rule_group.encryption_configuration.type
+      )
     ])
     error_message = "Encryption type must be AWS_OWNED_KMS_KEY or CUSTOMER_KMS."
   }
   validation {
     condition = alltrue([
       for rule_group in values(var.stateless_rule_groups) :
-      rule_group.encryption_configuration == null ||
-      rule_group.encryption_configuration.type != "CUSTOMER_KMS" ||
-      try(rule_group.encryption_configuration.key_id, null) != null
+      rule_group.encryption_configuration == null ? true : (
+        rule_group.encryption_configuration.type != "CUSTOMER_KMS" ||
+        try(rule_group.encryption_configuration.key_id, null) != null
+      )
     ])
     error_message = "CUSTOMER_KMS encryption requires key_id."
   }
