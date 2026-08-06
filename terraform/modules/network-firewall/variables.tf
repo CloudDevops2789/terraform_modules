@@ -146,17 +146,21 @@ variable "firewalls" {
   validation {
     condition = alltrue([
       for firewall in values(var.firewalls) :
-      firewall.encryption_configuration == null ||
-      contains(["AWS_OWNED_KMS_KEY", "CUSTOMER_KMS"], firewall.encryption_configuration.type)
+      firewall.encryption_configuration == null ? true :
+      contains(
+        ["AWS_OWNED_KMS_KEY", "CUSTOMER_KMS"],
+        firewall.encryption_configuration.type
+      )
     ])
     error_message = "Encryption type must be AWS_OWNED_KMS_KEY or CUSTOMER_KMS."
   }
   validation {
     condition = alltrue([
       for firewall in values(var.firewalls) :
-      firewall.encryption_configuration == null ||
-      firewall.encryption_configuration.type != "CUSTOMER_KMS" ||
-      try(firewall.encryption_configuration.key_id, null) != null
+      firewall.encryption_configuration == null ? true : (
+        firewall.encryption_configuration.type != "CUSTOMER_KMS" ||
+        try(firewall.encryption_configuration.key_id, null) != null
+      )
     ])
     error_message = "CUSTOMER_KMS encryption requires key_id."
   }

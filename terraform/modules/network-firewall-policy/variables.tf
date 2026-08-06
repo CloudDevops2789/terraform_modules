@@ -239,7 +239,7 @@ variable "firewall_policies" {
     condition = alltrue(flatten([
       for policy in values(var.firewall_policies) : [
         for reference in values(policy.firewall_policy.stateful_rule_group_references) :
-        reference.override == null || reference.override.action == "DROP_TO_ALERT"
+        reference.override == null ? true : reference.override.action == "DROP_TO_ALERT"
       ]
     ]))
     error_message = "Stateful rule group override action must be DROP_TO_ALERT."
@@ -303,17 +303,21 @@ variable "firewall_policies" {
   validation {
     condition = alltrue([
       for policy in values(var.firewall_policies) :
-      policy.encryption_configuration == null ||
-      contains(["AWS_OWNED_KMS_KEY", "CUSTOMER_KMS"], policy.encryption_configuration.type)
+      policy.encryption_configuration == null ? true :
+      contains(
+        ["AWS_OWNED_KMS_KEY", "CUSTOMER_KMS"],
+        policy.encryption_configuration.type
+      )
     ])
     error_message = "Encryption type must be AWS_OWNED_KMS_KEY or CUSTOMER_KMS."
   }
   validation {
     condition = alltrue([
       for policy in values(var.firewall_policies) :
-      policy.encryption_configuration == null ||
-      policy.encryption_configuration.type != "CUSTOMER_KMS" ||
-      try(policy.encryption_configuration.key_id, null) != null
+      policy.encryption_configuration == null ? true : (
+        policy.encryption_configuration.type != "CUSTOMER_KMS" ||
+        try(policy.encryption_configuration.key_id, null) != null
+      )
     ])
     error_message = "CUSTOMER_KMS encryption requires key_id."
   }

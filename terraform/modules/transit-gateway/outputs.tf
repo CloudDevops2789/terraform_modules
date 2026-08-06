@@ -33,3 +33,12 @@ output "route_table_ids" {
     key => route_table.id
   }
 }
+
+output "attachment_ids" {
+  description = "Transit Gateway VPC attachment IDs keyed by the caller-defined attachment identifiers."
+
+  value = {
+    for key, attachment in aws_ec2_transit_gateway_vpc_attachment.this :
+    key => attachment.id
+  }
+}

@@ -22,6 +22,11 @@ module "transit_gateway" {
       vpc_id     = module.vpc.vpc_id
       subnet_ids = module.vpc.subnet_ids_by_group["transit-gateway"]
 
+      # Centralized stateful inspection requires appliance mode on the
+      # Inspection VPC attachment. Enabling it here validates that the
+      # reusable module passes the setting to AWS.
+      appliance_mode_support = "enable"
+
       # Associates this attachment with the "main" route table and
       # propagates its CIDR back into the same table - the minimum wiring
       # needed to prove association/propagation both work, without

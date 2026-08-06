@@ -204,17 +204,21 @@ variable "tls_inspection_configurations" {
   validation {
     condition = alltrue([
       for configuration in values(var.tls_inspection_configurations) :
-      configuration.encryption_configuration == null ||
-      contains(["AWS_OWNED_KMS_KEY", "CUSTOMER_KMS"], configuration.encryption_configuration.type)
+      configuration.encryption_configuration == null ? true :
+      contains(
+        ["AWS_OWNED_KMS_KEY", "CUSTOMER_KMS"],
+        configuration.encryption_configuration.type
+      )
     ])
     error_message = "Encryption type must be AWS_OWNED_KMS_KEY or CUSTOMER_KMS."
   }
   validation {
     condition = alltrue([
       for configuration in values(var.tls_inspection_configurations) :
-      configuration.encryption_configuration == null ||
-      configuration.encryption_configuration.type != "CUSTOMER_KMS" ||
-      try(configuration.encryption_configuration.key_id, null) != null
+      configuration.encryption_configuration == null ? true : (
+        configuration.encryption_configuration.type != "CUSTOMER_KMS" ||
+        try(configuration.encryption_configuration.key_id, null) != null
+      )
     ])
     error_message = "CUSTOMER_KMS encryption requires key_id."
   }

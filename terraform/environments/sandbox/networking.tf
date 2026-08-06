@@ -49,8 +49,8 @@ module "protected_data" {
 ##################################################################################################
 # Transit Gateway
 ##################################################################################################
-# Recovery Access <-> Core Recovery <-> Protected Data
-# Recovery Access receives no route to Protected Data.
+# Every approved inter-VPC path is steered first to the centralized Inspection VPC attachment.
+# Recovery Access and Protected Data still receive no route to one another.
 
 module "transit_gateway" {
   source = "../../modules/transit-gateway"
@@ -60,31 +60,46 @@ module "transit_gateway" {
   default_route_table_association = local.transit_gateway.default_route_table_association
   default_route_table_propagation = local.transit_gateway.default_route_table_propagation
 
-  route_tables = local.transit_gateway.route_tables
+  route_tables = merge(
+    local.transit_gateway.route_tables,
+    {
+      inspection = {
+        name = "Centralized Inspection Route Table"
+      }
+    }
+  )
 
   vpc_attachments = {
     recovery_access = {
       vpc_id       = module.recovery_access.vpc_id
       subnet_ids   = module.recovery_access.subnet_ids_by_group["transit-gateway"]
       route_table  = "recovery_access"
-      propagate_to = ["core_recovery"]
+      propagate_to = ["inspection"]
     }
 
     core_recovery = {
-      vpc_id      = module.core_recovery.vpc_id
-      subnet_ids  = module.core_recovery.subnet_ids_by_group["transit-gateway"]
-      route_table = "core_recovery"
-      propagate_to = [
-        "recovery_access",
-        "protected_data",
-      ]
+      vpc_id       = module.core_recovery.vpc_id
+      subnet_ids   = module.core_recovery.subnet_ids_by_group["transit-gateway"]
+      route_table  = "core_recovery"
+      propagate_to = ["inspection"]
     }
 
     protected_data = {
       vpc_id       = module.protected_data.vpc_id
       subnet_ids   = module.protected_data.subnet_ids_by_group["transit-gateway"]
       route_table  = "protected_data"
-      propagate_to = ["core_recovery"]
+      propagate_to = ["inspection"]
+    }
+
+    inspection = {
+      vpc_id       = module.inspection_vpc.vpc_id
+      subnet_ids   = module.inspection_vpc.subnet_ids_by_group["transit-gateway"]
+      route_table  = "inspection"
+      propagate_to = []
+
+      # Appliance mode preserves Availability Zone affinity and symmetric
+      # forwarding for stateful inspection when traffic steering is enabled.
+      appliance_mode_support = "enable"
     }
   }
 
