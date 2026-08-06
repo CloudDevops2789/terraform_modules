@@ -239,7 +239,7 @@ variable "firewall_policies" {
     condition = alltrue(flatten([
       for policy in values(var.firewall_policies) : [
         for reference in values(policy.firewall_policy.stateful_rule_group_references) :
-        reference.override == null || reference.override.action == "DROP_TO_ALERT"
+        reference.override == null ? true : reference.override.action == "DROP_TO_ALERT"
       ]
     ]))
     error_message = "Stateful rule group override action must be DROP_TO_ALERT."
