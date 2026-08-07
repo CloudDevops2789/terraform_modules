@@ -101,7 +101,11 @@ module "network_firewall_logging_kms" {
 ##################################################################################################
 
 resource "aws_cloudwatch_log_group" "network_firewall" {
-  for_each = local.network_firewall_logging.log_groups
+  for_each = (
+    local.network_firewall_enabled
+    ? local.network_firewall_logging.log_groups
+    : {}
+  )
 
   name              = each.value.name
   retention_in_days = local.network_firewall_logging.retention_in_days
@@ -125,7 +129,7 @@ resource "aws_cloudwatch_log_group" "network_firewall" {
 module "network_firewall_logging" {
   source = "../../modules/network-firewall-logging"
 
-  logging_configurations = {
+  logging_configurations = local.network_firewall_enabled ? {
     inspection = {
       firewall_arn                = module.network_firewall.firewall_arns["inspection"]
       enable_monitoring_dashboard = false
@@ -141,7 +145,7 @@ module "network_firewall_logging" {
         }
       }
     }
-  }
+  } : {}
 }
 
 ##################################################################################################

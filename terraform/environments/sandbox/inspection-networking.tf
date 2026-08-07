@@ -67,6 +67,9 @@ locals {
 
 # Purpose: Creates the centralized Inspection VPC that hosts AWS Network Firewall endpoints.
 # Change when: Change firewall and TGW subnet allocations together to preserve Availability Zone alignment.
+# The Inspection VPC remains provisioned in bypass mode.
+# Bypass mode removes the Network Firewall and its TGW attachment while
+# retaining the network structure so inspection can be re-enabled cleanly.
 module "inspection_vpc" {
   source = "../../modules/vpc"
 

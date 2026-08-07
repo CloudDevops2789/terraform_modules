@@ -67,57 +67,67 @@ module "transit_gateway" {
 
   default_route_table_association = local.transit_gateway.default_route_table_association
   default_route_table_propagation = local.transit_gateway.default_route_table_propagation
-
+  # Make TGW automatically choose its topology if Network firewall is disabled. This allows the Inspection VPC to be bypassed while retaining the same VPC and subnet structure.
   route_tables = merge(
     local.transit_gateway.route_tables,
-    {
+
+    local.network_firewall_enabled ? {
       inspection = {
         name = local.resource_names.transit_gateway_inspection_rt
       }
-    }
+    } : {}
   )
 
-  vpc_attachments = {
-    # Purpose: Attaches Recovery Access to its dedicated Transit Gateway route table.
-    # Change when: Change propagation only when the approved Recovery Access traffic path changes.
-    recovery_access = {
-      vpc_id       = module.recovery_access.vpc_id
-      subnet_ids   = module.recovery_access.subnet_ids_by_group["transit-gateway"]
-      route_table  = "recovery_access"
-      propagate_to = ["inspection"]
-    }
+  vpc_attachments = merge(
+    {
+      recovery_access = {
+        vpc_id      = module.recovery_access.vpc_id
+        subnet_ids  = module.recovery_access.subnet_ids_by_group["transit-gateway"]
+        route_table = "recovery_access"
 
-    # Purpose: Attaches Core Recovery to its dedicated Transit Gateway route table.
-    # Change when: Change propagation only when the approved Core Recovery traffic path changes.
-    core_recovery = {
-      vpc_id       = module.core_recovery.vpc_id
-      subnet_ids   = module.core_recovery.subnet_ids_by_group["transit-gateway"]
-      route_table  = "core_recovery"
-      propagate_to = ["inspection"]
-    }
+        propagate_to = (
+          local.network_firewall_enabled
+          ? ["inspection"]
+          : ["core_recovery"]
+        )
+      }
 
-    # Purpose: Attaches Protected Data to its dedicated Transit Gateway route table.
-    # Change when: Change propagation only when the approved Protected Data traffic path changes.
-    protected_data = {
-      vpc_id       = module.protected_data.vpc_id
-      subnet_ids   = module.protected_data.subnet_ids_by_group["transit-gateway"]
-      route_table  = "protected_data"
-      propagate_to = ["inspection"]
-    }
+      core_recovery = {
+        vpc_id      = module.core_recovery.vpc_id
+        subnet_ids  = module.core_recovery.subnet_ids_by_group["transit-gateway"]
+        route_table = "core_recovery"
 
-    # Purpose: Attaches the Inspection VPC with appliance mode enabled for symmetric stateful inspection.
-    # Change when: Change subnets or appliance mode only with the complete centralized-inspection design.
-    inspection = {
-      vpc_id       = module.inspection_vpc.vpc_id
-      subnet_ids   = module.inspection_vpc.subnet_ids_by_group["transit-gateway"]
-      route_table  = "inspection"
-      propagate_to = []
+        propagate_to = (
+          local.network_firewall_enabled
+          ? ["inspection"]
+          : ["recovery_access", "protected_data"]
+        )
+      }
 
-      # Appliance mode preserves Availability Zone affinity and symmetric
-      # forwarding for stateful inspection when traffic steering is enabled.
-      appliance_mode_support = "enable"
-    }
-  }
+      protected_data = {
+        vpc_id      = module.protected_data.vpc_id
+        subnet_ids  = module.protected_data.subnet_ids_by_group["transit-gateway"]
+        route_table = "protected_data"
+
+        propagate_to = (
+          local.network_firewall_enabled
+          ? ["inspection"]
+          : ["core_recovery"]
+        )
+      }
+    },
+
+    local.network_firewall_enabled ? {
+      inspection = {
+        vpc_id       = module.inspection_vpc.vpc_id
+        subnet_ids   = module.inspection_vpc.subnet_ids_by_group["transit-gateway"]
+        route_table  = "inspection"
+        propagate_to = []
+
+        appliance_mode_support = "enable"
+      }
+    } : {}
+  )
 
   tags = merge(
     local.org_tags,

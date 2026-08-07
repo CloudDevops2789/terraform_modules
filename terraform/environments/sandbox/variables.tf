@@ -321,3 +321,20 @@ variable "network_config" {
     error_message = "Every network_config address must be a valid CIDR block."
   }
 }
+
+#### Variable to Bypass network firewall
+
+variable "network_inspection_mode" {
+  description = "Network inspection mode. 'firewall' routes approved inter-VPC traffic through AWS Network Firewall; 'bypass' routes approved traffic directly through Transit Gateway."
+  type        = string
+  default     = "firewall"
+
+  validation {
+    condition = contains(
+      ["firewall", "bypass"],
+      var.network_inspection_mode
+    )
+
+    error_message = "network_inspection_mode must be either 'firewall' or 'bypass'."
+  }
+}

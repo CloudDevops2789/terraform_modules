@@ -651,3 +651,11 @@ locals {
     alias       = local.resource_names.general_kms_alias
   }
 }
+
+####
+#Locals to bypass Network firewall
+####
+
+locals {
+  network_firewall_enabled = var.network_inspection_mode == "firewall"
+}
