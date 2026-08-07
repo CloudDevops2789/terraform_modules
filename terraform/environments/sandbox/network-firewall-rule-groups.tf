@@ -49,8 +49,12 @@ locals {
 # Change when: Change source, destination, protocol, or port scope only when the traffic policy changes.
 module "network_firewall_rule_groups" {
   source = "../../modules/network-firewall-rule-group"
-
-  stateful_rule_groups  = local.sandbox_network_firewall_stateful_rule_groups
+  # Make the firewall rule group optional
+  stateful_rule_groups = (
+    local.network_firewall_enabled
+    ? local.sandbox_network_firewall_stateful_rule_groups
+    : {}
+  )
   stateless_rule_groups = {}
 
   tags = local.org_tags

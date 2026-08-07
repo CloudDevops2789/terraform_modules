@@ -1,19 +1,19 @@
 ##################################################################################################
-# Centralized Network Firewall Routing
+# Inter-VPC Routing
 ##################################################################################################
-# Routing ownership is delegated to the reusable network-firewall-routing module.
-#
 # Approved trust paths:
 #
 # Recovery Access <-> Core Recovery <-> Protected Data
 #
-# The spoke VPC route tables continue to send only approved adjacent-VPC destinations to Transit
-# Gateway. The spoke Transit Gateway route tables then send those destinations to the Inspection
-# VPC attachment. Inside the Inspection VPC, each Transit Gateway attachment subnet forwards traffic
-# to the Network Firewall endpoint in the same Availability Zone. Firewall subnet route tables return
-# inspected traffic to Transit Gateway.
+# firewall mode:
+#   Approved inter-VPC traffic is steered through the centralized Inspection VPC
+#   and AWS Network Firewall.
 #
-# There is no VPC route or Transit Gateway route between Recovery Access and Protected Data.
+# bypass mode:
+#   The same approved VPC relationships route directly through Transit Gateway,
+#   without creating Network Firewall resources or the Inspection TGW attachment.
+#
+# Recovery Access and Protected Data never receive a direct route to one another.
 
 locals {
   ################################################################################################
@@ -198,7 +198,7 @@ locals {
     protected_data  = module.protected_data.vpc_cidr
   }
 
-  inspection_tgw_to_firewall_routes = merge([
+  inspection_tgw_to_firewall_routes = local.network_firewall_enabled ? merge([
     for zone_key, zone in local.inspection_routing_zones : {
       for spoke_key, spoke_cidr in local.inspection_spoke_cidrs :
       "inspection_tgw_${zone_key}_to_${spoke_key}" => {
@@ -212,9 +212,9 @@ locals {
         }
       }
     }
-  ]...)
+  ]...) : {}
 
-  inspection_firewall_to_tgw_routes = merge([
+  inspection_firewall_to_tgw_routes = local.network_firewall_enabled ? merge([
     for zone_key, zone in local.inspection_routing_zones : {
       for spoke_key, spoke_cidr in local.inspection_spoke_cidrs :
       "inspection_firewall_${zone_key}_to_${spoke_key}" => {
@@ -225,7 +225,7 @@ locals {
         }
       }
     }
-  ]...)
+  ]...) : {}
 
   sandbox_vpc_routes = merge(
     local.sandbox_spoke_vpc_routes,
@@ -237,7 +237,7 @@ locals {
   # Spoke TGW route tables -> Inspection VPC attachment
   ################################################################################################
 
-  sandbox_transit_gateway_inspection_routes = {
+  sandbox_transit_gateway_inspection_routes = local.network_firewall_enabled ? {
     recovery_access_to_core = {
       transit_gateway_route_table_id = (
         module.transit_gateway.route_table_ids["recovery_access"]
@@ -277,10 +277,10 @@ locals {
         module.transit_gateway.attachment_ids["inspection"]
       )
     }
-  }
+  } : {}
 }
 
-# Purpose: Creates the VPC and Transit Gateway routes that steer approved traffic through inspection.
+# Purpose: Creates approved inter-VPC routes for either firewall inspection or direct TGW bypass mode.
 # Change when: Change routes as a complete forward-and-return path to preserve stateful symmetry.
 module "network_firewall_routing" {
   source = "../../modules/network-firewall-routing"

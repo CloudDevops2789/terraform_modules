@@ -6,10 +6,11 @@
 
 # Purpose: Creates the centralized AWS Network Firewall and its Availability Zone endpoints.
 # Change when: Change subnet mappings or protection settings only with the Inspection VPC topology.
+# Make Network Firewall optional
 module "network_firewall" {
   source = "../../modules/network-firewall"
 
-  firewalls = {
+  firewalls = local.network_firewall_enabled ? {
     inspection = {
       name        = local.resource_names.network_firewall
       description = "Two-AZ centralized inspection firewall for the AWS ${var.naming.project_display_name} ${var.naming.environment_display_name}."
@@ -34,7 +35,6 @@ module "network_firewall" {
         "HTTP_HOST",
         "TLS_SNI"
       ]
-
       # Sandbox lifecycle settings remain disabled to support clean teardown.
       # Production should evaluate enabling all applicable protections.
       delete_protection                 = false
@@ -45,7 +45,7 @@ module "network_firewall" {
         org_service_name = "centralized-network-inspection"
       }
     }
-  }
+  } : {}
 
   tags = local.org_tags
 }
@@ -56,13 +56,17 @@ module "network_firewall" {
 
 output "network_firewall_arn" {
   description = "ARN of the centralized environment Network Firewall."
-  value       = module.network_firewall.firewall_arns["inspection"]
+  # updated the outputs because "inspection" won't exist in bypass mode.
+  value = try(
+    module.network_firewall.firewall_arns["inspection"],
+    null
+  )
 }
 
 output "network_firewall_endpoint_ids_by_availability_zone" {
-  description = "Firewall endpoint IDs keyed by Availability Zone for future same-AZ routing."
-  value = (
-    module.network_firewall
-    .endpoint_ids_by_availability_zone["inspection"]
+  description = "Firewall endpoint IDs keyed by Availability Zone. Empty when inspection mode is bypass."
+  value = try(
+    module.network_firewall.endpoint_ids_by_availability_zone["inspection"],
+    {}
   )
 }
