@@ -64,9 +64,9 @@ module "security_group_rule" {
       from_port   = local.security_groups.rules.management_ssh.from_port
       to_port     = local.security_groups.rules.management_ssh.to_port
 
-      references = [
+      referenced_security_group_id = (
         module.security_group.security_group_ids["management"]
-      ]
+      )
     }
 
     # Purpose: Allows ICMP echo requests to the management host for connectivity testing.
@@ -79,9 +79,9 @@ module "security_group_rule" {
       from_port   = local.security_groups.rules.management_ping.from_port
       to_port     = local.security_groups.rules.management_ping.to_port
 
-      references = [
+      referenced_security_group_id = (
         module.security_group.security_group_ids["management"]
-      ]
+      )
     }
 
     # Purpose: Allows the management tier to initiate outbound traffic permitted by routing and downstream controls.
