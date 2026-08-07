@@ -5,6 +5,8 @@
 # approved. The directory-services group already spans two AZs.
 
 /*
+# Purpose: Defines the optional AWS Managed Microsoft AD deployment for administrative identity testing.
+# Change when: Enable or change it only after the identity use case, DNS design, and credential handling are approved.
 module "managed_microsoft_ad" {
   source = "../../modules/managed-microsoft-ad"
 

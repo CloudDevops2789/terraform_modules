@@ -65,6 +65,8 @@ locals {
   }
 }
 
+# Purpose: Creates the centralized Inspection VPC that hosts AWS Network Firewall endpoints.
+# Change when: Change firewall and TGW subnet allocations together to preserve Availability Zone alignment.
 module "inspection_vpc" {
   source = "../../modules/vpc"
 

@@ -45,6 +45,8 @@ locals {
   }
 }
 
+# Purpose: Creates the stateful firewall rules for approved Recovery Access, Core, and Protected Data paths.
+# Change when: Change source, destination, protocol, or port scope only when the traffic policy changes.
 module "network_firewall_rule_groups" {
   source = "../../modules/network-firewall-rule-group"
 

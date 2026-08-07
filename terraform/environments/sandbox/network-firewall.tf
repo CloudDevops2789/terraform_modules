@@ -4,6 +4,8 @@
 # One endpoint is deployed in each dedicated firewall subnet. routing.tf selects the endpoint in the
 # same Availability Zone as the Transit Gateway attachment subnet for every inspected flow.
 
+# Purpose: Creates the centralized AWS Network Firewall and its Availability Zone endpoints.
+# Change when: Change subnet mappings or protection settings only with the Inspection VPC topology.
 module "network_firewall" {
   source = "../../modules/network-firewall"
 
