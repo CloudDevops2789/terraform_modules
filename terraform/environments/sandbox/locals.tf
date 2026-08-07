@@ -515,57 +515,6 @@ locals {
         description = "Protected Data"
       }
     }
-
-    rules = {
-
-      # Administrative ingress is limited to addresses allocated to
-      # authenticated Client VPN users.
-      management_ssh = {
-        ip_protocol = "tcp"
-        from_port   = 22
-        to_port     = 22
-        cidr_ipv4   = local.client_vpn.client_cidr_block
-      }
-
-      management_ping = {
-        ip_protocol = "icmp"
-        from_port   = 8
-        to_port     = -1
-        cidr_ipv4   = local.client_vpn.client_cidr_block
-      }
-
-      management_egress = {
-        ip_protocol = "-1"
-        cidr_ipv4   = "0.0.0.0/0"
-      }
-
-      # Ports/protocol only. The CIDR for these rules is the peer VPC's CIDR
-      # (a relationship) and stays inline in security.tf.
-      core_ssh = {
-        ip_protocol = "tcp"
-        from_port   = 22
-        to_port     = 22
-      }
-
-      core_egress = {
-        ip_protocol = "-1"
-        cidr_ipv4   = "0.0.0.0/0"
-      }
-
-      # Ports/protocol only. The CIDR for this rule is Core Recovery's VPC
-      # CIDR (a relationship) and stays inline in security.tf.
-      protected_ssh = {
-        ip_protocol = "tcp"
-        from_port   = 22
-        to_port     = 22
-      }
-
-      protected_egress = {
-        ip_protocol = "-1"
-        cidr_ipv4   = "0.0.0.0/0"
-      }
-
-    }
   }
 
   ##################################################################################################

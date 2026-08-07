@@ -37,127 +37,85 @@ module "security_group" {
 
 }
 
-############################################
-# Security Group Rules
-############################################
-# Ingress/egress rules for each tier's security group. Ingress is scoped
-# to the CIDR of the adjacent, trusted VPC only (e.g. Protected Data only
-# accepts SSH from Core Recovery), mirroring the no-direct-path rule
-# enforced at the network layer. Management is the exception, since it is
-# the administrator entry point and accepts management traffic only through
-# the security group attached to the Client VPN association.
-# Purpose: Creates the ingress and egress rules that enforce tier-level access.
-# Change when: Change protocol, ports, or source only when the approved access policy changes.
-module "security_group_rule" {
+##################################################################################################
+# Security Group Policy Resolution
+##################################################################################################
+# Security-group rules use logical names in the environment policy rather than
+# hard-coded AWS security group IDs or VPC CIDRs.
+#
+# Terraform resolves:
+#
+#   security_group = "core"
+#       -> actual Core security group ID
+#
+#   peer_type = "vpc"
+#   peer      = "recovery_access"
+#       -> actual Recovery Access VPC CIDR
+#
+# This keeps the security policy portable when AWS-generated IDs or environment
+# network allocations change.
 
-  source = "../../modules/security-group-rule"
-
-  rules = {
-
-    # Purpose: Allows SSH to the management host from the Client VPN entry security group.
-    # Change when: Change the source only when the Client VPN security-group design changes.
-    management-ssh = {
-      type              = "ingress"
-      security_group_id = module.security_group.security_group_ids["management"]
-
-      ip_protocol = local.security_groups.rules.management_ssh.ip_protocol
-      from_port   = local.security_groups.rules.management_ssh.from_port
-      to_port     = local.security_groups.rules.management_ssh.to_port
-
-      referenced_security_group_id = (
-        module.security_group.security_group_ids["management"]
-      )
-    }
-
-    # Purpose: Allows ICMP echo requests to the management host for connectivity testing.
-    # Change when: Remove or narrow this rule when ping testing is no longer required.
-    management-ping = {
-      type              = "ingress"
-      security_group_id = module.security_group.security_group_ids["management"]
-
-      ip_protocol = local.security_groups.rules.management_ping.ip_protocol
-      from_port   = local.security_groups.rules.management_ping.from_port
-      to_port     = local.security_groups.rules.management_ping.to_port
-
-      referenced_security_group_id = (
-        module.security_group.security_group_ids["management"]
-      )
-    }
-
-    # Purpose: Allows the management tier to initiate outbound traffic permitted by routing and downstream controls.
-    # Change when: Narrow the destination and protocol after the required management flows are confirmed.
-    management-egress = {
-      type              = "egress"
-      security_group_id = module.security_group.security_group_ids["management"]
-
-      ip_protocol = local.security_groups.rules.management_egress.ip_protocol
-
-      cidr_ipv4 = local.security_groups.rules.management_egress.cidr_ipv4
-    }
-
-    # Purpose: Allows SSH to Core Recovery from the Recovery Access VPC.
-    # Change when: Change the source CIDR or port only when the administrative path changes.
-    core-ssh-from-recovery-access = {
-      type              = "ingress"
-      security_group_id = module.security_group.security_group_ids["core"]
-
-      ip_protocol = local.security_groups.rules.core_ssh.ip_protocol
-      from_port   = local.security_groups.rules.core_ssh.from_port
-      to_port     = local.security_groups.rules.core_ssh.to_port
-
-      cidr_ipv4 = module.recovery_access.vpc_cidr
-    }
-
-    # Purpose: Allows SSH to Core Recovery from the Protected Data VPC.
-    # Change when: Change the source CIDR or port only when the approved reverse path changes.
-    core-ssh-from-protected-data = {
-      type              = "ingress"
-      security_group_id = module.security_group.security_group_ids["core"]
-
-      ip_protocol = local.security_groups.rules.core_ssh.ip_protocol
-      from_port   = local.security_groups.rules.core_ssh.from_port
-      to_port     = local.security_groups.rules.core_ssh.to_port
-
-      cidr_ipv4 = module.protected_data.vpc_cidr
-    }
-
-    # Purpose: Allows the Core tier to initiate outbound traffic permitted by routing and downstream controls.
-    # Change when: Narrow destinations and protocols after the required recovery-service flows are confirmed.
-    core-egress = {
-      type              = "egress"
-      security_group_id = module.security_group.security_group_ids["core"]
-
-      ip_protocol = local.security_groups.rules.core_egress.ip_protocol
-
-      cidr_ipv4 = local.security_groups.rules.core_egress.cidr_ipv4
-    }
-
-    # Purpose: Allows SSH to Protected Data from the Core Recovery VPC.
-    # Change when: Change the source CIDR or port only when the approved trust path changes.
-    protected-ssh = {
-      type              = "ingress"
-      security_group_id = module.security_group.security_group_ids["protected"]
-
-      ip_protocol = local.security_groups.rules.protected_ssh.ip_protocol
-      from_port   = local.security_groups.rules.protected_ssh.from_port
-      to_port     = local.security_groups.rules.protected_ssh.to_port
-
-      cidr_ipv4 = module.core_recovery.vpc_cidr
-    }
-
-    # Purpose: Allows the Protected Data tier to initiate outbound traffic permitted by routing and downstream controls.
-    # Change when: Narrow destinations and protocols after the required workload flows are confirmed.
-    protected-egress = {
-      type              = "egress"
-      security_group_id = module.security_group.security_group_ids["protected"]
-
-      ip_protocol = local.security_groups.rules.protected_egress.ip_protocol
-
-      cidr_ipv4 = local.security_groups.rules.protected_egress.cidr_ipv4
-    }
-
+locals {
+  security_group_ids_by_tier = {
+    management = module.security_group.security_group_ids["management"]
+    core       = module.security_group.security_group_ids["core"]
+    protected  = module.security_group.security_group_ids["protected"]
   }
 
+  security_group_vpc_cidrs = {
+    recovery_access = module.recovery_access.vpc_cidr
+    core_recovery   = module.core_recovery.vpc_cidr
+    protected_data  = module.protected_data.vpc_cidr
+  }
+
+  sandbox_security_group_rules = {
+    for rule in var.security_group_rules :
+    rule.name => {
+      type = rule.direction
+
+      security_group_id = (
+        local.security_group_ids_by_tier[rule.security_group]
+      )
+
+      ip_protocol = rule.protocol
+      from_port   = rule.from_port
+      to_port     = rule.to_port
+
+      cidr_ipv4 = (
+        rule.peer_type == "vpc"
+        ? local.security_group_vpc_cidrs[rule.peer]
+        : rule.peer_type == "cidr"
+        ? rule.peer
+        : null
+      )
+
+      referenced_security_group_id = (
+        rule.peer_type == "security_group"
+        ? local.security_group_ids_by_tier[rule.peer]
+        : null
+      )
+    }
+    if rule.enabled
+  }
+}
+
+##################################################################################################
+# Security Group Rules
+##################################################################################################
+# Purpose:
+# Creates security-group rules from the environment security policy.
+#
+# Rule definitions are supplied through var.security_group_rules using logical
+# trust-tier and network-zone names. This block resolves those names into the
+# AWS resource IDs and CIDRs required by the reusable rule module.
+#
+# Change when:
+# Modify the security-group policy rather than adding hard-coded rules here.
+
+module "security_group_rule" {
+  source = "../../modules/security-group-rule"
+
+  rules = local.sandbox_security_group_rules
 }
 
 ############################################
