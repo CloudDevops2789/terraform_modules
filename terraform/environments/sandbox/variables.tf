@@ -338,3 +338,129 @@ variable "network_inspection_mode" {
     error_message = "network_inspection_mode must be either 'firewall' or 'bypass'."
   }
 }
+
+################################################################################
+# Network Firewall Policy Rules
+################################################################################
+
+variable "network_firewall_rules" {
+  description = <<-EOT
+    Ordered AWS Network Firewall stateful rules.
+
+    Rules are evaluated in the order supplied because the firewall policy
+    uses STRICT_ORDER.
+
+    source_zone and destination_zone use logical environment names rather
+    than hard-coded CIDRs so the rules remain portable when network_config
+    changes.
+
+    Supported zones:
+      - recovery_access
+      - core_recovery
+      - protected_data
+      - any
+
+    Supported actions:
+      - pass
+      - drop
+
+    Supported protocols:
+      - ip
+      - tcp
+      - udp
+      - icmp
+  EOT
+
+  type = list(object({
+    action           = string
+    protocol         = string
+    source_zone      = string
+    source_port      = optional(string, "any")
+    destination_zone = string
+    destination_port = optional(string, "any")
+    description      = string
+    sid              = number
+    enabled          = optional(bool, true)
+  }))
+
+  # Preserve the currently approved IRE connectivity when no override
+  # is supplied through terraform.tfvars.
+  default = [
+    {
+      action           = "pass"
+      protocol         = "ip"
+      source_zone      = "recovery_access"
+      destination_zone = "core_recovery"
+      description      = "Allow Recovery Access to Core Recovery"
+      sid              = 3100001
+    },
+    {
+      action           = "pass"
+      protocol         = "ip"
+      source_zone      = "core_recovery"
+      destination_zone = "recovery_access"
+      description      = "Allow Core Recovery to Recovery Access"
+      sid              = 3100002
+    },
+    {
+      action           = "pass"
+      protocol         = "ip"
+      source_zone      = "core_recovery"
+      destination_zone = "protected_data"
+      description      = "Allow Core Recovery to Protected Data"
+      sid              = 3100003
+    },
+    {
+      action           = "pass"
+      protocol         = "ip"
+      source_zone      = "protected_data"
+      destination_zone = "core_recovery"
+      description      = "Allow Protected Data to Core Recovery"
+      sid              = 3100004
+    }
+  ]
+
+  validation {
+    condition = alltrue([
+      for rule in var.network_firewall_rules :
+      contains(["pass", "drop"], rule.action)
+    ])
+
+    error_message = "Each Network Firewall rule action must be either 'pass' or 'drop'."
+  }
+
+  validation {
+    condition = alltrue([
+      for rule in var.network_firewall_rules :
+      contains(["ip", "tcp", "udp", "icmp"], rule.protocol)
+    ])
+
+    error_message = "Each Network Firewall rule protocol must be ip, tcp, udp, or icmp."
+  }
+
+  validation {
+    condition = alltrue([
+      for rule in var.network_firewall_rules :
+      contains(
+        ["recovery_access", "core_recovery", "protected_data", "any"],
+        rule.source_zone
+      ) &&
+      contains(
+        ["recovery_access", "core_recovery", "protected_data", "any"],
+        rule.destination_zone
+      )
+    ])
+
+    error_message = "Firewall rule zones must be recovery_access, core_recovery, protected_data, or any."
+  }
+
+  validation {
+    condition = (
+      length(distinct([
+        for rule in var.network_firewall_rules : rule.sid
+      ])) == length(var.network_firewall_rules)
+    )
+
+    error_message = "Every Network Firewall rule SID must be unique."
+  }
+}
