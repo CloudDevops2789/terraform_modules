@@ -231,68 +231,17 @@ network_inspection_mode = "firewall"
 # network_inspection_mode = "bypass"
 
 ################################################################################
-# Network Firewall Rules
+# Network Security Policy
 ################################################################################
-# These rules are used only when:
+# Approved AWS Network Firewall and Security Group rules are maintained in:
 #
-#   network_inspection_mode = "firewall"
+#   network-policy.auto.tfvars
 #
-# Rules are evaluated from top to bottom because the firewall uses STRICT_ORDER.
+# Terraform loads that file automatically.
 #
-# action:
-#   pass = allow matching traffic
-#   drop = block matching traffic
-#
-# protocol:
-#   ip   = all IP traffic
-#   tcp  = TCP only
-#   udp  = UDP only
-#   icmp = ping/ICMP
-#
-# source_port and destination_port are optional and default to "any".
-#
-# Use logical zone names instead of CIDRs:
-#
-#   recovery_access
-#   core_recovery
-#   protected_data
-#   any
+# Security-policy changes should be committed and reviewed through Git rather
+# than stored only in the local terraform.tfvars file.
 ################################################################################
-
-network_firewall_rules = [
-  {
-    action           = "pass"
-    protocol         = "ip"
-    source_zone      = "recovery_access"
-    destination_zone = "core_recovery"
-    description      = "Allow Recovery Access to Core Recovery"
-    sid              = 3100001
-  },
-  {
-    action           = "pass"
-    protocol         = "ip"
-    source_zone      = "core_recovery"
-    destination_zone = "recovery_access"
-    description      = "Allow Core Recovery to Recovery Access"
-    sid              = 3100002
-  },
-  {
-    action           = "pass"
-    protocol         = "ip"
-    source_zone      = "core_recovery"
-    destination_zone = "protected_data"
-    description      = "Allow Core Recovery to Protected Data"
-    sid              = 3100003
-  },
-  {
-    action           = "pass"
-    protocol         = "ip"
-    source_zone      = "protected_data"
-    destination_zone = "core_recovery"
-    description      = "Allow Protected Data to Core Recovery"
-    sid              = 3100004
-  }
-]
 
 ################################################################################
 # Portable Environment Network Allocation

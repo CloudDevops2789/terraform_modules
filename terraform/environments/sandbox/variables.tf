@@ -340,6 +340,125 @@ variable "network_inspection_mode" {
 }
 
 ################################################################################
+# Security Group Policy
+################################################################################
+
+variable "security_group_rules" {
+  description = <<-EOT
+    Security group policy for the Sandbox trust tiers.
+
+    Rules use logical security-group and network-zone names rather than
+    hard-coded AWS security group IDs or VPC CIDRs.
+
+    Supported security groups:
+      - management
+      - core
+      - protected
+
+    Supported peer types:
+      - security_group
+      - vpc
+      - cidr
+
+    Supported VPC peers:
+      - recovery_access
+      - core_recovery
+      - protected_data
+
+    For security_group peers, peer must reference one of the supported
+    logical security-group names.
+
+    CIDR peers should be used only when a logical VPC or security-group
+    reference cannot represent the required access path.
+  EOT
+
+  type = list(object({
+    name           = string
+    direction      = string
+    security_group = string
+
+    protocol  = string
+    from_port = optional(number)
+    to_port   = optional(number)
+
+    peer_type = string
+    peer      = string
+
+    description = string
+    enabled     = optional(bool, true)
+  }))
+
+  validation {
+    condition = alltrue([
+      for rule in var.security_group_rules :
+      contains(
+        ["management", "core", "protected"],
+        rule.security_group
+      )
+    ])
+
+    error_message = "security_group must be management, core, or protected."
+  }
+
+  validation {
+    condition = alltrue([
+      for rule in var.security_group_rules :
+      contains(["ingress", "egress"], rule.direction)
+    ])
+
+    error_message = "direction must be ingress or egress."
+  }
+
+  validation {
+    condition = alltrue([
+      for rule in var.security_group_rules :
+      contains(
+        ["security_group", "vpc", "cidr"],
+        rule.peer_type
+      )
+    ])
+
+    error_message = "peer_type must be security_group, vpc, or cidr."
+  }
+
+  validation {
+    condition = (
+      length(distinct([
+        for rule in var.security_group_rules : rule.name
+      ])) == length(var.security_group_rules)
+    )
+
+    error_message = "Every security group rule name must be unique."
+  }
+
+  validation {
+    condition = alltrue([
+      for rule in var.security_group_rules :
+      rule.peer_type != "security_group" ||
+      contains(
+        ["management", "core", "protected"],
+        rule.peer
+      )
+    ])
+
+    error_message = "security_group peers must be management, core, or protected."
+  }
+
+  validation {
+    condition = alltrue([
+      for rule in var.security_group_rules :
+      rule.peer_type != "vpc" ||
+      contains(
+        ["recovery_access", "core_recovery", "protected_data"],
+        rule.peer
+      )
+    ])
+
+    error_message = "VPC peers must be recovery_access, core_recovery, or protected_data."
+  }
+}
+
+################################################################################
 # Network Firewall Policy Rules
 ################################################################################
 
@@ -383,42 +502,6 @@ variable "network_firewall_rules" {
     enabled          = optional(bool, true)
   }))
 
-  # Preserve the currently approved IRE connectivity when no override
-  # is supplied through terraform.tfvars.
-  default = [
-    {
-      action           = "pass"
-      protocol         = "ip"
-      source_zone      = "recovery_access"
-      destination_zone = "core_recovery"
-      description      = "Allow Recovery Access to Core Recovery"
-      sid              = 3100001
-    },
-    {
-      action           = "pass"
-      protocol         = "ip"
-      source_zone      = "core_recovery"
-      destination_zone = "recovery_access"
-      description      = "Allow Core Recovery to Recovery Access"
-      sid              = 3100002
-    },
-    {
-      action           = "pass"
-      protocol         = "ip"
-      source_zone      = "core_recovery"
-      destination_zone = "protected_data"
-      description      = "Allow Core Recovery to Protected Data"
-      sid              = 3100003
-    },
-    {
-      action           = "pass"
-      protocol         = "ip"
-      source_zone      = "protected_data"
-      destination_zone = "core_recovery"
-      description      = "Allow Protected Data to Core Recovery"
-      sid              = 3100004
-    }
-  ]
 
   validation {
     condition = alltrue([
