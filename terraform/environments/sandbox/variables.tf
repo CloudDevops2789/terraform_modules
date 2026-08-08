@@ -546,4 +546,66 @@ variable "network_firewall_rules" {
 
     error_message = "Every Network Firewall rule SID must be unique."
   }
+
+  validation {
+    condition = alltrue([
+      for rule in var.network_firewall_rules :
+      rule.sid > 0 && rule.sid == floor(rule.sid)
+    ])
+
+    error_message = "Every Network Firewall rule SID must be a positive whole number."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for rule in var.network_firewall_rules : [
+        for port in [rule.source_port, rule.destination_port] :
+        port == "any" || (
+          can(regex("^[0-9]{1,5}(:[0-9]{1,5})?$", port)) &&
+          try(
+            tonumber(split(":", port)[0]) >= 0 &&
+            tonumber(split(":", port)[0]) <= 65535,
+            false
+          ) &&
+          (
+            length(split(":", port)) == 1
+            ? true
+            : try(
+              tonumber(split(":", port)[1]) >= 0 &&
+              tonumber(split(":", port)[1]) <= 65535 &&
+              tonumber(split(":", port)[0]) <= tonumber(split(":", port)[1]),
+              false
+            )
+          )
+        )
+      ]
+    ]))
+
+    error_message = "Firewall ports must be 'any', a port from 0 to 65535, or an ascending range such as '1024:65535'."
+  }
+
+  validation {
+    condition = alltrue([
+      for rule in var.network_firewall_rules :
+      contains(["ip", "icmp"], rule.protocol)
+      ? rule.source_port == "any" && rule.destination_port == "any"
+      : true
+    ])
+
+    error_message = "Firewall rules using protocol 'ip' or 'icmp' must use 'any' for source_port and destination_port."
+  }
+
+  validation {
+    condition = alltrue([
+      for rule in var.network_firewall_rules :
+      length(trimspace(rule.description)) > 0 &&
+      !strcontains(rule.description, "\"") &&
+      !strcontains(rule.description, "\\") &&
+      !strcontains(rule.description, ";") &&
+      !strcontains(rule.description, "\n") &&
+      !strcontains(rule.description, "\r")
+    ])
+
+    error_message = "Firewall rule descriptions must not be empty or contain double quotes, backslashes, semicolons, or newline characters."
+  }
 }
