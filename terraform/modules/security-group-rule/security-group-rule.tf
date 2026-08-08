@@ -34,6 +34,7 @@ resource "aws_vpc_security_group_ingress_rule" "this" {
   for_each = local.ingress_rules
 
   security_group_id = each.value.security_group_id
+  description       = try(each.value.description, null)
 
   ip_protocol = each.value.ip_protocol
   from_port   = try(each.value.from_port, null)
@@ -51,6 +52,7 @@ resource "aws_vpc_security_group_egress_rule" "this" {
   for_each = local.egress_rules
 
   security_group_id = each.value.security_group_id
+  description       = try(each.value.description, null)
 
   ip_protocol = each.value.ip_protocol
   from_port   = try(each.value.from_port, null)

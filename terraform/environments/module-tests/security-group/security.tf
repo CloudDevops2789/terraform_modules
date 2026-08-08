@@ -33,10 +33,10 @@ module "security_group_rule" {
     ssh-ingress = {
       type              = "ingress"
       security_group_id = module.security_group.security_group_ids["management"]
-
-      ip_protocol = local.security_groups.rules.ssh_ingress.ip_protocol
-      from_port   = local.security_groups.rules.ssh_ingress.from_port
-      to_port     = local.security_groups.rules.ssh_ingress.to_port
+      description       = "Module test SSH ingress rule"
+      ip_protocol       = local.security_groups.rules.ssh_ingress.ip_protocol
+      from_port         = local.security_groups.rules.ssh_ingress.from_port
+      to_port           = local.security_groups.rules.ssh_ingress.to_port
 
       cidr_ipv4 = local.security_groups.rules.ssh_ingress.cidr_ipv4
     }
@@ -44,8 +44,8 @@ module "security_group_rule" {
     all-egress = {
       type              = "egress"
       security_group_id = module.security_group.security_group_ids["management"]
-
-      ip_protocol = local.security_groups.rules.all_egress.ip_protocol
+      description       = "Module test unrestricted egress rule"
+      ip_protocol       = local.security_groups.rules.all_egress.ip_protocol
 
       cidr_ipv4 = local.security_groups.rules.all_egress.cidr_ipv4
     }

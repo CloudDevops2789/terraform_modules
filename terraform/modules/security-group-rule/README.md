@@ -18,12 +18,12 @@ module "security_group_rule" {
     core-ssh = {
       type              = "ingress"
       security_group_id = module.security_group.security_group_ids["core"]
+      description       = "Allow SSH from the recovery access tier"
+      ip_protocol       = "tcp"
+      from_port         = 22
+      to_port           = 22
 
-      ip_protocol = "tcp"
-      from_port   = 22
-      to_port     = 22
-
-      cidr_ipv4 = module.recovery_access.vpc_cidr
+      cidr_ipv4         = module.recovery_access.vpc_cidr
     }
 
     # Allow HTTPS from another security group. Preferred over a CIDR
@@ -31,7 +31,7 @@ module "security_group_rule" {
     core-https-from-management = {
       type              = "ingress"
       security_group_id = module.security_group.security_group_ids["core"]
-
+      description       = "Allow HTTPS from the management security group"
       ip_protocol = "tcp"
       from_port   = 443
       to_port     = 443
@@ -44,7 +44,7 @@ module "security_group_rule" {
     core-egress = {
       type              = "egress"
       security_group_id = module.security_group.security_group_ids["core"]
-
+      description       = "Allow outbound traffic from the core tier"
       ip_protocol = "-1"
       cidr_ipv4   = "0.0.0.0/0"
     }
@@ -66,6 +66,7 @@ module "security_group_rule" {
 |---|---|---|---|
 | `type` | `string` | required | `"ingress"` or `"egress"`. Determines which resource type is created. |
 | `security_group_id` | `string` | required | Group this rule attaches to. |
+| `description` | `string` | `null` | Optional description applied to the AWS security group rule. |
 | `ip_protocol` | `string` | required | `"tcp"`, `"udp"`, `"icmp"`, or `"-1"` for all protocols. |
 | `from_port` | `number` | `null` | Start of the port range. Omit when `ip_protocol` is `"-1"`. |
 | `to_port` | `number` | `null` | End of the port range. Omit when `ip_protocol` is `"-1"`. |
