@@ -71,7 +71,8 @@ locals {
   sandbox_security_group_rules = {
     for rule in var.security_group_rules :
     rule.name => {
-      type = rule.direction
+      type        = rule.direction
+      description = rule.description
 
       security_group_id = (
         local.security_group_ids_by_tier[rule.security_group]

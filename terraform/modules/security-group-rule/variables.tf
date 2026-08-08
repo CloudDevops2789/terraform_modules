@@ -15,6 +15,7 @@ variable "rules" {
   type = map(object({
     type              = string
     security_group_id = string
+    description       = optional(string)
 
     ip_protocol = string
     from_port   = optional(number)
