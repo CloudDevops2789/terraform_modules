@@ -9,8 +9,11 @@ module "client_vpn" {
 
   name = local.client_vpn.name
 
+  authentication_type = var.authentication_type
+
   server_certificate_arn     = var.server_certificate_arn
   root_certificate_chain_arn = var.root_certificate_chain_arn
+  saml_provider_arn          = var.saml_provider_arn
 
   client_cidr_block = local.client_vpn.client_cidr_block
   vpc_id            = module.recovery_access.vpc_id

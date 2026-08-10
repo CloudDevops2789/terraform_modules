@@ -14,14 +14,38 @@ variable "public_key_path" {
   type        = string
 }
 
+variable "authentication_type" {
+  description = "Client VPN authentication method. Supported values are certificate and federated."
+  type        = string
+  default     = "certificate"
+
+  validation {
+    condition = contains([
+      "certificate",
+      "federated",
+    ], var.authentication_type)
+
+    error_message = "authentication_type must be either certificate or federated."
+  }
+}
+
 variable "server_certificate_arn" {
   description = "ACM server certificate ARN."
   type        = string
 }
 
 variable "root_certificate_chain_arn" {
-  description = "ACM root CA certificate ARN."
+  description = "ACM root CA certificate ARN. Required for certificate authentication."
   type        = string
+  default     = null
+  nullable    = true
+}
+
+variable "saml_provider_arn" {
+  description = "IAM SAML identity provider ARN. Required for federated Client VPN authentication."
+  type        = string
+  default     = null
+  nullable    = true
 }
 
 variable "managed_ad_password" {

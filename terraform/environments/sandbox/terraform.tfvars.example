@@ -34,22 +34,39 @@ aws_region = "us-east-1"
 #   C:/Users/example-user/.ssh/management.pub
 public_key_path = "~/.ssh/management.pub"
 
+# AWS Client VPN authentication method.
+#
+# Supported values:
+# - certificate
+# - federated
+#
+# Certificate authentication is shown as the default example below.
+authentication_type = "certificate"
+
 # ARN of the ACM server certificate presented by AWS Client VPN.
 #
-# Expected format:
-# arn:aws:acm:<region>:<account-id>:certificate/<certificate-id>
+# Required for both certificate and federated authentication.
 #
 # Example value below is intentionally fake.
 server_certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/11111111-2222-3333-4444-555555555555"
 
-# ARN of the ACM certificate containing the trusted root certificate chain
-# used to validate Client VPN client certificates.
+# ARN of the ACM root CA certificate used to validate client certificates.
 #
-# Expected format:
-# arn:aws:acm:<region>:<account-id>:certificate/<certificate-id>
+# Required only when authentication_type = "certificate".
 #
 # Example value below is intentionally fake.
 root_certificate_chain_arn = "arn:aws:acm:us-east-1:123456789012:certificate/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+
+# IAM SAML identity provider ARN.
+#
+# Required only when authentication_type = "federated".
+saml_provider_arn = null
+
+# Federated authentication example:
+#
+# authentication_type          = "federated"
+# root_certificate_chain_arn   = null
+# saml_provider_arn            = "arn:aws:iam::123456789012:saml-provider/example-client-vpn"
 
 # Administrative password used when creating AWS Managed Microsoft AD.
 #
