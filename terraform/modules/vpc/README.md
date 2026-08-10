@@ -1640,9 +1640,9 @@ Later values override matching earlier values.
 
 ```hcl
 tags = {
-  org_it_cost_center       = "10000-70100-82821"
-  org_department           = "Cybersecurity_Resilience_and_Recovery"
-  org_cmdb_calculated_app  = "Cybersecurity_Resilience_and_Recovery"
+  org_it_cost_center       = "replace-with-approved-cost-center"
+  org_department           = "Example_Department"
+  org_cmdb_calculated_app  = "Example_Department"
   org_business_criticality = "3"
   org_environment          = "Dev"
   org_data_classification  = "Internal"

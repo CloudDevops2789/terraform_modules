@@ -81,13 +81,13 @@ ami_id = "ami-0123456789abcdef0"
 
 # Enterprise IT cost center responsible for the deployed resources.
 # Example format depends on the organization's financial system.
-org_it_cost_center = "10000-70100-82821"
+org_it_cost_center = "replace-with-approved-cost-center"
 
 # Department or business function responsible for the environment.
-org_department = "Cybersecurity_Resilience_and_Recovery"
+org_department = "Example_Department"
 
 # CMDB application/service identifier associated with these resources.
-org_cmdb_calculated_app = "Cybersecurity_Resilience_and_Recovery"
+org_cmdb_calculated_app = "Example_Department"
 
 # Business criticality classification.
 #
