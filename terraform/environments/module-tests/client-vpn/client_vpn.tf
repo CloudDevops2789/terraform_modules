@@ -10,11 +10,24 @@ module "client_vpn" {
 
   name = local.client_vpn.name
 
-  # Either the ARNs an operator supplied via var.server_certificate_arn /
-  # var.root_certificate_chain_arn, or the throwaway ones generated in
-  # certificates.tf - see local.generate_certificates in locals.tf.
-  server_certificate_arn     = local.effective_server_certificate_arn
-  root_certificate_chain_arn = local.effective_root_certificate_chain_arn
+  # Authentication type: certificate or federated.
+  # This test validates both paths, but only one at a time. The
+  # authentication_type variable controls which path is tested.
+  authentication_type = var.authentication_type
+
+  server_certificate_arn = local.effective_server_certificate_arn
+
+  root_certificate_chain_arn = (
+    var.authentication_type == "certificate"
+    ? local.effective_root_certificate_chain_arn
+    : null
+  )
+
+  saml_provider_arn = (
+    var.authentication_type == "federated"
+    ? var.saml_provider_arn
+    : null
+  )
 
   client_cidr_block = local.client_vpn.client_cidr_block
 

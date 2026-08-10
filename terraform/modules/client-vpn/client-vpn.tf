@@ -66,15 +66,50 @@ resource "aws_ec2_client_vpn_endpoint" "this" {
   # Authentication
   ############################################
 
-  # Mutual authentication requires every VPN client to present a valid
-  # client certificate signed by the trusted Certificate Authority.
+  # Authentication method used by the Client VPN endpoint.
+  # This module supports two methods:
+  # - certificate: Mutual Authentication using client certificates.
+  # - federated: Federated Authentication using SAML 2.0.
   authentication_options {
+    type = (
+      var.authentication_type == "federated"
+      ? "federated-authentication"
+      : "certificate-authentication"
+    )
 
-    type = "certificate-authentication"
+    root_certificate_chain_arn = (
+      var.authentication_type == "certificate"
+      ? var.root_certificate_chain_arn
+      : null
+    )
 
-    root_certificate_chain_arn = var.root_certificate_chain_arn
+    saml_provider_arn = (
+      var.authentication_type == "federated"
+      ? var.saml_provider_arn
+      : null
+    )
   }
 
+  # Enforce the inputs required by each authentication mode.
+  lifecycle {
+    precondition {
+      condition = (
+        var.authentication_type != "certificate" ||
+        try(length(trimspace(var.root_certificate_chain_arn)) > 0, false)
+      )
+
+      error_message = "root_certificate_chain_arn must be provided when authentication_type is certificate."
+    }
+
+    precondition {
+      condition = (
+        var.authentication_type != "federated" ||
+        try(length(trimspace(var.saml_provider_arn)) > 0, false)
+      )
+
+      error_message = "saml_provider_arn must be provided when authentication_type is federated."
+    }
+  }
   ############################################
   # Connection Logging
   ############################################

@@ -61,18 +61,17 @@ for module in "${CHANGED_MODULES[@]}"; do
       root="$(dirname "$root")"
     done
   done < <(
-    rg -l \
-      "source[[:space:]]*=[[:space:]]*\"../../../modules/${module}\"" \
-      terraform/environments/module-tests \
-      --glob '*.tf' \
-      2>/dev/null || true
-  )
+  git grep -l -E \
+    "source[[:space:]]*=[[:space:]]*\"../../../modules/${module}\"" \
+    -- ':(glob)terraform/environments/module-tests/**/*.tf' \
+    || true
+)
 
-  if rg -l \
-      "source[[:space:]]*=[[:space:]]*\"../../modules/${module}\"" \
-      terraform/environments/sandbox \
-      --glob '*.tf' \
-      >/dev/null 2>&1; then
+  if git grep -l -E \
+  "source[[:space:]]*=[[:space:]]*\"../../modules/${module}\"" \
+  -- ':(glob)terraform/environments/sandbox/*.tf' \
+  >/dev/null; then
+  
     ROOTS["terraform/environments/sandbox"]=1
     MODULE_HAS_CONSUMER["$module"]=true
     echo "  sandbox: terraform/environments/sandbox"

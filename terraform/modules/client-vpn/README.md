@@ -115,15 +115,24 @@ AWS creates local reachability for the associated VPC. Do not duplicate that
 associated-VPC route. Add explicit route resources only for approved remote
 networks.
 
-## Certificate boundary
+## Authentication and certificate boundary
 
-The module consumes existing ACM certificate ARNs. Production certificate
-issuance, private-key custody, rotation, revocation, and client trust
-distribution remain outside this module.
+The module supports certificate-based and SAML federated authentication.
+
+For certificate authentication, the module consumes an existing ACM server
+certificate ARN and an ACM root certificate chain ARN.
+
+For federated authentication, the module consumes an existing ACM server
+certificate ARN and an IAM SAML identity provider ARN.
+
+The module intentionally does not create or manage enterprise identity
+providers, SAML metadata, MFA policy, certificate issuance, private-key
+custody, certificate rotation, revocation, or client trust distribution.
+Those responsibilities remain outside the Client VPN infrastructure module.
 
 ## Security guidance
 
-- Prefer organization-approved certificate and MFA processes.
+- Use organization-approved certificate or federated identity processes and enforce MFA through the enterprise identity provider where applicable.
 - Associate only dedicated private subnets.
 - Use split tunnel only with an explicit security decision.
 - Restrict authorization to approved networks and groups.

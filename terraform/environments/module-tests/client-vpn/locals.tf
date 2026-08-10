@@ -80,26 +80,33 @@ locals {
   ##################################################################################################
   # Certificate Source
   ##################################################################################################
-  # Decides whether this test generates throwaway certificates or uses
-  # certificates an operator already supplied. This is dependency wiring
-  # (it drives the `count` on the generated certificate resources in
-  # certificates.tf and picks which ARN the client-vpn module receives),
-  # not static configuration, which is why it lives here as a computed
-  # local rather than in the certificates map above.
-  #
-  # Both server_certificate_arn and root_certificate_chain_arn must be
-  # supplied together for generation to be skipped - a partial override
-  # would leave the module with a server certificate not signed by the
-  # supplied root, which would fail at apply time in a way that is not
-  # this test's concern to diagnose.
-  generate_certificates = var.server_certificate_arn == null || var.root_certificate_chain_arn == null
+  # Certificate authentication requires both a server certificate and a
+  # client root CA. Federated authentication requires only the server
+  # certificate; when no server certificate is supplied, this test generates
+  # a throwaway CA and server certificate pair, but the CA is not passed to
+  # the Client VPN authentication configuration.
+  generate_certificates = (
+    var.server_certificate_arn == null ||
+    (
+      var.authentication_type == "certificate" &&
+      var.root_certificate_chain_arn == null
+    )
+  )
 
   # The ARNs actually passed to the client-vpn module: whatever the
   # operator supplied, falling back to the throwaway certificates
   # generated in certificates.tf when they did not.
-  effective_server_certificate_arn     = coalesce(var.server_certificate_arn, try(aws_acm_certificate.server[0].arn, null))
-  effective_root_certificate_chain_arn = coalesce(var.root_certificate_chain_arn, try(aws_acm_certificate.root_ca[0].arn, null))
+  effective_server_certificate_arn = (
+    var.server_certificate_arn != null
+    ? var.server_certificate_arn
+    : try(aws_acm_certificate.server[0].arn, null)
+  )
 
+  effective_root_certificate_chain_arn = (
+    var.root_certificate_chain_arn != null
+    ? var.root_certificate_chain_arn
+    : try(aws_acm_certificate.root_ca[0].arn, null)
+  )
   ##################################################################################################
   # Client VPN Under Test
   ##################################################################################################

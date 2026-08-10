@@ -7,6 +7,32 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
+# Authentication type used by the Client VPN module test.
+# Supported values:
+# - certificate: Mutual Authentication using client certificates.
+# - federated: Federated Authentication using SAML 2.0.
+variable "authentication_type" {
+  description = "Authentication method used by the Client VPN module test."
+  type        = string
+  default     = "certificate"
+
+  validation {
+    condition = contains([
+      "certificate",
+      "federated",
+    ], var.authentication_type)
+
+    error_message = "authentication_type must be either certificate or federated."
+  }
+}
+
+variable "saml_provider_arn" {
+  description = "Existing IAM SAML provider ARN used when authentication_type is federated."
+  type        = string
+  default     = null
+  nullable    = true
+}
+
 # Named to match the same variable in sandbox (terraform/environments/sandbox)
 # so anyone familiar with sandbox recognizes it immediately here.
 #

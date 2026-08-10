@@ -37,6 +37,26 @@ variable "client_cidr_block" {
 
 }
 
+# Authentication method used by the Client VPN endpoint.
+#
+# Supported values:
+# - certificate: Mutual Authentication using client certificates.
+# - federated: Federated Authentication using SAML 2.0.
+variable "authentication_type" {
+  description = "Client VPN authentication method. Supported values are certificate and federated."
+  type        = string
+  default     = "certificate"
+
+  validation {
+    condition = contains([
+      "certificate",
+      "federated"
+    ], var.authentication_type)
+
+    error_message = "authentication_type must be either certificate or federated."
+  }
+}
+
 ############################################
 # Certificates
 ############################################
@@ -60,8 +80,19 @@ variable "server_certificate_arn" {
 #
 # Normally this is the ARN of the imported EasyRSA CA certificate.
 variable "root_certificate_chain_arn" {
-  description = "ARN of the ACM root certificate chain."
+  description = "ARN of the ACM root certificate chain. Required when authentication_type is certificate."
   type        = string
+  default     = null
+  nullable    = true
+}
+
+# ARN of the IAM SAML identity provider used for federated authentication.
+# This is required when authentication_type is federated.
+variable "saml_provider_arn" {
+  description = "ARN of the IAM SAML identity provider. Required when authentication_type is federated."
+  type        = string
+  default     = null
+  nullable    = true
 }
 
 ############################################
