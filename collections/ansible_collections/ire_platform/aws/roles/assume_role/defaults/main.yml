@@ -1,0 +1,17 @@
+---
+# Target IAM role to assume.
+assume_role_role_arn: ""
+
+# Optional External ID required by some cross-account trust policies.
+assume_role_external_id: ""
+
+# Optional STS session duration in seconds.
+# Leave empty to use the AWS/module default.
+assume_role_session_duration_seconds: ""
+
+# AWS Region used by STS verification and downstream consumers.
+assume_role_aws_region: "us-east-1"
+
+# Logical workload/application name used when constructing the STS
+# session name for CloudTrail auditability.
+assume_role_application_name: "recovery"
