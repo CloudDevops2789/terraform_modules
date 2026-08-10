@@ -1,0 +1,17 @@
+---
+# Versioning keeps every object revision. It is also a prerequisite for
+# Object Lock - locks apply to object VERSIONS.
+- name: Enable S3 bucket versioning
+  amazon.aws.s3_bucket:
+    name: "{{ s3_bucket_name }}"
+    state: present
+    versioning: true
+
+    access_key: "{{ s3_bucket_aws_auth.access_key }}"
+    secret_key: "{{ s3_bucket_aws_auth.secret_key }}"
+    session_token: "{{ s3_bucket_aws_auth.session_token }}"
+  register: s3_bucket_versioning_result
+
+- name: Display versioning status
+  ansible.builtin.debug:
+    msg: "Versioning enabled on bucket {{ s3_bucket_name }}"

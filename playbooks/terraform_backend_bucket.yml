@@ -1,34 +1,31 @@
 ---
-# BOOTSTRAP playbook solving the chicken-and-egg problem: Terraform wants
-# to store its state in S3, but something has to create that bucket
-# before Terraform can run. Ansible does it once, with Object Lock +
-# versioning so even the state history is immutable.
-# hosts: localhost + gather_facts: false = run on the controller only,
-# skip the fact-gathering step (pure API calls, no target servers).
-- name: Create Terraform Backend Bucket
+# Bootstrap the S3 backend required by Terraform before Terraform can
+# initialize remote state.
+#
+# Environment-specific values are supplied by AAP, inventory, or
+# --extra-vars rather than being embedded in reusable source code.
+
+- name: Bootstrap Terraform S3 backend
   hosts: localhost
+  connection: local
   gather_facts: false
 
-  vars:
+  pre_tasks:
+    - name: Validate Terraform backend bootstrap inputs
+      ansible.builtin.assert:
+        that:
+          - assume_role_role_arn | default('') | length > 0
+          - assume_role_aws_region | default('') | length > 0
+          - s3_bucket_name | default('') | length > 2
+          - s3_bucket_region | default('') | length > 0
+        fail_msg: >-
+          assume_role_role_arn, assume_role_aws_region,
+          s3_bucket_name, and s3_bucket_region must be supplied
+          by the calling AAP job or operator.
 
-    role_arn: arn:aws:iam::781436988948:role/fhs-main-test-ire-redhataap-role
-
-    application_name: terraform
-
-    aws_region: us-east-1
-
-    bucket_name: yoganand-terraform-state-781436988948
-
-    bucket_region: us-east-1
-
-    bucket_object_lock: true
-
-    bucket_versioning: true
-
-  # Roles execute in order: assume_role publishes the aws_auth fact,
-  # s3_bucket consumes it. Order matters.
   roles:
+    - role: ire_platform.aws.assume_role
 
-    - yoganand.aws.assume_role
-
-    - yoganand.aws.s3_bucket
+    - role: ire_platform.aws.s3_bucket
+      vars:
+        s3_bucket_aws_auth: "{{ assume_role_aws_auth }}"

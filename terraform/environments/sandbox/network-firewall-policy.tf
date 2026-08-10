@@ -5,7 +5,7 @@
 # only the approved IRE VPC relationships. Unmatched traffic is dropped and alerted.
 
 locals {
-  sandbox_network_firewall_policies = {
+  sandbox_network_firewall_policies = local.network_firewall_enabled ? {
     centralized_inspection = {
       name        = local.resource_names.network_firewall_policy
       description = "Strict centralized inspection policy for the AWS ${var.naming.project_display_name} ${var.naming.environment_display_name}."
@@ -56,9 +56,8 @@ locals {
         org_service_name = "centralized-network-inspection"
       }
     }
-  }
+  } : {}
 }
-
 # Purpose: Creates the firewall policy that combines the approved rule groups and default actions.
 # Change when: Change rule ordering or default actions only after security review.
 module "network_firewall_policy" {

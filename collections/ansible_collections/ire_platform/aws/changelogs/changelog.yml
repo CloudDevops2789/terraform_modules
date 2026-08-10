@@ -1,0 +1,8 @@
+---
+releases:
+  1.0.0:
+    changes:
+      major_changes:
+        - Initial release of the ire_platform.aws collection.
+        - Provides AWS AssumeRole authentication for AAP workflows.
+        - Provides secured S3 Terraform backend bootstrap automation.

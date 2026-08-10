@@ -32,10 +32,10 @@ jobs:
         run: pip install yamllint ansible-lint ansible-core
 
       - name: yamllint
-        run: yamllint collections/ playbooks/ vars/*.yml
+        run: yamllint collections/ansible_collections/ire_platform/aws playbooks requirements.yml
 
       - name: ansible-lint
-        run: ansible-lint collections/ansible_collections/yoganand/aws playbooks/
+        run: ansible-lint collections/ansible_collections/ire_platform/aws playbooks/
 
   # fmt -check fails on unformatted code (fix locally with `terraform fmt
   # -recursive`). validate checks internal consistency; -backend=false

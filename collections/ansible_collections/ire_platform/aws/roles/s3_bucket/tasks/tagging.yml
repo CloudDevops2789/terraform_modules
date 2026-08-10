@@ -1,0 +1,15 @@
+---
+# combine() merges dicts, right side winning - org-wide defaults first,
+# caller's s3_bucket_tags override. purge_tags: false = additive only; tags
+# added outside this role are left alone rather than deleted.
+- name: Apply enterprise tags
+  amazon.aws.s3_bucket:
+    name: "{{ s3_bucket_name }}"
+    state: present
+    region: "{{ s3_bucket_region }}"
+    tags: "{{ s3_bucket_default_tags | combine(s3_bucket_tags) }}"
+    purge_tags: false
+    access_key: "{{ s3_bucket_aws_auth.access_key }}"
+    secret_key: "{{ s3_bucket_aws_auth.secret_key }}"
+    session_token: "{{ s3_bucket_aws_auth.session_token }}"
+  register: s3_bucket_tagging_result

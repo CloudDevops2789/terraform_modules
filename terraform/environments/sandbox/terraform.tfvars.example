@@ -1,111 +1,419 @@
-# Copy this file to terraform.tfvars and replace the placeholder values.
-# terraform.tfvars is intentionally ignored by Git.
+################################################################################
+# Terraform Sandbox Example Variables
+################################################################################
+# Copy this file to:
+#
+#   terraform.tfvars
+#
+# Then replace example values with values approved for your environment.
+#
+# terraform.tfvars is intentionally ignored by Git and must NOT be committed.
+#
+# IMPORTANT:
+# - Never place real passwords, private keys, or other secrets in this example file.
+# - Certificate ARNs, AMI IDs, naming values, CIDRs, and tags below are examples.
+################################################################################
 
-aws_region                 = "us-east-1"
-public_key_path            = "replace-with-approved-public-key-path"
-server_certificate_arn     = "replace-with-approved-server-certificate-arn"
-root_certificate_chain_arn = "replace-with-approved-root-certificate-chain-arn"
-managed_ad_password        = "Replace-With-Approved-Password-1!"
-ami_id                     = "replace-with-approved-ami-id"
 
 ################################################################################
-# Enterprise tags
+# AWS and local workstation configuration
 ################################################################################
 
-org_it_cost_center       = "replace-with-approved-cost-center"
-org_department           = "replace-with-approved-department"
-org_cmdb_calculated_app  = "replace-with-approved-cmdb-application"
-org_business_criticality = "replace-with-approved-criticality"
-org_environment          = "replace-with-approved-environment"
-org_data_classification  = "replace-with-approved-data-classification"
-org_project_name         = "replace-with-approved-project-name"
-org_managed_by           = "Terraform"
+# AWS Region where the Sandbox environment will be deployed.
+# Example:
+#   us-east-1 = US East (N. Virginia)
+aws_region = "us-east-1"
 
+# Local path to the SSH PUBLIC key used when creating the EC2 key pair.
+# This must point to the .pub file, never the private key.
+#
+# Linux / WSL example:
+#   ~/.ssh/management.pub
+#
+# Windows example when running Terraform from Windows:
+#   C:/Users/example-user/.ssh/management.pub
+public_key_path = "~/.ssh/management.pub"
+
+# ARN of the ACM server certificate presented by AWS Client VPN.
+#
+# Expected format:
+# arn:aws:acm:<region>:<account-id>:certificate/<certificate-id>
+#
+# Example value below is intentionally fake.
+server_certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/11111111-2222-3333-4444-555555555555"
+
+# ARN of the ACM certificate containing the trusted root certificate chain
+# used to validate Client VPN client certificates.
+#
+# Expected format:
+# arn:aws:acm:<region>:<account-id>:certificate/<certificate-id>
+#
+# Example value below is intentionally fake.
+root_certificate_chain_arn = "arn:aws:acm:us-east-1:123456789012:certificate/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+
+# Administrative password used when creating AWS Managed Microsoft AD.
+#
+# REQUIREMENTS:
+# - Replace this example before deployment.
+# - Do not commit the real password to Git.
+# - Prefer supplying the real value through an approved secrets mechanism
+#   or TF_VAR_managed_ad_password in CI/CD.
+#
+# Example only:
+managed_ad_password = "Example-Only-ChangeMe-1!"
+
+# AMI used for the Sandbox EC2 test instances.
+#
+# Expected format:
+# ami-xxxxxxxxxxxxxxxxx
+#
+# Use an AMI approved for the target AWS Region.
+# Example value below is intentionally fake.
+ami_id = "ami-0123456789abcdef0"
+
+
+################################################################################
+# Enterprise Tags
+################################################################################
+# These values represent the organization's mandatory governance and
+# cost-allocation metadata.
+################################################################################
+
+# Enterprise IT cost center responsible for the deployed resources.
+# Example format depends on the organization's financial system.
+org_it_cost_center = "10000-70100-82821"
+
+# Department or business function responsible for the environment.
+org_department = "Cybersecurity_Resilience_and_Recovery"
+
+# CMDB application/service identifier associated with these resources.
+org_cmdb_calculated_app = "Cybersecurity_Resilience_and_Recovery"
+
+# Business criticality classification.
+#
+# Example convention:
+#   "1" = highest criticality
+#   "4" = lower criticality / sandbox
+#
+# Use the organization's approved scale.
+org_business_criticality = "4"
+
+# Deployment lifecycle/environment.
+#
+# Typical examples:
+#   dev
+#   test
+#   sandbox
+#   stage
+#   prod
+org_environment = "dev"
+
+# Data classification applied to resources in the environment.
+#
+# Typical examples:
+#   Public
+#   Internal
+#   Confidential
+#   Restricted
+#
+# Use only values approved by the organization's data-classification policy.
+org_data_classification = "Internal"
+
+# Project or program name used for governance and cost reporting.
+org_project_name = "AWS-IRE"
+
+# Identifies the system managing the infrastructure.
+# Normally this should remain Terraform.
+org_managed_by = "Terraform"
+
+# Optional organization-specific tags that are not part of the mandatory
+# standard tag set.
+#
+# Additional keys should continue to follow the org_* naming convention.
 org_additional_tags = {
-  org_service_name = "replace-with-service-name"
+  org_service_name = "isolated-recovery-environment"
 }
 
+
 ################################################################################
-# Portable environment naming
+# Portable Environment Naming
+################################################################################
+# These values drive predictable resource names without embedding
+# organization-specific names directly inside reusable Terraform modules.
 ################################################################################
 
 naming = {
-  organization             = "replace-with-organization-code"
-  project                  = "ire"
-  project_display_name     = "IRE"
-  environment              = "sandbox"
+  # Short organization identifier used when generating resource names.
+  # Example only; replace with the approved enterprise abbreviation.
+  organization = "exampleorg"
+
+  # Short machine-friendly project identifier.
+  project = "ire"
+
+  # Human-readable project name used in descriptions.
+  project_display_name = "IRE"
+
+  # Machine-friendly environment identifier.
+  environment = "sandbox"
+
+  # Human-readable environment name.
   environment_display_name = "Sandbox"
-  region_code              = "use1"
-  suffix                   = null
+
+  # Short AWS Region identifier used in resource naming.
+  #
+  # Examples:
+  #   us-east-1      -> use1
+  #   us-west-2      -> usw2
+  #   eu-west-1      -> euw1
+  #   ap-south-1     -> aps1
+  region_code = "use1"
+
+  # Optional suffix for environments that require additional uniqueness.
+  #
+  # Examples:
+  #   "01"
+  #   "blue"
+  #   "team-a"
+  #
+  # Leave null when no suffix is required.
+  suffix = null
 }
 
-# All entries are optional. Omit an entry or set it to null to use the derived
-# enterprise name based on the naming object above.
-resource_name_overrides = {
-  # network_firewall = "approved-exact-firewall-name"
-  # transit_gateway  = "approved-exact-transit-gateway-name"
-}
 
 ################################################################################
-# Portable environment network allocation
+# Resource Name Overrides
+################################################################################
+# Normally resource names are automatically derived from the naming object.
+#
+# Override only when an exact externally approved name is required.
+#
+# Every entry is optional.
+################################################################################
+
+resource_name_overrides = {
+  # Example:
+  # network_firewall = "approved-centralized-inspection-firewall"
+
+  # Example:
+  # transit_gateway = "approved-ire-transit-gateway"
+}
+
+
+################################################################################
+# Network Inspection Mode
+################################################################################
+# Controls whether approved inter-VPC traffic uses AWS Network Firewall.
+#
+# "firewall"
+#   Production-style/default architecture.
+#   Traffic is routed through the centralized Inspection VPC and
+#   AWS Network Firewall.
+#
+# "bypass"
+#   Cost-saving integration/development mode.
+#   AWS Network Firewall is not deployed and approved traffic is routed
+#   directly through Transit Gateway.
+#
+# Both modes preserve:
+#
+#   Recovery Access <-> Core Recovery
+#   Core Recovery   <-> Protected Data
+#
+# Neither mode creates a direct:
+#
+#   Recovery Access <-> Protected Data
+#
+# Keep "firewall" as the enterprise/default example.
+network_inspection_mode = "firewall"
+
+# For lower-cost integration testing, change the value above to:
+#
+# network_inspection_mode = "bypass"
+
+################################################################################
+# Network Security Policy
+################################################################################
+# Approved AWS Network Firewall and Security Group rules are maintained in:
+#
+#   network-policy.auto.tfvars
+#
+# Terraform loads that file automatically.
+#
+# Security-policy changes should be committed and reviewed through Git rather
+# than stored only in the local terraform.tfvars file.
+################################################################################
+
+################################################################################
+# Portable Environment Network Allocation
+################################################################################
+# The example account has been allocated:
+#
+#   10.213.252.0/22
+#
+# The /22 is divided into four /24 VPCs:
+#
+#   10.213.252.0/24  Recovery Access
+#   10.213.253.0/24  Core Recovery
+#   10.213.254.0/24  Protected Data
+#   10.213.255.0/24  Centralized Inspection
+#
+# Update these addresses together if a different enterprise allocation is used.
 ################################################################################
 
 network_config = {
-  account_cidr_block    = "10.213.252.0/22"
-  client_vpn_cidr_block = "192.168.0.0/16"
+
+  # Entire IPv4 range allocated to this AWS environment/account.
+  account_cidr_block = "10.213.252.0/22"
+
+  # Address pool assigned to remote AWS Client VPN users.
+  #
+  # This range must:
+  # - not overlap any VPC CIDR
+  # - not overlap networks from which administrators connect
+  # - satisfy AWS Client VPN CIDR requirements
+  #
+  # A dedicated RFC1918 range outside the 10.213.252.0/22 VPC allocation
+  # is used here.
+  client_vpn_cidr_block = "172.30.240.0/22"
 
   vpcs = {
+
+    ############################################################################
+    # Recovery Access VPC
+    #
+    # Purpose:
+    # Administrative entry point into the isolated recovery environment.
+    #
+    # CIDR:
+    # 10.213.252.0/24
+    ############################################################################
+
     recovery_access = {
       cidr_block = "10.213.252.0/24"
+
       subnet_cidrs = {
-        client_vpn_a      = "10.213.252.0/27"
-        client_vpn_b      = "10.213.252.32/27"
-        admin_tools_a     = "10.213.252.64/27"
-        admin_tools_b     = "10.213.252.96/27"
-        endpoints_a       = "10.213.252.128/28"
-        endpoints_b       = "10.213.252.144/28"
+
+        # AWS Client VPN target-network association subnets.
+        client_vpn_a = "10.213.252.0/27"
+        client_vpn_b = "10.213.252.32/27"
+
+        # Administrative/management hosts used by recovery operators.
+        admin_tools_a = "10.213.252.64/27"
+        admin_tools_b = "10.213.252.96/27"
+
+        # Private interface endpoint subnets.
+        endpoints_a = "10.213.252.128/28"
+        endpoints_b = "10.213.252.144/28"
+
+        # Transit Gateway attachment subnets.
         transit_gateway_a = "10.213.252.160/28"
         transit_gateway_b = "10.213.252.176/28"
       }
     }
 
+
+    ############################################################################
+    # Core Recovery VPC
+    #
+    # Purpose:
+    # Shared recovery infrastructure such as directory services and
+    # recovery-management services.
+    #
+    # CIDR:
+    # 10.213.253.0/24
+    ############################################################################
+
     core_recovery = {
       cidr_block = "10.213.253.0/24"
+
       subnet_cidrs = {
-        recovery_services_a  = "10.213.253.0/26"
-        recovery_services_b  = "10.213.253.64/26"
+
+        # Shared recovery services.
+        recovery_services_a = "10.213.253.0/26"
+        recovery_services_b = "10.213.253.64/26"
+
+        # Directory services such as AWS Managed Microsoft AD.
         directory_services_a = "10.213.253.128/28"
         directory_services_b = "10.213.253.144/28"
-        endpoints_a           = "10.213.253.160/28"
-        endpoints_b           = "10.213.253.176/28"
-        transit_gateway_a     = "10.213.253.192/28"
-        transit_gateway_b     = "10.213.253.208/28"
+
+        # Private AWS interface endpoints.
+        endpoints_a = "10.213.253.160/28"
+        endpoints_b = "10.213.253.176/28"
+
+        # Transit Gateway attachment subnets.
+        transit_gateway_a = "10.213.253.192/28"
+        transit_gateway_b = "10.213.253.208/28"
       }
     }
+
+
+    ############################################################################
+    # Protected Data VPC
+    #
+    # Purpose:
+    # Hosts restored workloads and protected recovery data/services.
+    #
+    # CIDR:
+    # 10.213.254.0/24
+    ############################################################################
 
     protected_data = {
       cidr_block = "10.213.254.0/24"
+
       subnet_cidrs = {
+
+        # Restored/recovered application workloads.
         protected_workloads_a = "10.213.254.0/27"
         protected_workloads_b = "10.213.254.32/27"
-        ingestion_a           = "10.213.254.64/28"
-        ingestion_b           = "10.213.254.80/28"
-        database_a            = "10.213.254.96/28"
-        database_b            = "10.213.254.112/28"
-        file_services_a       = "10.213.254.128/28"
-        file_services_b       = "10.213.254.144/28"
-        endpoints_a            = "10.213.254.160/28"
-        endpoints_b            = "10.213.254.176/28"
-        transit_gateway_a      = "10.213.254.192/28"
-        transit_gateway_b      = "10.213.254.208/28"
+
+        # Recovery-data ingestion and hydration services.
+        ingestion_a = "10.213.254.64/28"
+        ingestion_b = "10.213.254.80/28"
+
+        # Database workloads.
+        database_a = "10.213.254.96/28"
+        database_b = "10.213.254.112/28"
+
+        # File-service workloads.
+        file_services_a = "10.213.254.128/28"
+        file_services_b = "10.213.254.144/28"
+
+        # Private AWS interface endpoints.
+        endpoints_a = "10.213.254.160/28"
+        endpoints_b = "10.213.254.176/28"
+
+        # Transit Gateway attachment subnets.
+        transit_gateway_a = "10.213.254.192/28"
+        transit_gateway_b = "10.213.254.208/28"
       }
     }
 
+
+    ############################################################################
+    # Centralized Inspection VPC
+    #
+    # Purpose:
+    # Hosts AWS Network Firewall and the Transit Gateway attachment used for
+    # centralized east-west inspection.
+    #
+    # CIDR:
+    # 10.213.255.0/24
+    #
+    # NOTE:
+    # The VPC remains available in bypass mode, but Network Firewall and the
+    # Inspection TGW attachment are not deployed/used in bypass mode.
+    ############################################################################
+
     inspection = {
       cidr_block = "10.213.255.0/24"
+
       subnet_cidrs = {
-        firewall_a        = "10.213.255.0/28"
-        firewall_b        = "10.213.255.16/28"
+
+        # Dedicated AWS Network Firewall endpoint subnets.
+        firewall_a = "10.213.255.0/28"
+        firewall_b = "10.213.255.16/28"
+
+        # Transit Gateway attachment subnets used in firewall mode.
         transit_gateway_a = "10.213.255.32/28"
         transit_gateway_b = "10.213.255.48/28"
       }

@@ -1,0 +1,11 @@
+---
+# Role metadata consumed by Ansible Galaxy / AAP. `dependencies` would
+# list roles that must run before this one - empty means standalone.
+galaxy_info:
+  author: Yoganand
+  description: Assume AWS IAM Role and expose temporary credentials.
+  license: MIT
+
+  min_ansible_version: "2.16"
+
+dependencies: []

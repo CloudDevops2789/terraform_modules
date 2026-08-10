@@ -1,0 +1,32 @@
+---
+# Collection build manifest: `ansible-galaxy collection build` reads this
+# to produce the installable ire_platform-aws-<version>.tar.gz artifact.
+# namespace.name is also how playbooks address roles:
+# ire_platform.aws.assume_role.
+namespace: ire_platform
+name: aws
+version: 1.0.0
+readme: README.md
+
+authors:
+  - Yoganand
+
+description: >-
+  Ansible roles for AWS authentication and Terraform backend bootstrap
+  used by Red Hat Ansible Automation Platform workflows.
+
+license:
+  - MIT-0
+
+tags:
+  - aws
+  - cloud
+  - infrastructure
+  - recovery
+
+# Collections auto-installed alongside this one - the amazon.aws modules
+# (s3_bucket, sts_assume_role...) every role here calls.
+dependencies:
+  amazon.aws: ">=10.0.0"
+
+repository: https://github.com/CloudDevops2789/ire-aws-iac-ansible-terraform-modules

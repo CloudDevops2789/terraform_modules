@@ -33,3 +33,9 @@ backend.hcl
 *.tfplan
 tfplan
 tfplan.*
+
+# Version-controlled Sandbox network security policy
+!terraform/environments/sandbox/network-policy.auto.tfvars
+
+# Local Ansible lint virtual environment
+.venv-ansible-lint/

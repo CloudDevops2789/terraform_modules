@@ -1,3 +1,31 @@
+locals {
+  ################################################################################
+  # Logical Firewall Zones
+  ################################################################################
+  # Maps portable zone names from terraform.tfvars to the CIDRs allocated by
+  # network_config. Firewall policy therefore follows network allocation changes
+  # without embedding environment-specific CIDRs in the rule definitions.
+
+  network_firewall_zone_cidrs = {
+    recovery_access = local.network_cidrs.recovery_access
+    core_recovery   = local.network_cidrs.core_recovery
+    protected_data  = local.network_cidrs.protected_data
+    any             = "any"
+  }
+
+  ################################################################################
+  # Generated Suricata Rules
+  ################################################################################
+  # The list order supplied through network_firewall_rules is preserved.
+  # This is important because the firewall policy uses STRICT_ORDER.
+
+  network_firewall_rules_string = join("\n", [
+    for rule in var.network_firewall_rules :
+    "${rule.action} ${rule.protocol} ${local.network_firewall_zone_cidrs[rule.source_zone]} ${rule.source_port} -> ${local.network_firewall_zone_cidrs[rule.destination_zone]} ${rule.destination_port} (msg:\"${rule.description}\"; sid:${rule.sid}; rev:1;)"
+    if rule.enabled
+  ])
+}
+
 ##################################################################################################
 # Network Firewall Stateful Segmentation Rules
 ##################################################################################################
@@ -25,12 +53,7 @@ locals {
         }
 
         rules_source = {
-          rules_string = <<-EOT
-            pass ip ${local.network_cidrs.recovery_access} any -> ${local.network_cidrs.core_recovery} any (msg:"Allow Recovery Access to Core Recovery"; sid:3100001; rev:1;)
-            pass ip ${local.network_cidrs.core_recovery} any -> ${local.network_cidrs.recovery_access} any (msg:"Allow Core Recovery to Recovery Access"; sid:3100002; rev:1;)
-            pass ip ${local.network_cidrs.core_recovery} any -> ${local.network_cidrs.protected_data} any (msg:"Allow Core Recovery to Protected Data"; sid:3100003; rev:1;)
-            pass ip ${local.network_cidrs.protected_data} any -> ${local.network_cidrs.core_recovery} any (msg:"Allow Protected Data to Core Recovery"; sid:3100004; rev:1;)
-          EOT
+          rules_string = local.network_firewall_rules_string
         }
 
         stateful_rule_options = {
@@ -49,8 +72,12 @@ locals {
 # Change when: Change source, destination, protocol, or port scope only when the traffic policy changes.
 module "network_firewall_rule_groups" {
   source = "../../modules/network-firewall-rule-group"
-
-  stateful_rule_groups  = local.sandbox_network_firewall_stateful_rule_groups
+  # Make the firewall rule group optional
+  stateful_rule_groups = (
+    local.network_firewall_enabled
+    ? local.sandbox_network_firewall_stateful_rule_groups
+    : {}
+  )
   stateless_rule_groups = {}
 
   tags = local.org_tags
