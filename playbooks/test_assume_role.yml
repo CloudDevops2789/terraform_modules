@@ -1,17 +1,18 @@
 ---
-# Standalone smoke test for the assume_role role - proves the IAM
-# user->role trust works before wiring it into real provisioning.
-# connection: local makes 'localhost' explicit (no SSH involved).
-# The vars here override the role's defaults (see variable precedence).
-- name: Test Assume Role
+- name: Test AWS AssumeRole
   hosts: localhost
   connection: local
   gather_facts: false
 
-  vars:
-    role_arn: arn:aws:iam::781436988948:role/fhs-main-test-ire-redhataap-role
-    aws_region: us-east-1
-    application_name: home-lab
+  pre_tasks:
+    - name: Validate AssumeRole test inputs
+      ansible.builtin.assert:
+        that:
+          - assume_role_role_arn | default('') | length > 0
+          - assume_role_aws_region | default('') | length > 0
+        fail_msg: >-
+          assume_role_role_arn and assume_role_aws_region must be
+          supplied by the calling AAP job or operator.
 
   roles:
-    - yoganand.aws.assume_role
+    - ire_platform.aws.assume_role

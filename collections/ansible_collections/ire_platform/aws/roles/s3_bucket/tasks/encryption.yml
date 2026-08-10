@@ -1,0 +1,18 @@
+---
+# Default encryption = every new object is encrypted at rest even if the
+# uploader forgets to ask. Conditional Jinja with omit: when a parameter
+# resolves to the special `omit` value, Ansible behaves as if it was
+# never passed - how optional module args are handled cleanly.
+# bucket_key_enabled reduces KMS API cost when using aws:kms.
+- name: Configure default bucket encryption
+  amazon.aws.s3_bucket:
+    name: "{{ s3_bucket_name }}"
+    state: present
+    region: "{{ s3_bucket_region }}"
+    encryption: "{{ s3_bucket_encryption }}"
+    encryption_key_id: "{{ s3_bucket_kms_key_id if s3_bucket_encryption == 'aws:kms' else omit }}"
+    bucket_key_enabled: "{{ true if s3_bucket_encryption == 'aws:kms' else omit }}"
+    access_key: "{{ s3_bucket_aws_auth.access_key }}"
+    secret_key: "{{ s3_bucket_aws_auth.secret_key }}"
+    session_token: "{{ s3_bucket_aws_auth.session_token }}"
+  register: s3_bucket_encryption_result

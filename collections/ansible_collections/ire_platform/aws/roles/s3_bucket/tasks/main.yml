@@ -1,0 +1,49 @@
+---
+# DISPATCHER pattern: main.yml holds no real work, only the order of
+# operations. Each step lives in its own small file pulled in with
+# include_tasks (a DYNAMIC include - evaluated at runtime, so its `when`
+# is checked once for the whole file; if false, the file is skipped
+# entirely). This keeps every concern separately readable and testable.
+- name: Validate input
+  ansible.builtin.include_tasks: validate.yml
+
+# s3_bucket_state works like Terraform's create/destroy switch: 'present'
+# runs the configure chain below, 'absent' jumps to destroy.yml.
+- name: Create or update bucket
+  ansible.builtin.include_tasks: create.yml
+  when: s3_bucket_state == "present"
+
+- name: Configure versioning
+  ansible.builtin.include_tasks: versioning.yml
+  when:
+    - s3_bucket_state == "present"
+    - s3_bucket_versioning
+
+# Multi-condition `when`: a list means all conditions AND together.
+- name: Configure object lock
+  ansible.builtin.include_tasks: object_lock.yml
+  when:
+    - s3_bucket_state == "present"
+    - s3_bucket_object_lock
+
+- name: Configure encryption
+  ansible.builtin.include_tasks: encryption.yml
+  when: s3_bucket_state == "present"
+
+- name: Block public access
+  ansible.builtin.include_tasks: public_access.yml
+  when:
+    - s3_bucket_state == "present"
+    - s3_bucket_public_access_block
+
+- name: Apply enterprise tags
+  ansible.builtin.include_tasks: tagging.yml
+  when: s3_bucket_state == "present"
+
+- name: Gather outputs
+  ansible.builtin.include_tasks: outputs.yml
+  when: s3_bucket_state == "present"
+
+- name: Destroy bucket
+  ansible.builtin.include_tasks: destroy.yml
+  when: s3_bucket_state == "absent"

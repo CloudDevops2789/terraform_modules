@@ -1,0 +1,24 @@
+---
+# amazon.aws.s3_bucket is IDEMPOTENT: it creates the bucket if missing,
+# otherwise reconciles settings - safe to re-run.
+# object_lock_enabled must be set HERE at creation: AWS cannot enable
+# Object Lock on an existing bucket.
+# The access_key/secret_key/session_token come from the s3_bucket_aws_auth fact the
+# assume_role role published - this is what ties the two roles together.
+- name: Create S3 bucket
+  amazon.aws.s3_bucket:
+    name: "{{ s3_bucket_name }}"
+    state: present
+    region: "{{ s3_bucket_region }}"
+    object_lock_enabled: "{{ s3_bucket_object_lock }}"
+    access_key: "{{ s3_bucket_aws_auth.access_key }}"
+    secret_key: "{{ s3_bucket_aws_auth.secret_key }}"
+    session_token: "{{ s3_bucket_aws_auth.session_token }}"
+  register: s3_bucket_result
+
+- name: Display S3 bucket status
+  ansible.builtin.debug:
+    msg:
+      - "Bucket Name : {{ s3_bucket_name }}"
+      - "Region      : {{ s3_bucket_region }}"
+      - "State       : {{ s3_bucket_state }}"

@@ -1,0 +1,94 @@
+---
+- name: Validate AssumeRole inputs
+  ansible.builtin.assert:
+    that:
+      - assume_role_role_arn | length > 0
+      - assume_role_aws_region | length > 0
+      - >-
+        assume_role_session_duration_seconds | string | length == 0
+        or (
+          assume_role_session_duration_seconds | int >= 900
+          and assume_role_session_duration_seconds | int <= 43200
+        )
+    fail_msg: >-
+      assume_role_role_arn and assume_role_aws_region are required.
+      When provided, assume_role_session_duration_seconds must be
+      between 900 and 43200 seconds.
+
+- name: Build AssumeRole session name
+  vars:
+    assume_role_app_slug: >-
+      {{
+        (
+          assume_role_application_name
+          | default('recovery')
+          | lower
+          | regex_replace('[^a-z0-9+=,.@-]', '-')
+        )[:24]
+      }}
+    assume_role_job_id: >-
+      {{
+        tower_job_id
+        | default(awx_job_id | default('unknown'))
+      }}
+  ansible.builtin.set_fact:
+    assume_role_session_name: >-
+      {{
+        assume_role_app_slug
+      }}-job-{{
+        assume_role_job_id
+      }}-{{
+        lookup('pipe', 'date +%Y%m%d-%H%M%S')
+      }}
+
+- name: Assume AWS IAM role
+  amazon.aws.sts_assume_role:
+    role_arn: "{{ assume_role_role_arn }}"
+    role_session_name: "{{ assume_role_session_name }}"
+    external_id: "{{ assume_role_external_id | default(omit, true) }}"
+    duration_seconds: >-
+      {{
+        assume_role_session_duration_seconds
+        | default(omit, true)
+      }}
+  register: assume_role_result
+  changed_when: false
+  no_log: true
+
+- name: Validate AssumeRole response
+  ansible.builtin.assert:
+    that:
+      - assume_role_result.sts_creds is defined
+      - assume_role_result.sts_creds.access_key is defined
+      - assume_role_result.sts_creds.secret_key is defined
+      - assume_role_result.sts_creds.session_token is defined
+      - assume_role_result.sts_creds.expiration is defined
+      - assume_role_result.sts_user.arn is defined
+    quiet: true
+
+- name: Publish assumed-role credentials
+  ansible.builtin.set_fact:
+    assume_role_aws_auth:
+      access_key: "{{ assume_role_result.sts_creds.access_key }}"
+      secret_key: "{{ assume_role_result.sts_creds.secret_key }}"
+      session_token: "{{ assume_role_result.sts_creds.session_token }}"
+      region: "{{ assume_role_aws_region }}"
+    assume_role_assumed_arn: "{{ assume_role_result.sts_user.arn }}"
+    assume_role_expiration: "{{ assume_role_result.sts_creds.expiration }}"
+  no_log: true
+
+- name: Verify assumed AWS identity
+  amazon.aws.aws_caller_info:
+    access_key: "{{ assume_role_aws_auth.access_key }}"
+    secret_key: "{{ assume_role_aws_auth.secret_key }}"
+    session_token: "{{ assume_role_aws_auth.session_token }}"
+    region: "{{ assume_role_aws_auth.region }}"
+  register: assume_role_caller_identity
+  changed_when: false
+  no_log: true
+
+- name: Display assumed AWS identity
+  ansible.builtin.debug:
+    msg: >-
+      Successfully assumed {{ assume_role_caller_identity.arn }}
+      (expires {{ assume_role_expiration }})

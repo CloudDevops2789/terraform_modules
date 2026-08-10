@@ -1,13 +1,8 @@
 ---
-profile: basic
-
-skip_list:
-  - var-naming[no-role-prefix]
+profile: production
 
 exclude_paths:
   - .git/
-  - vars/
   - terraform/
   - docs/
   - scripts/
-  - playbooks/

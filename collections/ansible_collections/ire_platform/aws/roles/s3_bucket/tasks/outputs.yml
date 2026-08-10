@@ -1,0 +1,17 @@
+---
+# The role's 'return value', mirroring a Terraform module's outputs:
+# a single structured fact later tasks/roles can consume
+# (s3_bucket_outputs.arn etc.) instead of re-deriving values.
+- name: Publish bucket outputs
+  ansible.builtin.set_fact:
+    s3_bucket_outputs:
+      name: "{{ s3_bucket_name }}"
+      arn: "arn:aws:s3:::{{ s3_bucket_name }}"
+      region: "{{ s3_bucket_region }}"
+      versioning: "{{ s3_bucket_versioning }}"
+      object_lock: "{{ s3_bucket_object_lock }}"
+      encryption: "{{ s3_bucket_encryption }}"
+
+- name: Display bucket summary
+  ansible.builtin.debug:
+    var: s3_bucket_outputs
