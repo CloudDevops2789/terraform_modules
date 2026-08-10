@@ -22,7 +22,7 @@ echo "Head: $HEAD_REF"
 echo "============================================================"
 
 mapfile -t CHANGED_MODULES < <(
-  git diff --name-only "$BASE_REF...$HEAD_REF" -- terraform/modules/ |
+  git diff --name-only "$BASE_REF...$HEAD_REF" -- 'terraform/modules/**/*.tf' |
     awk -F/ 'NF >= 4 {print $3}' |
     sort -u
 )
