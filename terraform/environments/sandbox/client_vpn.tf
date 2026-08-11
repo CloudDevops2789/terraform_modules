@@ -4,6 +4,25 @@
 
 # Purpose: Creates AWS Client VPN, target-network associations, authorization rules, and optional routes.
 # Change when: Change certificates, the client address pool, or authorized destinations through environment inputs.
+##################################################################################################
+# Client VPN SAML Provider Composition
+##################################################################################################
+
+# Purpose: Optionally manages the IAM SAML provider used by federated Client VPN authentication.
+# Change when: AWS-side SAML provider ownership moves between enterprise identity management and Terraform/AAP.
+module "client_vpn_saml_provider" {
+  count = var.manage_saml_provider ? 1 : 0
+
+  source = "../../modules/iam-saml-provider"
+
+  name = coalesce(
+    var.saml_provider_name,
+    "${local.client_vpn.name}-saml"
+  )
+
+  saml_metadata_document = var.saml_metadata_document
+}
+
 module "client_vpn" {
   source = "../../modules/client-vpn"
 
@@ -13,7 +32,7 @@ module "client_vpn" {
 
   server_certificate_arn     = var.server_certificate_arn
   root_certificate_chain_arn = var.root_certificate_chain_arn
-  saml_provider_arn          = var.saml_provider_arn
+  saml_provider_arn          = local.effective_saml_provider_arn
 
   client_cidr_block = local.client_vpn.client_cidr_block
   vpc_id            = module.recovery_access.vpc_id

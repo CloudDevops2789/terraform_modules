@@ -44,3 +44,11 @@ output "client_vpn_endpoint_id" {
   value       = module.client_vpn.id
 }
 #aws_ec2_client_vpn_endpoint.this.id
+##################################################################################################
+# Client VPN SAML Identity Provider
+##################################################################################################
+
+output "client_vpn_saml_provider_arn" {
+  description = "Resolved IAM SAML provider ARN used or managed for Client VPN federation."
+  value       = local.resolved_saml_provider_arn
+}
