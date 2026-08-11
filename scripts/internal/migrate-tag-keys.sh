@@ -7,6 +7,18 @@ ROOT="."
 FROM_PREFIX=""
 TO_PREFIX=""
 
+#dry run example:
+#bash /path/to/migrate-tag-keys.sh \
+#  --root . \
+#  --from-prefix org_ \
+#  --to-prefix 'new_org:'
+#Apply example:
+#bash /path/to/migrate-tag-keys.sh \
+#  --root . \
+#  --from-prefix org_ \
+#  --to-prefix 'fv:' \
+#  --apply
+
 TAG_SUFFIXES=(
   "it_cost_center"
   "department"
