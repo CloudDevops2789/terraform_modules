@@ -59,14 +59,39 @@ root_certificate_chain_arn = "arn:aws:acm:us-east-1:123456789012:certificate/aaa
 
 # IAM SAML identity provider ARN.
 #
-# Required only when authentication_type = "federated".
+# Federated SAML provider ownership.
+#
+# false = use an existing enterprise-managed IAM SAML provider ARN.
+# true  = Terraform manages the IAM SAML provider from approved metadata.
+manage_saml_provider = false
+
+# Optional name override for the Terraform-managed provider.
+# When null, the Sandbox derives the name from the Client VPN resource name.
+saml_provider_name = null
+
+# Supply approved metadata only when manage_saml_provider = true.
+# Do not commit real enterprise SAML metadata to this repository.
+saml_metadata_document = null
+
+# Existing provider ARN used when manage_saml_provider = false.
 saml_provider_arn = null
 
-# Federated authentication example:
-#
+# Existing enterprise-managed provider example:
 # authentication_type          = "federated"
 # root_certificate_chain_arn   = null
+# manage_saml_provider         = false
 # saml_provider_arn            = "arn:aws:iam::123456789012:saml-provider/example-client-vpn"
+
+# Terraform/AAP-managed provider example:
+# authentication_type          = "federated"
+# root_certificate_chain_arn   = null
+# manage_saml_provider         = true
+# saml_provider_name           = "example-client-vpn"
+# saml_metadata_document       = null
+# saml_provider_arn            = null
+#
+# Approved SAML metadata should be injected at runtime by the automation
+# workflow rather than stored in terraform.tfvars.
 
 # Administrative password used when creating AWS Managed Microsoft AD.
 #
