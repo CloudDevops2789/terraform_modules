@@ -1,0 +1,17 @@
+# Optional module-test overrides.
+
+aws_region = "us-east-1"
+
+provider_name = "module-test-client-vpn"
+
+# Leave null to use the synthetic metadata defined in locals.tf.
+#
+# For controlled enterprise testing, approved SAML metadata can instead be
+# supplied using an appropriate Terraform input mechanism.
+saml_metadata_document = null
+
+tags = {
+  org_environment  = "test"
+  org_managed_by   = "Terraform"
+  org_project_name = "AWS-IRE"
+}
