@@ -1,0 +1,205 @@
+---
+- name: Deploy Terraform infrastructure
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    terraform_environment: "sandbox"
+
+    terraform_root: >-
+      {{ playbook_dir }}/../terraform/environments/{{ terraform_environment }}
+
+    terraform_backend_use_lockfile: true
+    terraform_backend_encrypt: true
+    # Safe default for interactive/local validation.
+    # AAP must explicitly enable apply for infrastructure creation.
+    terraform_apply_enabled: false
+
+  pre_tasks:
+    - name: Validate Terraform deployment inputs
+      ansible.builtin.assert:
+        that:
+          - assume_role_role_arn | default('') | length > 0
+          - assume_role_aws_region | default('') | length > 0
+
+          - terraform_environment | length > 0
+          - terraform_environment is match('^[A-Za-z0-9._-]+$')
+
+          - terraform_backend_bucket | default('') | length > 2
+          - terraform_backend_key | default('') | length > 0
+          - terraform_backend_region | default('') | length > 0
+
+          - terraform_public_key | default('') | length > 0
+
+          - terraform_variables is defined
+          - terraform_variables is mapping
+
+        fail_msg: >-
+          Required Terraform deployment inputs are missing or invalid.
+          Supply the AssumeRole configuration, backend configuration,
+          SSH public key, and terraform_variables through AAP or extra vars.
+
+    - name: Check Terraform root
+      ansible.builtin.stat:
+        path: "{{ terraform_root }}"
+      register: terraform_root_stat
+
+    - name: Validate Terraform root
+      ansible.builtin.assert:
+        that:
+          - terraform_root_stat.stat.exists
+          - terraform_root_stat.stat.isdir
+        fail_msg: >-
+          Terraform root does not exist: {{ terraform_root }}
+
+  roles:
+    - role: ire_platform.aws.assume_role
+
+  tasks:
+    - name: Create temporary Terraform workspace
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: ire-terraform-
+      register: terraform_temp_dir
+
+    - name: Execute Terraform deployment
+      block:
+        - name: Write temporary SSH public key
+          ansible.builtin.copy:
+            content: "{{ terraform_public_key | trim }}\n"
+            dest: "{{ terraform_temp_dir.path }}/management.pub"
+            mode: "0600"
+
+        - name: Build effective Terraform variables
+          ansible.builtin.set_fact:
+            terraform_effective_variables: >-
+              {{
+                terraform_variables
+                | combine(
+                    {
+                      'public_key_path':
+                        terraform_temp_dir.path ~ '/management.pub'
+                    }
+                  )
+              }}
+          no_log: true
+
+        - name: Write temporary Terraform variable file
+          ansible.builtin.copy:
+            content: "{{ terraform_effective_variables | to_nice_json }}"
+            dest: "{{ terraform_temp_dir.path }}/terraform.auto.tfvars.json"
+            mode: "0600"
+          no_log: true
+
+        - name: Initialize Terraform
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - init
+              - -input=false
+              - -reconfigure
+              - "-backend-config=bucket={{ terraform_backend_bucket }}"
+              - "-backend-config=key={{ terraform_backend_key }}"
+              - "-backend-config=region={{ terraform_backend_region }}"
+              - "-backend-config=encrypt={{ terraform_backend_encrypt | lower }}"
+              - "-backend-config=use_lockfile={{ terraform_backend_use_lockfile | lower }}"
+          args:
+            chdir: "{{ terraform_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+          changed_when: false
+
+        - name: Validate Terraform configuration
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - validate
+          args:
+            chdir: "{{ terraform_root }}"
+          environment:
+            TF_IN_AUTOMATION: "true"
+          changed_when: false
+
+        - name: Create Terraform deployment plan
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - plan
+              - -no-color
+              - -input=false
+              - -lock=true
+              - -detailed-exitcode
+              - "-var-file={{ terraform_temp_dir.path }}/terraform.auto.tfvars.json"
+              - "-out={{ terraform_temp_dir.path }}/deploy.tfplan"
+          args:
+            chdir: "{{ terraform_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+          register: terraform_plan
+          failed_when: terraform_plan.rc not in [0, 2]
+          changed_when: terraform_plan.rc == 2
+
+        - name: Display Terraform plan summary
+          ansible.builtin.debug:
+            msg: >-
+              {{
+                (
+                  terraform_plan.stdout_lines
+                  | select('search', '^(Plan:|No changes\\.)')
+                  | list
+                  | first
+                )
+                | default('Terraform plan completed; no summary line was detected.')
+              }}
+
+        - name: Apply Terraform deployment plan
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - apply
+              - -input=false
+              - "{{ terraform_temp_dir.path }}/deploy.tfplan"
+          args:
+            chdir: "{{ terraform_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+          when:
+            - terraform_plan.rc == 2
+            - terraform_apply_enabled | bool
+          register: terraform_apply
+          changed_when: true
+
+        - name: Report Terraform deployment result
+          ansible.builtin.debug:
+            msg: >-
+              {% if terraform_plan.rc == 0 %}
+              Terraform infrastructure is already at the desired state.
+              {% elif terraform_apply_enabled | bool %}
+              Terraform infrastructure deployed successfully.
+              {% else %}
+              Terraform plan completed successfully. Apply was not enabled.
+              {% endif %}
+
+      always:
+        - name: Remove temporary Terraform workspace
+          ansible.builtin.file:
+            path: "{{ terraform_temp_dir.path }}"
+            state: absent
+          when:
+            - terraform_temp_dir.path is defined
