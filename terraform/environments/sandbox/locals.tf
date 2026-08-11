@@ -608,3 +608,22 @@ locals {
 locals {
   network_firewall_enabled = var.network_inspection_mode == "firewall"
 }
+
+##################################################################################################
+# Client VPN SAML Provider
+##################################################################################################
+
+locals {
+  resolved_saml_provider_arn = (
+    var.manage_saml_provider
+    ? module.client_vpn_saml_provider[0].saml_provider_arn
+    : var.saml_provider_arn
+  )
+
+  effective_saml_provider_arn = (
+    var.authentication_type == "federated"
+    ? local.resolved_saml_provider_arn
+    : null
+  )
+}
+
