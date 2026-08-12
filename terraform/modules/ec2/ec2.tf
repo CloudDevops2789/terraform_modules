@@ -26,22 +26,21 @@ resource "aws_instance" "this" {
     false
   )
 
-  # DYNAMIC BLOCK: root_block_device is a nested block, not an argument, so
-  # it cannot simply be set to null. A dynamic block generates the nested
-  # block zero or more times from a collection - here, an empty list when
-  # the caller omitted root_block_device (no block emitted, AWS uses the
-  # AMI default) or a one-element list when they supplied it.
-  # Inside content{}, the iterator is named after the block, so
-  # root_block_device.value is the object the caller passed.
-  dynamic "root_block_device" {
-    for_each = try(each.value.root_block_device, null) == null ? [] : [each.value.root_block_device]
+  # Always emit an explicit root block device so encryption is enforced
+  # even when the caller does not customize the AMI root volume. A null
+  # volume_size allows the provider/AMI default size to remain in effect.
+  root_block_device {
+    volume_size           = try(each.value.root_block_device.volume_size, null)
+    volume_type           = each.value.root_block_device.volume_type
+    encrypted             = each.value.root_block_device.encrypted
+    delete_on_termination = each.value.root_block_device.delete_on_termination
+  }
 
-    content {
-      volume_size           = root_block_device.value.volume_size
-      volume_type           = root_block_device.value.volume_type
-      encrypted             = root_block_device.value.encrypted
-      delete_on_termination = root_block_device.value.delete_on_termination
-    }
+  metadata_options {
+    http_endpoint               = each.value.metadata_options.http_endpoint
+    http_tokens                 = each.value.metadata_options.http_tokens
+    http_put_response_hop_limit = each.value.metadata_options.http_put_response_hop_limit
+    instance_metadata_tags      = each.value.metadata_options.instance_metadata_tags
   }
 
   # Per-instance tag map precomputed in locals.tf and looked up by key.
