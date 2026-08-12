@@ -12,6 +12,10 @@ tags = {
   org_managed_by           = "Terraform"
 }
 
+# Approved retention boundaries for the logically air-gapped vault.
+air_gapped_min_retention_days = 30
+air_gapped_max_retention_days = 365
+
 # Stable IAM principal ARN only.
 # Do not use arn:aws:sts::* assumed-role session ARNs.
 kms_key_administrators = [
