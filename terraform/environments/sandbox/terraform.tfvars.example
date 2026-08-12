@@ -93,16 +93,6 @@ saml_provider_arn = null
 # Approved SAML metadata should be injected at runtime by the automation
 # workflow rather than stored in terraform.tfvars.
 
-# Administrative password used when creating AWS Managed Microsoft AD.
-#
-# REQUIREMENTS:
-# - Replace this example before deployment.
-# - Do not commit the real password to Git.
-# - Prefer supplying the real value through an approved secrets mechanism
-#   or TF_VAR_managed_ad_password in CI/CD.
-#
-# Example only:
-managed_ad_password = "Example-Only-ChangeMe-1!"
 
 # AMI used for the Sandbox EC2 test instances.
 #

@@ -1,0 +1,161 @@
+---
+# Realistic AAP Terraform execution example.
+# Values that are account-specific, credential-related, or environment-approved
+# are intentionally represented by placeholders.
+
+# ---------------------------------------------------------------------------
+# AWS execution identity
+# ---------------------------------------------------------------------------
+
+assume_role_role_arn: "arn:aws:iam::<ACCOUNT_ID>:role/<APPROVED_AAP_EXECUTION_ROLE>"
+assume_role_expected_account_id: "<ACCOUNT_ID>"
+assume_role_aws_region: "us-east-1"
+assume_role_application_name: "ire-terraform"
+
+# ---------------------------------------------------------------------------
+# Terraform environment and remote state
+# ---------------------------------------------------------------------------
+
+terraform_environment: "sandbox"
+
+terraform_backend_bucket: "<APPROVED_TERRAFORM_STATE_BUCKET>"
+terraform_backend_key: "sandbox/networking/terraform.tfstate"
+terraform_backend_region: "us-east-1"
+
+# ---------------------------------------------------------------------------
+# Execution control
+# ---------------------------------------------------------------------------
+
+# false = plan only
+# true  = plan followed by apply
+terraform_apply_enabled: false
+
+# ---------------------------------------------------------------------------
+# SSH public key
+# ---------------------------------------------------------------------------
+
+# PUBLIC key only. Never provide a private key here.
+terraform_public_key: >-
+  ssh-ed25519 <APPROVED_PUBLIC_KEY_MATERIAL>
+
+# ---------------------------------------------------------------------------
+# Terraform environment configuration
+# ---------------------------------------------------------------------------
+
+terraform_variables:
+  aws_region: "us-east-1"
+
+  # Client VPN authentication
+  authentication_type: "certificate"
+  server_certificate_arn: "arn:aws:acm:us-east-1:<ACCOUNT_ID>:certificate/<SERVER_CERTIFICATE_ID>"
+  root_certificate_chain_arn: "arn:aws:acm:us-east-1:<ACCOUNT_ID>:certificate/<ROOT_CERTIFICATE_ID>"
+
+  # Used when federated/SAML authentication is enabled.
+  saml_provider_arn: null
+  manage_saml_provider: false
+  saml_provider_name: null
+  saml_metadata_document: null
+
+  # Approved workload image.
+  ami_id: "<APPROVED_AMI_ID>"
+
+  # -------------------------------------------------------------------------
+  # Organization tags
+  # -------------------------------------------------------------------------
+
+  org_it_cost_center: "999999999"
+  org_department: "ire-admin"
+  org_cmdb_calculated_app: "ire-terraform"
+  org_business_criticality: "4"
+  org_environment: "dev"
+  org_data_classification: "Internal"
+  org_project_name: "AWS-IRE"
+  org_managed_by: "Terraform"
+  org_additional_tags: {}
+
+  # -------------------------------------------------------------------------
+  # Naming
+  # -------------------------------------------------------------------------
+
+  naming:
+    organization: "org"
+    project: "ire"
+    project_display_name: "IRE"
+    environment: "sandbox"
+    environment_display_name: "Sandbox"
+    region_code: "use1"
+    suffix: null
+
+  # -------------------------------------------------------------------------
+  # Network allocation
+  # -------------------------------------------------------------------------
+
+  network_config:
+    account_cidr_block: "10.213.252.0/22"
+    client_vpn_cidr_block: "172.30.240.0/22"
+
+    vpcs:
+
+      recovery_access:
+        cidr_block: "10.213.252.0/24"
+
+        subnet_cidrs:
+          client_vpn_a: "10.213.252.0/27"
+          client_vpn_b: "10.213.252.32/27"
+
+          admin_tools_a: "10.213.252.64/27"
+          admin_tools_b: "10.213.252.96/27"
+
+          endpoints_a: "10.213.252.128/28"
+          endpoints_b: "10.213.252.144/28"
+
+          transit_gateway_a: "10.213.252.160/28"
+          transit_gateway_b: "10.213.252.176/28"
+
+      core_recovery:
+        cidr_block: "10.213.253.0/24"
+
+        subnet_cidrs:
+          recovery_services_a: "10.213.253.0/26"
+          recovery_services_b: "10.213.253.64/26"
+
+          directory_services_a: "10.213.253.128/28"
+          directory_services_b: "10.213.253.144/28"
+
+          endpoints_a: "10.213.253.160/28"
+          endpoints_b: "10.213.253.176/28"
+
+          transit_gateway_a: "10.213.253.192/28"
+          transit_gateway_b: "10.213.253.208/28"
+
+      protected_data:
+        cidr_block: "10.213.254.0/24"
+
+        subnet_cidrs:
+          protected_workloads_a: "10.213.254.0/27"
+          protected_workloads_b: "10.213.254.32/27"
+
+          ingestion_a: "10.213.254.64/28"
+          ingestion_b: "10.213.254.80/28"
+
+          database_a: "10.213.254.96/28"
+          database_b: "10.213.254.112/28"
+
+          file_services_a: "10.213.254.128/28"
+          file_services_b: "10.213.254.144/28"
+
+          endpoints_a: "10.213.254.160/28"
+          endpoints_b: "10.213.254.176/28"
+
+          transit_gateway_a: "10.213.254.192/28"
+          transit_gateway_b: "10.213.254.208/28"
+
+      inspection:
+        cidr_block: "10.213.255.0/24"
+
+        subnet_cidrs:
+          firewall_a: "10.213.255.0/28"
+          firewall_b: "10.213.255.16/28"
+
+          transit_gateway_a: "10.213.255.32/28"
+          transit_gateway_b: "10.213.255.48/28"

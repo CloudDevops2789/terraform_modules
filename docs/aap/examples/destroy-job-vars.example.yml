@@ -1,0 +1,24 @@
+---
+# Uses the same AWS, backend, public-key, and terraform_variables
+# configuration as the deployment job.
+
+assume_role_role_arn: "arn:aws:iam::<ACCOUNT_ID>:role/<APPROVED_AAP_ROLE>"
+assume_role_expected_account_id: "<APPROVED_AWS_ACCOUNT_ID>"
+assume_role_aws_region: "us-east-1"
+assume_role_application_name: "ire-terraform"
+
+terraform_environment: "sandbox"
+
+terraform_backend_bucket: "<APPROVED_STATE_BUCKET>"
+terraform_backend_key: "<ENVIRONMENT>/terraform.tfstate"
+terraform_backend_region: "us-east-1"
+
+# false = destroy plan only
+# true  = perform destroy when confirmation is also DESTROY
+terraform_destroy_enabled: false
+terraform_destroy_confirmation: ""
+
+terraform_public_key: "ssh-ed25519 <PUBLIC_KEY_MATERIAL>"
+
+# Supply the same terraform_variables used by the deployment job.
+terraform_variables: {}

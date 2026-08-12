@@ -6,7 +6,7 @@ Accepted.
 
 ## Context
 
-Workloads inside the IRE need to resolve names. AWS Managed Microsoft AD (ADR-002) already provides integrated DNS for anything joined to it, and every workload that currently exists in this design lives inside Core Recovery or Protected Data — both reachable from that directory's DNS. The question is whether a Route 53 Resolver module is needed now, and if so, what it should build.
+Workloads inside the IRE need to resolve names. AWS Managed Microsoft AD (ADR-002), when enabled, provides integrated DNS for anything joined to it, and every workload that currently exists in this design lives inside Core Recovery or Protected Data — both reachable from that directory's DNS. The question is whether a Route 53 Resolver module is needed now, and if so, what it should build.
 
 Route 53 Resolver has two distinct endpoint types, serving opposite directions of traffic:
 

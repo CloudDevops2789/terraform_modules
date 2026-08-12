@@ -87,6 +87,17 @@
   changed_when: false
   no_log: true
 
+- name: Validate assumed AWS account
+  ansible.builtin.assert:
+    that:
+      - assume_role_caller_identity.account == assume_role_expected_account_id
+    fail_msg: >-
+      Assumed AWS account {{ assume_role_caller_identity.account }}
+      does not match expected account {{ assume_role_expected_account_id }}.
+    quiet: true
+  when:
+    - assume_role_expected_account_id | default('') | length > 0
+
 - name: Display assumed AWS identity
   ansible.builtin.debug:
     msg: >-

@@ -25,7 +25,7 @@ flowchart LR
 
 ## Decision
 
-AWS Managed Microsoft AD is deployed in the Core Recovery VPC.
+The target architecture places AWS Managed Microsoft AD in the Core Recovery VPC. The reusable Terraform module exists, but deployment is currently disabled in the integrated environment pending approval of the identity, DNS, and credential-handling workflow.
 
 ```mermaid
 flowchart TB
