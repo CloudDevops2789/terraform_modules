@@ -30,7 +30,9 @@
           - terraform_backend_key | default('') | length > 0
           - terraform_backend_region | default('') | length > 0
 
-          - terraform_public_key | default('') | length > 0
+          - >-
+            terraform_environment == 'foundation'
+            or terraform_public_key | default('') | length > 0
 
           - terraform_variables is defined
           - terraform_variables is mapping
@@ -38,7 +40,7 @@
         fail_msg: >-
           Required Terraform deployment inputs are missing or invalid.
           Supply the AssumeRole configuration, backend configuration,
-          SSH public key, and terraform_variables through AAP or extra vars.
+          environment-specific inputs and terraform_variables through AAP or extra vars.
 
     - name: Check Terraform root
       ansible.builtin.stat:
@@ -70,6 +72,7 @@
             content: "{{ terraform_public_key | trim }}\n"
             dest: "{{ terraform_temp_dir.path }}/management.pub"
             mode: "0600"
+          when: terraform_environment == 'sandbox'
 
         - name: Build effective Terraform variables
           ansible.builtin.set_fact:
@@ -77,10 +80,14 @@
               {{
                 terraform_variables
                 | combine(
-                    {
-                      'public_key_path':
-                        terraform_temp_dir.path ~ '/management.pub'
-                    }
+                    (
+                      {
+                        'public_key_path':
+                          terraform_temp_dir.path ~ '/management.pub'
+                      }
+                      if terraform_environment == 'sandbox'
+                      else {}
+                    )
                   )
               }}
           no_log: true

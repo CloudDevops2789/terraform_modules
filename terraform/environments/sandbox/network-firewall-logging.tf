@@ -9,15 +9,8 @@
 # decryption. The detailed monitoring dashboard also remains disabled to avoid automatic log-query
 # charges during this infrastructure-validation stage.
 
-data "aws_partition" "network_firewall_logging" {}
-
-data "aws_caller_identity" "network_firewall_logging" {}
-
 locals {
   network_firewall_logging = {
-    kms_alias       = local.resource_names.network_firewall_logging_kms_alias
-    kms_description = "Customer managed KMS key for encrypted AWS Network Firewall CloudWatch log groups in the ${var.naming.project_display_name} ${var.naming.environment_display_name}"
-
     retention_in_days = 30
 
     log_groups = {
@@ -35,66 +28,10 @@ locals {
 }
 
 ##################################################################################################
-# CloudWatch Logs KMS Policy
+# Persistent KMS Dependency
 ##################################################################################################
-# CloudWatch Logs uses the regional service principal and supplies the log-group ARN in the KMS
-# encryption context. The condition limits this key to the two Network Firewall log groups below.
-
-data "aws_iam_policy_document" "network_firewall_logging_kms" {
-  statement {
-    sid    = "AllowCloudWatchLogsEncryption"
-    effect = "Allow"
-
-    actions = [
-      "kms:Encrypt",
-      "kms:Decrypt",
-      "kms:ReEncrypt*",
-      "kms:GenerateDataKey*",
-      "kms:Describe*"
-    ]
-
-    resources = ["*"]
-
-    principals {
-      type = "Service"
-
-      identifiers = [
-        "logs.${var.aws_region}.${data.aws_partition.network_firewall_logging.dns_suffix}"
-      ]
-    }
-
-    condition {
-      test     = "ArnLike"
-      variable = "kms:EncryptionContext:aws:logs:arn"
-
-      values = [
-        "arn:${data.aws_partition.network_firewall_logging.partition}:logs:${var.aws_region}:${data.aws_caller_identity.network_firewall_logging.account_id}:log-group:${local.resource_names.network_firewall_log_group_prefix}/*"
-      ]
-    }
-  }
-}
-
-##################################################################################################
-# Dedicated Logging KMS Key
-##################################################################################################
-
-module "network_firewall_logging_kms" {
-  source = "../../modules/kms"
-
-  description = local.network_firewall_logging.kms_description
-  alias       = local.network_firewall_logging.kms_alias
-
-  additional_policy_documents = [
-    data.aws_iam_policy_document.network_firewall_logging_kms.json
-  ]
-
-  tags = merge(
-    local.org_tags,
-    {
-      org_service_name = "network-firewall-logging"
-    }
-  )
-}
+# The customer-managed logging key is owned by the persistent IRE foundation
+# state. Sandbox consumes only the approved key ARN.
 
 ##################################################################################################
 # Encrypted CloudWatch Log Groups
@@ -109,7 +46,7 @@ resource "aws_cloudwatch_log_group" "network_firewall" {
 
   name              = each.value.name
   retention_in_days = local.network_firewall_logging.retention_in_days
-  kms_key_id        = module.network_firewall_logging_kms.key_arn
+  kms_key_id        = var.foundation_resources.network_firewall_logging_kms_key_arn
 
   tags = merge(
     local.org_tags,
@@ -162,7 +99,7 @@ output "network_firewall_log_group_names" {
 
 output "network_firewall_logging_kms_key_arn" {
   description = "ARN of the customer-managed KMS key used for Network Firewall log encryption."
-  value       = module.network_firewall_logging_kms.key_arn
+  value       = var.foundation_resources.network_firewall_logging_kms_key_arn
 }
 
 output "network_firewall_logging_configuration_ids" {

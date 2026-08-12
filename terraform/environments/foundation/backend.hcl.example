@@ -1,0 +1,5 @@
+bucket       = "replace-with-approved-state-bucket"
+key          = "foundation/terraform.tfstate"
+region       = "replace-with-approved-region"
+encrypt      = true
+use_lockfile = true
