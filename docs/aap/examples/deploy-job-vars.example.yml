@@ -1,0 +1,107 @@
+---
+# AWS execution
+assume_role_role_arn: "arn:aws:iam::<ACCOUNT_ID>:role/<APPROVED_AAP_ROLE>"
+assume_role_expected_account_id: "<APPROVED_AWS_ACCOUNT_ID>"
+assume_role_aws_region: "us-east-1"
+assume_role_application_name: "ire-terraform"
+
+# Terraform environment
+terraform_environment: "sandbox"
+
+# Remote state
+terraform_backend_bucket: "<APPROVED_STATE_BUCKET>"
+terraform_backend_key: "<ENVIRONMENT>/terraform.tfstate"
+terraform_backend_region: "us-east-1"
+
+# false = plan only
+# true  = plan and apply
+terraform_apply_enabled: false
+
+# Public key content supplied by AAP
+terraform_public_key: "ssh-ed25519 <PUBLIC_KEY_MATERIAL>"
+
+# Environment-specific Terraform values
+terraform_variables:
+  aws_region: "us-east-1"
+  ami_id: "<APPROVED_AMI_ID>"
+
+  authentication_type: "federated"
+  server_certificate_arn: "<ACM_SERVER_CERTIFICATE_ARN>"
+
+  manage_saml_provider: false
+  saml_provider_arn: "<IAM_SAML_PROVIDER_ARN>"
+  saml_provider_name: null
+  saml_metadata_document: null
+  root_certificate_chain_arn: null
+
+  org_it_cost_center: "<COST_CENTER>"
+  org_department: "<DEPARTMENT>"
+  org_cmdb_calculated_app: "<APPLICATION>"
+  org_business_criticality: "<CRITICALITY>"
+  org_environment: "<ENVIRONMENT>"
+  org_data_classification: "<CLASSIFICATION>"
+  org_project_name: "AWS-IRE"
+  org_managed_by: "Terraform"
+  org_additional_tags: {}
+
+  naming:
+    organization: "<ORGANIZATION>"
+    project: "<PROJECT>"
+    project_display_name: "<PROJECT_DISPLAY_NAME>"
+    environment: "<ENVIRONMENT>"
+    environment_display_name: "<ENVIRONMENT_DISPLAY_NAME>"
+    region_code: "<REGION_CODE>"
+    suffix: null
+
+  network_config:
+    account_cidr_block: "<ACCOUNT_CIDR>"
+    client_vpn_cidr_block: "<CLIENT_VPN_CIDR>"
+
+    vpcs:
+      recovery_access:
+        cidr_block: "<CIDR>"
+        subnet_cidrs:
+          client_vpn_a: "<CIDR>"
+          client_vpn_b: "<CIDR>"
+          admin_tools_a: "<CIDR>"
+          admin_tools_b: "<CIDR>"
+          endpoints_a: "<CIDR>"
+          endpoints_b: "<CIDR>"
+          transit_gateway_a: "<CIDR>"
+          transit_gateway_b: "<CIDR>"
+
+      core_recovery:
+        cidr_block: "<CIDR>"
+        subnet_cidrs:
+          recovery_services_a: "<CIDR>"
+          recovery_services_b: "<CIDR>"
+          directory_services_a: "<CIDR>"
+          directory_services_b: "<CIDR>"
+          endpoints_a: "<CIDR>"
+          endpoints_b: "<CIDR>"
+          transit_gateway_a: "<CIDR>"
+          transit_gateway_b: "<CIDR>"
+
+      protected_data:
+        cidr_block: "<CIDR>"
+        subnet_cidrs:
+          protected_workloads_a: "<CIDR>"
+          protected_workloads_b: "<CIDR>"
+          ingestion_a: "<CIDR>"
+          ingestion_b: "<CIDR>"
+          database_a: "<CIDR>"
+          database_b: "<CIDR>"
+          file_services_a: "<CIDR>"
+          file_services_b: "<CIDR>"
+          endpoints_a: "<CIDR>"
+          endpoints_b: "<CIDR>"
+          transit_gateway_a: "<CIDR>"
+          transit_gateway_b: "<CIDR>"
+
+      inspection:
+        cidr_block: "<CIDR>"
+        subnet_cidrs:
+          firewall_a: "<CIDR>"
+          firewall_b: "<CIDR>"
+          transit_gateway_a: "<CIDR>"
+          transit_gateway_b: "<CIDR>"
