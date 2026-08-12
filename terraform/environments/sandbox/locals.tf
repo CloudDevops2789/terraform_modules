@@ -90,11 +90,6 @@ locals {
       "${local.name_prefix}-backup-selection"
     )
 
-    general_kms_alias = coalesce(
-      var.resource_name_overrides.general_kms_alias,
-      local.name_prefix
-    )
-
     network_firewall = coalesce(
       var.resource_name_overrides.network_firewall,
       local.derived_network_firewall_name
@@ -108,11 +103,6 @@ locals {
     network_firewall_rule_group = coalesce(
       var.resource_name_overrides.network_firewall_rule_group,
       "${local.name_prefix}-segmentation"
-    )
-
-    network_firewall_logging_kms_alias = coalesce(
-      var.resource_name_overrides.network_firewall_logging_kms_alias,
-      "${local.name_prefix}-network-firewall-logs"
     )
 
     network_firewall_log_group_prefix = coalesce(

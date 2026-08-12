@@ -28,7 +28,6 @@
 
           - terraform_environment | length > 0
           - terraform_environment is match('^[A-Za-z0-9._-]+$')
-
           - terraform_backend_bucket | default('') | length > 2
           - terraform_backend_key | default('') | length > 0
           - terraform_backend_region | default('') | length > 0
@@ -42,6 +41,14 @@
           Required Terraform destroy inputs are missing or invalid.
           Supply the AssumeRole configuration, backend configuration,
           SSH public key, and terraform_variables through AAP or extra vars.
+
+    - name: Protect persistent Foundation from recovery-environment destroy
+      ansible.builtin.assert:
+        that:
+          - terraform_environment != 'foundation'
+        fail_msg: >-
+          The persistent foundation environment cannot be targeted by
+          the recovery-environment destroy workflow.
 
     - name: Validate Terraform destroy authorization
       ansible.builtin.assert:

@@ -3,7 +3,7 @@
 The Sandbox is the integrated Terraform root for the AWS Isolated Recovery
 Environment. It composes four VPCs, Transit Gateway segmentation, centralized
 AWS Network Firewall inspection, administrative Client VPN access, security
-groups, representative EC2 resources, KMS, and AWS Backup modules.
+groups, representative EC2 resources, persistent-foundation integrations, and AWS Backup policy modules.
 
 > **Current status:** formatted, validated, and planned successfully. No
 > Terraform apply was performed during the current implementation work.
@@ -153,10 +153,10 @@ Network Firewall sends separate `ALERT` and `FLOW` logs to CloudWatch Logs.
 The log-group names are derived from portable naming inputs. Both log groups:
 
 - retain data for 30 days in the current example;
-- use a dedicated customer-managed KMS key;
+- consume a dedicated customer-managed KMS key owned by the persistent Foundation state;
 - use the regional CloudWatch Logs service principal;
 - restrict KMS use with the log-group encryption context;
-- remain separate from the general Sandbox KMS key.
+- remain outside the disposable Sandbox lifecycle.
 
 TLS logging is disabled because TLS decryption is not configured.
 
@@ -257,7 +257,7 @@ Implemented in Terraform:
 - Recovery Access Client VPN;
 - security groups;
 - representative EC2 resources;
-- KMS and AWS Backup composition;
+- persistent Foundation references and AWS Backup policy composition;
 - portable network and naming inputs.
 
 Planned, not implemented:
@@ -267,3 +267,24 @@ Planned, not implemented:
 - narrowly scoped on-premises ingestion exception, if approved;
 - production PKI-backed TLS decryption;
 - production lifecycle protection settings.
+
+## Persistent IRE Foundation Dependency
+
+The Sandbox is the disposable recovery-environment Terraform root.
+
+It does not own long-lived AWS Backup vaults or the customer-managed
+KMS key used for Network Firewall logging.
+
+Those resources are owned by the separate `foundation` Terraform
+environment and are supplied through `foundation_resources`.
+
+Example:
+
+    foundation_resources = {
+      standard_backup_vault_name = "approved-standard-vault-name"
+      air_gapped_backup_vault_arn = "approved-air-gapped-vault-arn"
+      network_firewall_logging_kms_key_arn = "approved-kms-key-arn"
+    }
+
+This lifecycle boundary ensures that destroying the Sandbox does not
+attempt to delete retained backup vaults or persistent encryption keys.

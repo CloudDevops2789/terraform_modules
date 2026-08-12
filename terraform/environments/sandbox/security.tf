@@ -118,19 +118,3 @@ module "security_group_rule" {
 
   rules = local.sandbox_security_group_rules
 }
-
-############################################
-# KMS
-############################################
-
-# Purpose: Creates the customer-managed KMS key used by supported Sandbox services.
-# Change when: Change alias, rotation, or policy only through approved key-management requirements.
-module "kms" {
-  source = "../../modules/kms"
-
-  description = local.kms.description
-
-  alias = local.kms.alias
-
-  tags = local.org_tags
-}
