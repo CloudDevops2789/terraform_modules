@@ -12,6 +12,10 @@ assume_role_session_duration_seconds: ""
 # AWS Region used by STS verification and downstream consumers.
 assume_role_aws_region: "us-east-1"
 
+# Optional safety guard. When set, the assumed role must belong to this
+# AWS account before downstream automation is allowed to continue.
+assume_role_expected_account_id: ""
+
 # Logical workload/application name used when constructing the STS
 # session name for CloudTrail auditability.
 assume_role_application_name: "recovery"

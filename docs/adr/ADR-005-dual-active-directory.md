@@ -37,7 +37,7 @@ flowchart TB
     ControlPlane -.->|no trust, ever, separate credentials| DataPlane
 ```
 
-**Control plane.** AWS Managed Microsoft AD, placed in Core Recovery per ADR-002. Standalone, no trusts, a small population of named recovery administrators, AAP, and automation identities. Provisioned by Infrastructure as Code. This directory exists continuously and is never used to authenticate a recovered application.
+**Control plane.** AWS Managed Microsoft AD, targeted for placement in Core Recovery per ADR-002. Standalone, no trusts, a small population of named recovery administrators, AAP, and automation identities. In the target architecture, this directory is provisioned by Infrastructure as Code and is intended to exist continuously. It is never used to authenticate a recovered application. Deployment is currently disabled in the integrated environment pending approval of the identity, DNS, and credential-handling workflow.
 
 **Data plane.** The production forest itself, restored from immutable, vaulted domain controller backups onto EC2 instances, only at the point a recovery is declared. Before any application is allowed to authenticate against it, a hygiene procedure runs: KRBTGT is reset twice, Tier-0 credential passwords are reset, DSRM is reset, external and forest trusts are removed, and directory synchronization connectors such as Entra Connect are disabled. This directory is what recovered applications, service accounts, and machine trusts actually authenticate against, because it is the only artifact that carries their original SIDs and secrets.
 

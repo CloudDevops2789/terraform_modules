@@ -3,6 +3,8 @@
 ##################################################################################################
 # Managed Microsoft AD remains disabled until its security workflow is
 # approved. The directory-services group already spans two AZs.
+# When this capability is enabled, restore the required password input and
+# supply it through the approved AAP credential or enterprise secret-management path.
 
 /*
 # Purpose: Defines the optional AWS Managed Microsoft AD deployment for administrative identity testing.
