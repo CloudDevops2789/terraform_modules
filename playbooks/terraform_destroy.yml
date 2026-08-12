@@ -19,6 +19,10 @@
     # Required when terraform_destroy_enabled is true.
     terraform_destroy_confirmation: ""
 
+    # Break-glass protection for the persistent Foundation environment.
+    # Foundation destroy remains blocked unless this is explicitly enabled.
+    terraform_allow_foundation_destroy: false
+
   pre_tasks:
     - name: Validate Terraform destroy inputs
       ansible.builtin.assert:
@@ -32,7 +36,9 @@
           - terraform_backend_key | default('') | length > 0
           - terraform_backend_region | default('') | length > 0
 
-          - terraform_public_key | default('') | length > 0
+          - >-
+            terraform_environment != 'sandbox'
+            or terraform_public_key | default('') | length > 0
 
           - terraform_variables is defined
           - terraform_variables is mapping
@@ -40,26 +46,41 @@
         fail_msg: >-
           Required Terraform destroy inputs are missing or invalid.
           Supply the AssumeRole configuration, backend configuration,
-          SSH public key, and terraform_variables through AAP or extra vars.
+          terraform_variables, and any environment-specific required inputs
+          through AAP or extra vars.
 
-    - name: Protect persistent Foundation from recovery-environment destroy
+    - name: Protect persistent Foundation from accidental destroy
       ansible.builtin.assert:
         that:
-          - terraform_environment != 'foundation'
+          - >-
+            terraform_environment != 'foundation'
+            or (terraform_allow_foundation_destroy | bool)
         fail_msg: >-
-          The persistent foundation environment cannot be targeted by
-          the recovery-environment destroy workflow.
+          Foundation destroy is blocked by default. Set
+          terraform_allow_foundation_destroy=true only for an explicitly
+          approved Foundation cleanup.
 
     - name: Validate Terraform destroy authorization
       ansible.builtin.assert:
         that:
           - >-
             not (terraform_destroy_enabled | bool)
-            or terraform_destroy_confirmation == 'DESTROY'
+            or (
+              (
+                terraform_environment == 'foundation'
+                and (terraform_allow_foundation_destroy | bool)
+                and terraform_destroy_confirmation == 'DESTROY FOUNDATION'
+              )
+              or (
+                terraform_environment != 'foundation'
+                and terraform_destroy_confirmation == 'DESTROY'
+              )
+            )
         fail_msg: >-
-          Destruction was enabled without explicit confirmation.
-          Set terraform_destroy_confirmation to DESTROY when an approved
-          infrastructure destruction is intended.
+          Destruction was enabled without the required explicit confirmation.
+          Use DESTROY for recovery environments. Foundation additionally
+          requires terraform_allow_foundation_destroy=true and the exact
+          confirmation DESTROY FOUNDATION.
 
     - name: Check Terraform root
       ansible.builtin.stat:
@@ -91,6 +112,7 @@
             content: "{{ terraform_public_key | trim }}\n"
             dest: "{{ terraform_temp_dir.path }}/management.pub"
             mode: "0600"
+          when: terraform_environment == 'sandbox'
 
         - name: Build effective Terraform variables
           ansible.builtin.set_fact:
@@ -98,10 +120,14 @@
               {{
                 terraform_variables
                 | combine(
-                    {
-                      'public_key_path':
-                        terraform_temp_dir.path ~ '/management.pub'
-                    }
+                    (
+                      {
+                        'public_key_path':
+                          terraform_temp_dir.path ~ '/management.pub'
+                      }
+                      if terraform_environment == 'sandbox'
+                      else {}
+                    )
                   )
               }}
           no_log: true
