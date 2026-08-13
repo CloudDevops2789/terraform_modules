@@ -122,6 +122,28 @@ security_group_rules = [
     peer_type      = "cidr"
     peer           = "0.0.0.0/0"
     description    = "Allow Protected Data tier outbound traffic"
+  },
+  {
+    name           = "traffic-test-management-to-core"
+    direction      = "ingress"
+    security_group = "core"
+    protocol       = "tcp"
+    from_port      = 8080
+    to_port        = 8080
+    peer_type      = "vpc"
+    peer           = "recovery_access"
+    description    = "Temporary validation: Recovery Access to Core Recovery TCP 8080"
+  },
+  {
+    name           = "traffic-test-core-to-protected"
+    direction      = "ingress"
+    security_group = "protected"
+    protocol       = "tcp"
+    from_port      = 8080
+    to_port        = 8080
+    peer_type      = "vpc"
+    peer           = "core_recovery"
+    description    = "Temporary validation: Core Recovery to Protected Data TCP 8080"
   }
 ]
 
