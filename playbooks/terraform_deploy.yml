@@ -12,6 +12,18 @@
 
     terraform_backend_use_lockfile: true
     terraform_backend_encrypt: true
+
+    # Sandbox AAP is an execution interface, not an architecture editor.
+    # Stable architecture and security settings remain Git controlled.
+    terraform_sandbox_runtime_variable_allowlist:
+      - demo_ec2_enabled
+      - ami_id
+      - server_certificate_arn
+      - root_certificate_chain_arn
+      - saml_provider_arn
+      - ssm_instance_profile_name
+      - foundation_resources
+
     # Safe default for interactive/local validation.
     # AAP must explicitly enable apply for infrastructure creation.
     terraform_apply_enabled: false
@@ -30,12 +42,6 @@
           - terraform_backend_key | default('') | length > 0
           - terraform_backend_region | default('') | length > 0
 
-          - >-
-            terraform_environment != 'sandbox'
-            or not (terraform_variables.demo_ec2_enabled | default(false) | bool)
-            or (terraform_variables.demo_ec2_access_method | default('none')) != 'ssh_key'
-            or terraform_public_key | default('') | length > 0
-
           - terraform_variables is defined
           - terraform_variables is mapping
 
@@ -43,6 +49,22 @@
           Required Terraform deployment inputs are missing or invalid.
           Supply the AssumeRole configuration, backend configuration,
           environment-specific inputs and terraform_variables through AAP or extra vars.
+
+    - name: Enforce Sandbox Terraform runtime variable allowlist
+      ansible.builtin.assert:
+        that:
+          - >-
+            terraform_environment != 'sandbox'
+            or (
+              terraform_variables.keys()
+              | list
+              | difference(terraform_sandbox_runtime_variable_allowlist)
+              | length
+            ) == 0
+        fail_msg: >-
+          Sandbox AAP runtime variables contain Git-controlled architecture
+          settings. Only approved runtime and external-binding variables may
+          be supplied through AAP.
 
     - name: Check Terraform root
       ansible.builtin.stat:
@@ -69,34 +91,15 @@
 
     - name: Execute Terraform deployment
       block:
-        - name: Write temporary SSH public key
-          ansible.builtin.copy:
-            content: "{{ terraform_public_key | trim }}\n"
-            dest: "{{ terraform_temp_dir.path }}/management.pub"
-            mode: "0600"
-          when:
-            - terraform_environment == 'sandbox'
-            - terraform_variables.demo_ec2_enabled | default(false) | bool
-            - (terraform_variables.demo_ec2_access_method | default('none')) == 'ssh_key'
-
-        - name: Build effective Terraform variables
+        - name: Build effective Terraform runtime variables
           ansible.builtin.set_fact:
             terraform_effective_variables: >-
               {{
                 terraform_variables
                 | combine(
-                    (
-                      {
-                        'public_key_path':
-                          terraform_temp_dir.path ~ '/management.pub'
-                      }
-                      if (
-                        terraform_environment == 'sandbox'
-                        and (terraform_variables.demo_ec2_enabled | default(false) | bool)
-                        and (terraform_variables.demo_ec2_access_method | default('none')) == 'ssh_key'
-                      )
-                      else {}
-                    )
+                    {
+                      'aws_region': assume_role_aws_region
+                    }
                   )
               }}
           no_log: true

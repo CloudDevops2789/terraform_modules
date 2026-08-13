@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # 1. Sync with remote and remove stale remote tracking refs
 git fetch --prune
 

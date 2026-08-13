@@ -1,88 +1,78 @@
 ---
-# IRE Sandbox - AAP Extra Variables Example
+################################################################################
+# Sandbox AAP Job Template Variables
+################################################################################
 #
-# The Terraform configuration supports both .tfvars and AAP-supplied inputs.
-# Replace all example values with approved environment-specific values.
-
-assume_role_role_arn: "arn:aws:iam::123456789012:role/org-ire-terraform-execution"
-assume_role_aws_region: "us-east-1"
-assume_role_application_name: "ire-terraform"
+# AAP owns execution context and runtime intent.
+#
+# Git owns architecture through:
+#
+#   platform.auto.tfvars
+#   network-policy.auto.tfvars
+#
+# Do not place network topology, inspection mode, authentication mode,
+# naming, tagging, or management-plane architecture in terraform_variables.
+################################################################################
 
 terraform_environment: "sandbox"
 
-terraform_backend_bucket: "org-ire-terraform-state-123456789012"
-terraform_backend_key: "sandbox/networking/terraform.tfstate"
-terraform_backend_region: "us-east-1"
+################################################################################
+# AWS execution binding
+################################################################################
 
-# Safe default: generate a plan only.
+assume_role_role_arn: "<APPROVED_AAP_EXECUTION_ROLE_ARN>"
+
+# Single source of truth for the Terraform deployment Region.
+# The playbook automatically injects this into Terraform as aws_region.
+assume_role_aws_region: "us-east-1"
+
+################################################################################
+# Terraform backend binding
+################################################################################
+
+terraform_backend_bucket: "<APPROVED_TERRAFORM_STATE_BUCKET>"
+terraform_backend_key: "sandbox/terraform.tfstate"
+
+# Backend Region is independent from the infrastructure deployment Region.
+terraform_backend_region: "<BACKEND_BUCKET_REGION>"
+
+################################################################################
+# Deployment control
+################################################################################
+
+# false = plan only
+# true  = apply the reviewed saved plan
 terraform_apply_enabled: false
 
-terraform_variables:
+################################################################################
+# Runtime / external Terraform bindings
+################################################################################
 
-  aws_region: "us-east-1"
+# Initial platform bootstrap requires no additional values.
+terraform_variables: {}
 
-  # -------------------------------------------------------------------------
-  # Demonstration workload lifecycle
-  # -------------------------------------------------------------------------
+# Exercise example:
+#
+# terraform_variables:
+#   demo_ec2_enabled: true
+#   ami_id: "<APPROVED_AMI_IN_DEPLOYMENT_REGION>"
 
-  # Persistent platform only.
-  demo_ec2_enabled: false
-  demo_ec2_access_method: "none"
+# When Git enables Client VPN with federated authentication:
+#
+# terraform_variables:
+#   server_certificate_arn: "<ACM_SERVER_CERTIFICATE_ARN>"
+#   saml_provider_arn: "<ENTERPRISE_IAM_SAML_PROVIDER_ARN>"
 
-  # -------------------------------------------------------------------------
-  # Persistent Systems Manager management plane
-  # -------------------------------------------------------------------------
+# When Git selects external SSM instance-profile ownership:
+#
+# terraform_variables:
+#   ssm_instance_profile_name: "<APPROVED_INSTANCE_PROFILE>"
 
-  ssm_management_plane_enabled: false
-
-  # external  = organization-approved existing instance profile
-  # terraform = Terraform-managed role/profile
-  ssm_instance_profile_mode: "external"
-
-  # Supply only when required.
-  # ssm_instance_profile_name: "org-approved-ire-ssm-profile"
-
-  # Supply only when demo_ec2_enabled=true.
-  # ami_id: "ami-0123456789abcdef0"
-
-  # -------------------------------------------------------------------------
-  # Client VPN example
-  # -------------------------------------------------------------------------
-
-  authentication_type: "certificate"
-
-  server_certificate_arn: "arn:aws:acm:us-east-1:123456789012:certificate/11111111-2222-3333-4444-555555555555"
-  root_certificate_chain_arn: "arn:aws:acm:us-east-1:123456789012:certificate/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
-
-  saml_provider_arn: null
-
-  # -------------------------------------------------------------------------
-  # Optional integrations
-  # -------------------------------------------------------------------------
-
-  backup_integration_enabled: false
-  network_firewall_logging_enabled: false
-  network_inspection_mode: "bypass"
-
-  # -------------------------------------------------------------------------
-  # Governance
-  # -------------------------------------------------------------------------
-
-  org_it_cost_center: "12345"
-  org_department: "cyber-resilience"
-  org_cmdb_calculated_app: "ire-platform"
-  org_business_criticality: "1"
-  org_environment: "recovery"
-  org_data_classification: "Internal"
-  org_project_name: "IRE"
-  org_managed_by: "Terraform"
-  org_additional_tags: {}
-
-  naming:
-    organization: "org"
-    project: "ire"
-    project_display_name: "IRE"
-    environment: "recovery"
-    environment_display_name: "Recovery"
-    region_code: "use1"
-    suffix: null
+# Foundation references may be supplied only when the corresponding
+# Git-controlled integration flag is enabled.
+#
+# terraform_variables:
+#   foundation_resources:
+#     standard_backup_vault_name: "<STANDARD_VAULT_NAME>"
+#     air_gapped_backup_vault_arn: "<AIR_GAPPED_VAULT_ARN>"
+#     network_firewall_logging_kms_key_arn: "<KMS_KEY_ARN>"

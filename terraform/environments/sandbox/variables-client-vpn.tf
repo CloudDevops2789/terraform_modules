@@ -2,10 +2,17 @@
 # Client VPN and Federation Variables
 ##################################################################################################
 
+variable "client_vpn_enabled" {
+  description = "Whether this environment creates AWS Client VPN. Keep false during initial bootstrap when enterprise PKI or identity prerequisites are not yet available."
+  type        = bool
+  default     = false
+  nullable    = false
+}
+
 variable "authentication_type" {
   description = "Client VPN authentication method. Supported values are certificate and federated."
   type        = string
-  default     = "certificate"
+  default     = "federated"
 
   validation {
     condition = contains([
@@ -18,32 +25,74 @@ variable "authentication_type" {
 }
 
 variable "server_certificate_arn" {
-  description = "ACM server certificate ARN."
+  description = "Existing ACM server certificate ARN. Required only when Client VPN is enabled."
   type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = (
+      !var.client_vpn_enabled ||
+      (
+        var.server_certificate_arn != null &&
+        length(trimspace(var.server_certificate_arn)) > 0
+      )
+    )
+
+    error_message = "server_certificate_arn must be supplied when client_vpn_enabled is true."
+  }
 }
 
 variable "root_certificate_chain_arn" {
-  description = "ACM root CA certificate ARN. Required for certificate authentication."
+  description = "Existing ACM root CA certificate ARN. Required only when enabled Client VPN uses certificate authentication."
   type        = string
   default     = null
   nullable    = true
+
+  validation {
+    condition = (
+      !var.client_vpn_enabled ||
+      var.authentication_type != "certificate" ||
+      (
+        var.root_certificate_chain_arn != null &&
+        length(trimspace(var.root_certificate_chain_arn)) > 0
+      )
+    )
+
+    error_message = "root_certificate_chain_arn must be supplied when enabled Client VPN uses certificate authentication."
+  }
 }
 
 variable "saml_provider_arn" {
-  description = "Existing IAM SAML identity provider ARN used when manage_saml_provider is false."
+  description = "Existing IAM SAML identity provider ARN used for federated Client VPN."
   type        = string
   default     = null
   nullable    = true
+
+  validation {
+    condition = (
+      !var.client_vpn_enabled ||
+      var.authentication_type != "federated" ||
+      var.manage_saml_provider ||
+      (
+        var.saml_provider_arn != null &&
+        length(trimspace(var.saml_provider_arn)) > 0
+      )
+    )
+
+    error_message = "saml_provider_arn must be supplied when enabled federated Client VPN uses an externally managed SAML provider."
+  }
 }
 
 variable "manage_saml_provider" {
   description = "Whether Terraform manages the IAM SAML identity provider lifecycle for Client VPN."
   type        = bool
   default     = false
+  nullable    = false
 }
 
 variable "saml_provider_name" {
-  description = "Optional name override for the Terraform-managed IAM SAML provider."
+  description = "Optional name override for a Terraform-managed IAM SAML provider."
   type        = string
   default     = null
   nullable    = true
@@ -60,7 +109,7 @@ variable "saml_provider_name" {
 }
 
 variable "saml_metadata_document" {
-  description = "Approved SAML 2.0 metadata XML used when Terraform manages the IAM SAML provider."
+  description = "Approved SAML 2.0 metadata XML used only when Terraform manages the IAM SAML provider."
   type        = string
   default     = null
   nullable    = true
@@ -72,5 +121,16 @@ variable "saml_metadata_document" {
     )
 
     error_message = "saml_metadata_document must contain between 1,000 and 10,000,000 characters when provided."
+  }
+
+  validation {
+    condition = (
+      !var.client_vpn_enabled ||
+      var.authentication_type != "federated" ||
+      !var.manage_saml_provider ||
+      var.saml_metadata_document != null
+    )
+
+    error_message = "saml_metadata_document is required when Terraform manages the SAML provider for an enabled federated Client VPN."
   }
 }

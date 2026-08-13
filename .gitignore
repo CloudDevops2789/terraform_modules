@@ -39,3 +39,6 @@ tfplan.*
 
 # Local Ansible lint virtual environment
 .venv-ansible-lint/
+
+# Git-controlled Sandbox architecture
+!terraform/environments/sandbox/platform.auto.tfvars
