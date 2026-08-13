@@ -39,7 +39,7 @@ locals {
 
 resource "aws_cloudwatch_log_group" "network_firewall" {
   for_each = (
-    local.network_firewall_enabled
+    local.network_firewall_enabled && var.network_firewall_logging_enabled
     ? local.network_firewall_logging.log_groups
     : {}
   )
@@ -66,7 +66,9 @@ resource "aws_cloudwatch_log_group" "network_firewall" {
 module "network_firewall_logging" {
   source = "../../modules/network-firewall-logging"
 
-  logging_configurations = local.network_firewall_enabled ? {
+  logging_configurations = (
+    local.network_firewall_enabled && var.network_firewall_logging_enabled
+    ) ? {
     inspection = {
       firewall_arn                = module.network_firewall.firewall_arns["inspection"]
       enable_monitoring_dashboard = false
@@ -98,8 +100,12 @@ output "network_firewall_log_group_names" {
 }
 
 output "network_firewall_logging_kms_key_arn" {
-  description = "ARN of the customer-managed KMS key used for Network Firewall log encryption."
-  value       = var.foundation_resources.network_firewall_logging_kms_key_arn
+  description = "ARN of the customer-managed KMS key used for Network Firewall log encryption when logging is enabled."
+  value = (
+    local.network_firewall_enabled && var.network_firewall_logging_enabled
+    ? var.foundation_resources.network_firewall_logging_kms_key_arn
+    : null
+  )
 }
 
 output "network_firewall_logging_configuration_ids" {
