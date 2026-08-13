@@ -24,15 +24,19 @@
 #   us-east-1 = US East (N. Virginia)
 aws_region = "us-east-1"
 
-# Local path to the SSH PUBLIC key used when creating the EC2 key pair.
+# SSH PUBLIC key used only when:
+#   demo_ec2_enabled       = true
+#   demo_ec2_access_method = "ssh_key"
+#
 # This must point to the .pub file, never the private key.
+# Omit this input for SSM, none, or baseline-only deployments.
 #
 # Linux / WSL example:
 #   ~/.ssh/management.pub
 #
 # Windows example when running Terraform from Windows:
 #   C:/Users/example-user/.ssh/management.pub
-public_key_path = "~/.ssh/management.pub"
+# public_key_path = "~/.ssh/ire-demo.pub"
 
 # AWS Client VPN authentication method.
 #
@@ -94,14 +98,53 @@ saml_provider_arn = null
 # workflow rather than stored in terraform.tfvars.
 
 
-# AMI used for the Sandbox EC2 test instances.
+################################################################################
+# Demonstration Workload and Management Plane Lifecycle
+################################################################################
+
+# Persistent platform only:
+#   false = no representative EC2 instances
 #
-# Expected format:
-# ami-xxxxxxxxxxxxxxxxx
+# Traffic-flow validation:
+#   true = create representative EC2 instances in Recovery Access,
+#          Core Recovery, and Protected Data.
+demo_ec2_enabled = false
+
+# Supported values:
+#   none
+#   ssm
+#   ssh_key
 #
-# Use an AMI approved for the target AWS Region.
-# Example value below is intentionally fake.
-ami_id = "ami-0123456789abcdef0"
+# Recommended enterprise access pattern is SSM where the required IAM and
+# private Systems Manager connectivity are available.
+demo_ec2_access_method = "none"
+
+# Persistent private Systems Manager management plane.
+#
+# When enabled, private SSM and SSMMessages interface endpoints are created
+# in Recovery Access, Core Recovery, and Protected Data.
+ssm_management_plane_enabled = false
+
+# Supported values:
+#   external  = consume an organization-approved existing instance profile
+#   terraform = create the role/profile through the reusable IAM module
+ssm_instance_profile_mode = "external"
+
+# Required only when:
+#   demo_ec2_enabled          = true
+#   demo_ec2_access_method    = "ssm"
+#   ssm_instance_profile_mode = "external"
+#
+# Example:
+# ssm_instance_profile_name = "org-approved-ire-ssm-profile"
+
+# Required only when demo_ec2_enabled = true.
+# Use an approved AMI for the target AWS Region.
+# Example value below is intentionally non-production.
+# ami_id = "ami-0123456789abcdef0"
+
+# Required only for ssh_key access.
+# public_key_path = "~/.ssh/ire-demo.pub"
 
 
 ################################################################################

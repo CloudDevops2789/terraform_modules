@@ -11,11 +11,5 @@ locals {
     instance_type               = "t3.micro"
     associate_public_ip_address = false
 
-    # Filter values for the (currently unused) dynamic AMI lookup data source.
-    ami_data_source_filter = {
-      name_values                = ["al2023-ami-2023*-x86_64"]
-      architecture_values        = ["x86_64"]
-      virtualization_type_values = ["hvm"]
-    }
   }
 }
