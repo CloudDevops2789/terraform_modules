@@ -1,199 +1,100 @@
-# AAP Orchestration Guide
+# Ansible Automation Platform Integration
 
-This document defines the Ansible Automation Platform (AAP) operating model for the AWS Isolated Recovery Environment (IRE).
+AAP is the orchestration and execution layer for the Terraform-based AWS
+Isolated Recovery Environment.
 
-Terraform remains the infrastructure provisioning engine. AAP provides authentication, orchestration, runtime configuration, execution control, and approval integration.
+Terraform remains responsible for AWS infrastructure desired state.
 
-> [!IMPORTANT]
-> The current playbooks provide guarded plan/apply and destroy behavior. Production AAP workflow approvals and standardized Execution Environment packaging are separate platform-integration controls.
+## Responsibility boundary
 
-## Execution model
+~~~text
+Git
+  -> reviewed architecture and security policy
 
-```text
-AAP Project Sync
-      ↓
-Approved AWS execution context
-      ↓
-ire_platform.aws.assume_role
-      ↓
-Temporary STS credentials
-      ↓
-Terraform backend initialization
-      ↓
-Terraform validation
-      ↓
-Terraform plan
-      ↓
-Approval / execution control
-      ↓
-Terraform apply
-      ↓
-Temporary-artifact cleanup
-```
+AAP Job Template / Inventory / Credential
+  -> execution role
+  -> deployment Region
+  -> backend binding
+  -> approved external AWS resource references
 
-## Repository components
+AAP Survey / runtime
+  -> plan or apply
+  -> demo workload lifecycle
+  -> approved regional AMI
+  -> destroy authorization
 
-| Component | Purpose |
-|---|---|
-| `playbooks/terraform_backend_bucket.yml` | Bootstrap persistent Terraform remote-state storage |
-| `playbooks/terraform_deploy.yml` | Validate, plan, and conditionally apply Terraform |
-| `playbooks/terraform_destroy.yml` | Validate, create a destroy plan, and conditionally destroy |
-| `playbooks/test_assume_role.yml` | Validate AWS role assumption |
-| `playbooks/test_caller_identity.yml` | Validate the effective AWS caller identity |
-| `ire_platform.aws.assume_role` | Assume the approved AWS IAM role and publish temporary STS credentials |
+Terraform
+  -> AWS infrastructure graph and lifecycle
+~~~
 
-## Deployment workflow
+## Git-controlled desired state
 
-The deployment playbook performs:
+The Sandbox automatically loads:
 
-1. validation of required execution inputs;
-2. validation of the selected Terraform environment root;
-3. AWS IAM role assumption;
-4. temporary workspace creation;
-5. temporary public-key materialization for the current Terraform interface;
-6. runtime `.auto.tfvars.json` generation;
-7. `terraform init`;
-8. `terraform validate`;
-9. saved Terraform plan generation;
-10. plan-summary reporting;
-11. conditional saved-plan application; and
-12. cleanup in an Ansible `always` block.
+~~~text
+platform.auto.tfvars
+network-policy.auto.tfvars
+~~~
 
-The default control is:
+These contain stable non-sensitive architecture and security policy.
 
-```yaml
-terraform_apply_enabled: false
-```
+AAP must not normally override them.
 
-With the default value, the workflow stops after a successful plan.
+## Deployment Region
 
-## Destroy workflow
+`assume_role_aws_region` is the AAP deployment-Region binding.
 
-Destroy uses a separate playbook and separate controls.
+The Terraform deploy and destroy playbooks automatically inject the same value
+as Terraform `aws_region`.
 
-Safe defaults:
+The Terraform backend Region remains a separate binding.
 
-```yaml
-terraform_destroy_enabled: false
-terraform_destroy_confirmation: ""
-```
+## Client VPN bootstrap
 
-Execution requires both:
+Client VPN is optional during initial platform bootstrap.
 
-```yaml
-terraform_destroy_enabled: true
-terraform_destroy_confirmation: "DESTROY"
-```
+With:
 
-The playbook creates a saved `terraform plan -destroy` plan before any destructive execution.
+~~~hcl
+client_vpn_enabled = false
+~~~
 
-> [!WARNING]
-> Production AAP should add workflow-level approval controls in addition to the playbook-level destroy guard.
+the persistent IRE platform can be created without a Client VPN server
+certificate or SAML provider ARN.
 
-## Runtime configuration
+The enterprise target remains federated authentication. After PKI and Identity
+dependencies are available, enable Client VPN through a reviewed Git change and
+supply the existing certificate/SAML ARNs through the approved AAP environment
+binding.
 
-AAP runtime inputs are divided into four control planes:
+## Runtime artifacts
 
-### Job Template configuration
+The deploy and destroy playbooks create temporary runtime artifacts including:
 
-Values normally owned by the platform or environment definition:
+- a restricted `.auto.tfvars.json` file;
+- saved Terraform deployment plans; and
+- saved Terraform destroy plans.
 
-- approved AWS role ARN;
-- AWS Region;
-- approved Terraform environment root;
-- Terraform backend bucket;
-- Terraform backend state key;
-- Terraform backend Region.
+Temporary artifacts are removed by the playbook cleanup path.
 
-### Environment configuration
+AAP no longer materializes SSH public-key files for the normal Sandbox
+orchestration path.
 
-Non-secret Terraform values such as:
+## Security
 
-- naming;
-- network allocation;
-- approved AMI;
-- Client VPN authentication mode;
-- certificate ARNs;
-- SAML provider ownership mode;
-- existing SAML provider ARN where applicable;
-- approved SAML provider metadata where Terraform manages the AWS-side provider;
-- organization tagging metadata.
+- AWS credentials are temporary STS credentials obtained by AssumeRole.
+- Architecture changes require Git review.
+- Sandbox runtime Terraform variables are allowlisted.
+- Client VPN authentication mode is not a normal launch-time selection.
+- SSM is the standard administrative pattern for representative validation
+  compute.
+- Sensitive values belong in AAP Credentials or approved secret-management
+  systems.
 
-### Credential / secret integration
+## Documentation
 
-Sensitive inputs should be injected through AAP Credentials or an approved enterprise secret-management integration, including:
+See:
 
-- directory-service passwords;
-- bootstrap credentials where applicable;
-- other environment secrets.
-
-### Workflow controls
-
-Execution controls should be owned by the AAP workflow rather than exposed as casual operator inputs:
-
-- `terraform_apply_enabled`;
-- `terraform_destroy_enabled`;
-- `terraform_destroy_confirmation`.
-
-## Temporary artifacts
-
-The orchestration workflow can create:
-
-- a temporary public SSH key file;
-- a temporary `.auto.tfvars.json` file;
-- a saved deployment plan;
-- a saved destroy plan.
-
-The temporary execution directory is removed after execution.
-
-Terraform plan files can contain sensitive values and must not be retained or committed.
-
-## Remote state
-
-Remote-state bootstrap is separated from normal IRE deployment and destroy operations.
-
-The Terraform root uses a minimal backend declaration:
-
-```hcl
-terraform {
-  backend "s3" {}
-}
-```
-
-Backend values are supplied at runtime.
-
-Destroying the IRE environment must not implicitly remove its Terraform backend.
-
-## Production AAP controls
-
-The production AAP implementation should include:
-
-- Project synchronization from the approved Git repository;
-- standardized Execution Environment;
-- controlled Job Templates;
-- AAP credentials or secret-manager integration;
-- workflow-level approval before deployment;
-- workflow-level approval before destruction;
-- AWS account and role assertions;
-- environment-to-backend mapping validation;
-- post-deployment infrastructure validation.
-
-## Execution Environment requirements
-
-The standardized AAP Execution Environment should provide:
-
-- repository-approved Ansible Core version;
-- `amazon.aws`;
-- the `ire_platform.aws` collection;
-- `boto3` and `botocore`;
-- repository-approved Terraform CLI version;
-- required Python dependencies;
-- required enterprise CA certificates and trust configuration.
-
-The Execution Environment should be versioned and promoted through the approved enterprise image-management process.
-
-## Related documents
-
-- [`variables.md`](variables.md)
-- [`examples/terraform-job-vars.example.yml`](examples/terraform-job-vars.example.yml)
-- [`../terraform/configuration-reference.md`](../terraform/configuration-reference.md)
+- `variables.md`
+- `job-templates.md`
+- `examples/`

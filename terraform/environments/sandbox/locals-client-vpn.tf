@@ -24,12 +24,16 @@ locals {
 
 locals {
   resolved_saml_provider_arn = (
-    var.manage_saml_provider
-    ? module.client_vpn_saml_provider[0].saml_provider_arn
+    !var.client_vpn_enabled ||
+    var.authentication_type != "federated"
+    ? null
+    : var.manage_saml_provider
+    ? try(module.client_vpn_saml_provider[0].saml_provider_arn, null)
     : var.saml_provider_arn
   )
 
   effective_saml_provider_arn = (
+    var.client_vpn_enabled &&
     var.authentication_type == "federated"
     ? local.resolved_saml_provider_arn
     : null

@@ -1,24 +1,24 @@
 ---
-# Uses the same AWS, backend, public-key, and terraform_variables
-# configuration as the deployment job.
-
-assume_role_role_arn: "arn:aws:iam::<ACCOUNT_ID>:role/<APPROVED_AAP_ROLE>"
-assume_role_expected_account_id: "<APPROVED_AWS_ACCOUNT_ID>"
-assume_role_aws_region: "us-east-1"
-assume_role_application_name: "ire-terraform"
-
 terraform_environment: "sandbox"
 
-terraform_backend_bucket: "<APPROVED_STATE_BUCKET>"
-terraform_backend_key: "<ENVIRONMENT>/terraform.tfstate"
-terraform_backend_region: "us-east-1"
+assume_role_role_arn: "<APPROVED_AAP_EXECUTION_ROLE_ARN>"
+assume_role_aws_region: "us-east-1"
 
-# false = destroy plan only
-# true  = perform destroy when confirmation is also DESTROY
+terraform_backend_bucket: "<APPROVED_STATE_BUCKET>"
+terraform_backend_key: "sandbox/terraform.tfstate"
+terraform_backend_region: "<BACKEND_BUCKET_REGION>"
+
+# Safe defaults.
 terraform_destroy_enabled: false
 terraform_destroy_confirmation: ""
 
-terraform_public_key: "ssh-ed25519 <PUBLIC_KEY_MATERIAL>"
+# Foundation remains separately protected.
+terraform_allow_foundation_destroy: false
 
-# Supply the same terraform_variables used by the deployment job.
+# Terraform Region is injected automatically from assume_role_aws_region.
 terraform_variables: {}
+
+# Approved full Sandbox destroy:
+#
+# terraform_destroy_enabled: true
+# terraform_destroy_confirmation: "DESTROY"

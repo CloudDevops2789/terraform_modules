@@ -40,8 +40,8 @@ output "backup_plan_version" {
 }
 
 output "client_vpn_endpoint_id" {
-  description = "The ID of the Client VPN endpoint."
-  value       = module.client_vpn.id
+  description = "The ID of the Client VPN endpoint, or null when Client VPN is disabled."
+  value       = try(module.client_vpn[0].id, null)
 }
 #aws_ec2_client_vpn_endpoint.this.id
 ##################################################################################################

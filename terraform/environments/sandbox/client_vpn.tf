@@ -11,7 +11,11 @@
 # Purpose: Optionally manages the IAM SAML provider used by federated Client VPN authentication.
 # Change when: AWS-side SAML provider ownership moves between enterprise identity management and Terraform/AAP.
 module "client_vpn_saml_provider" {
-  count = var.manage_saml_provider ? 1 : 0
+  count = (
+    var.client_vpn_enabled &&
+    var.authentication_type == "federated" &&
+    var.manage_saml_provider
+  ) ? 1 : 0
 
   source = "../../modules/iam-saml-provider"
 
@@ -25,6 +29,8 @@ module "client_vpn_saml_provider" {
 
 module "client_vpn" {
   source = "../../modules/client-vpn"
+
+  count = var.client_vpn_enabled ? 1 : 0
 
   name = local.client_vpn.name
 

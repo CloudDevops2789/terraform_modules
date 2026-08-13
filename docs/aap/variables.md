@@ -1,128 +1,153 @@
-# AAP Runtime Variable Contract
+# AAP and Terraform Variable Ownership
 
-This document defines the runtime input contract between Ansible Automation Platform (AAP), the Terraform orchestration playbooks, and the integrated IRE Terraform environment.
+The deployment model intentionally separates **architecture**, **environment
+bindings**, and **runtime intent**.
 
-## Input ownership model
+AAP is an execution/orchestration interface. It is not the normal interface for
+changing IRE network or security architecture.
 
-| Class | Typical owner | Examples |
+## Ownership model
+
+| Layer | Owner | Examples |
 |---|---|---|
-| Platform configuration | AAP platform team / environment definition | execution role, backend location, Terraform root |
-| Environment configuration | IRE engineering / approved configuration | Region, naming, CIDRs, AMI, authentication mode |
-| Secrets | AAP Credential / enterprise secret manager | directory-service passwords and other secrets |
-| Workflow controls | AAP Workflow | apply and destroy authorization |
+| Desired architecture | Git / Pull Request | VPC CIDRs, subnets, inspection mode, Client VPN enable/auth mode, SSM design, naming, tags |
+| Security policy | Git / Pull Request | Security-group rules and Network Firewall rules |
+| Environment binding | AAP Job Template / Inventory / Credential | execution role, deployment Region, backend, certificate ARN, SAML provider ARN |
+| Runtime intent | AAP launch / Survey | plan/apply, demo workload on/off, approved AMI, destroy confirmation |
+| Secrets | AAP Credential / approved secret manager | credentials, passwords, private keys, protected tokens |
 
-## Orchestration variables
+## Git-controlled Terraform inputs
 
-| Variable | Required | Sensitive | Recommended source | Purpose |
-|---|---:|---:|---|---|
-| `assume_role_role_arn` | Yes | No | Job Template / environment mapping | IAM role assumed before Terraform execution |
-| `assume_role_expected_account_id` | Recommended | No | Job Template / environment mapping | Expected AWS account ID used to validate the assumed identity before Terraform execution |
-| `assume_role_aws_region` | Yes | No | Job Template | Region used by AWS AssumeRole tasks |
-| `assume_role_application_name` | No | No | Job Template | Audit-friendly AssumeRole session naming |
-| `terraform_environment` | Yes | No | Job Template | Approved Terraform environment root |
-| `terraform_backend_bucket` | Yes | No | Environment mapping | S3 remote-state bucket |
-| `terraform_backend_key` | Yes | No | Environment mapping | Environment-specific state object key |
-| `terraform_backend_region` | Yes | No | Environment mapping | Backend Region |
-| `terraform_apply_enabled` | No | No | Workflow control | Enables application of the saved deployment plan |
-| `terraform_destroy_enabled` | No | No | Workflow control | Enables application of the saved destroy plan |
-| `terraform_destroy_confirmation` | No | No | Workflow control | Additional destructive-action confirmation |
-| `terraform_public_key` | Yes for current environment interface | No | Credential / approved variable | Public SSH key material materialized temporarily for Terraform |
-| `terraform_variables` | Yes | Mixed | Environment config + secret injection | Map passed to the Terraform environment root |
+The Sandbox stores stable non-sensitive desired state in:
 
-## Terraform variable map
+~~~text
+terraform/environments/sandbox/platform.auto.tfvars
+terraform/environments/sandbox/network-policy.auto.tfvars
+~~~
 
-`terraform_variables` contains inputs consumed by the integrated Terraform environment.
+Examples include:
 
-### Core environment inputs
+- `network_config`;
+- `network_inspection_mode`;
+- `client_vpn_enabled`;
+- `authentication_type`;
+- `manage_saml_provider`;
+- `demo_ec2_access_method`;
+- `ssm_management_plane_enabled`;
+- `ssm_instance_profile_mode`;
+- organization tagging;
+- naming;
+- Foundation integration enablement;
+- security-group policy; and
+- Network Firewall policy.
 
-| Variable | Sensitive | Purpose |
-|---|---:|---|
-| `aws_region` | No | AWS Region |
-| `ami_id` | No | Approved AMI used by applicable EC2 resources |
-| `naming` | No | Portable naming components |
-| `resource_name_overrides` | No | Optional exact approved AWS resource names |
-| `network_config` | No | IRE account, Client VPN, VPC, and subnet CIDR allocation |
-| `network_inspection_mode` | No | `firewall` or `bypass` routing behavior |
+These values must not be supplied through the normal Sandbox AAP runtime map.
 
-### Client VPN inputs
+## AAP environment bindings
 
-| Variable | Sensitive | Purpose |
-|---|---:|---|
-| `authentication_type` | No | `certificate` or `federated` |
-| `server_certificate_arn` | No | ACM server certificate ARN |
-| `root_certificate_chain_arn` | No | Root CA ARN for certificate authentication |
-| `saml_provider_arn` | No | Existing IAM SAML provider ARN for federated authentication |
-| `manage_saml_provider` | No | Selects existing-provider or Terraform-managed-provider ownership |
-| `saml_provider_name` | No | Optional approved name for a Terraform-managed IAM SAML provider |
-| `saml_metadata_document` | No | Approved SAML metadata supplied at runtime when Terraform manages the provider |
+The Job Template or Inventory supplies:
 
-Federated authentication can consume an existing IAM SAML provider or create the AWS-side IAM SAML provider through the environment composition.
+| Variable | Purpose |
+|---|---|
+| `assume_role_role_arn` | Approved AWS execution role |
+| `assume_role_aws_region` | Deployment Region and Terraform `aws_region` source of truth |
+| `terraform_backend_bucket` | Terraform remote-state bucket |
+| `terraform_backend_key` | Environment state key |
+| `terraform_backend_region` | Region containing the state bucket |
 
-MFA is enforced by the approved enterprise identity provider and is not a Terraform Client VPN boolean.
+`terraform_backend_region` is intentionally independent from
+`assume_role_aws_region`.
 
-### Organization metadata
+The playbooks automatically inject:
 
-The integrated environment currently exposes organization metadata through `org_*` variables, including:
+~~~text
+aws_region = assume_role_aws_region
+~~~
 
-- `org_it_cost_center`;
-- `org_department`;
-- `org_cmdb_calculated_app`;
-- `org_business_criticality`;
-- `org_environment`;
-- `org_data_classification`;
-- `org_project_name`;
-- `org_managed_by`;
-- `org_additional_tags`.
+into the temporary Terraform runtime variable file.
 
-### Security policy
+## Sandbox terraform_variables allowlist
 
-The current integrated environment also consumes:
+`terraform_variables` is intentionally restricted to runtime or externally
+managed resource bindings.
 
-- `security_group_rules`;
-- `network_firewall_rules`.
+Allowed Sandbox keys are:
 
-These are maintained as version-controlled policy in `terraform/environments/sandbox/network-policy.auto.tfvars` so that trust-policy changes remain reviewable in Git.
+| Variable | Purpose |
+|---|---|
+| `demo_ec2_enabled` | Enable temporary representative recovery-validation compute |
+| `ami_id` | Approved AMI in the deployment Region |
+| `server_certificate_arn` | Existing ACM server certificate when Client VPN is enabled |
+| `root_certificate_chain_arn` | Existing root CA ARN when certificate authentication is deliberately selected |
+| `saml_provider_arn` | Existing enterprise IAM SAML provider for federated Client VPN |
+| `ssm_instance_profile_name` | Existing enterprise SSM profile when Git selects external ownership |
+| `foundation_resources` | External Foundation resource references for enabled integrations |
 
-### Sensitive Terraform inputs
+Any other Sandbox key fails before Terraform execution.
 
-Sensitive Terraform values, including directory-service passwords, must be injected through approved AAP Credentials or enterprise secret-management integrations.
+## Client VPN bootstrap lifecycle
 
-They are intentionally omitted from the tracked example runtime file.
+Initial infrastructure bootstrap:
 
-## Control-variable guidance
+~~~text
+Git:
+  client_vpn_enabled  = false
+  authentication_type = federated
 
-The following variables should not be exposed as unrestricted survey inputs in production:
+AAP:
+  no Client VPN certificate/SAML ARN required
+~~~
 
-```text
-terraform_apply_enabled
-terraform_destroy_enabled
-terraform_destroy_confirmation
-```
+The VPCs, Transit Gateway, routing, security controls, SSM management plane, and
+other persistent platform capabilities can therefore be deployed without
+waiting for PKI or Identity integration.
 
-Recommended production pattern:
+After enterprise dependencies exist:
 
-```text
-Plan Job
-   ↓
-AAP Approval
-   ↓
-Deploy Job
-   └── internally enables apply
-```
+~~~text
+PKI:
+  server certificate available in ACM
 
-and:
+Identity/IAM:
+  enterprise SAML application and IAM SAML provider available
 
-```text
-Destroy Plan Job
-   ↓
-AAP Approval
-   ↓
-Destroy Job
-   └── internally enables destroy and confirmation
-```
+Git PR:
+  client_vpn_enabled = true
 
-## Example
+AAP environment binding:
+  server_certificate_arn
+  saml_provider_arn
+~~~
 
-See:
+MFA policy is owned by the enterprise identity provider.
 
-[`examples/terraform-job-vars.example.yml`](examples/terraform-job-vars.example.yml)
+Mutual certificate authentication remains supported by the reusable Client VPN
+interface for controlled use cases, but it is not the default enterprise AAP
+access model.
+
+## Demo workload lifecycle
+
+Normal persistent platform:
+
+~~~yaml
+terraform_variables:
+  demo_ec2_enabled: false
+~~~
+
+Exercise:
+
+~~~yaml
+terraform_variables:
+  demo_ec2_enabled: true
+  ami_id: "<APPROVED_AMI>"
+~~~
+
+The administration method is not a launch-time selection. Git defines the
+approved environment access model, with SSM as the standard Sandbox pattern.
+
+## Sensitive values
+
+Never place credentials, passwords, private keys, access keys, or other
+sensitive material in tracked Terraform variable files or AAP examples.
+
+Use AAP Credentials or the approved enterprise secret-management mechanism.
