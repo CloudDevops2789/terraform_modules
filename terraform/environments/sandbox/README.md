@@ -488,9 +488,9 @@ ami_id                 = "ami-0123456789abcdef0"
 public_key_path = "/approved/path/ire-demo.pub"
 ~~~
 
-SSH-key mode is provided for compatibility and controlled testing. Network
-reachability and security-group policy must still explicitly permit SSH where
-required.
+SSH-key mode is provided for compatibility and controlled testing. The
+demonstration SSH security-group rules are enabled only when demonstration
+compute is enabled with `demo_ec2_access_method = "ssh_key"`.
 
 ## AAP Variable Examples
 

@@ -84,6 +84,16 @@ locals {
     protected_data  = module.protected_data.vpc_cidr
   }
 
+  # SSH rules used by the representative validation workloads are activated
+  # only when the demonstration lifecycle explicitly selects SSH-key access.
+  demo_ssh_security_group_rule_names = toset([
+    "management-ssh-from-client-vpn",
+    "management-ssh-from-core",
+    "core-ssh-from-recovery-access",
+    "core-ssh-from-protected-data",
+    "protected-ssh",
+  ])
+
   sandbox_security_group_rules = {
     for rule in var.security_group_rules :
     rule.name => {
@@ -112,7 +122,10 @@ locals {
         : null
       )
     }
-    if rule.enabled
+    if rule.enabled && (
+      !contains(local.demo_ssh_security_group_rule_names, rule.name) ||
+      (var.demo_ec2_enabled && var.demo_ec2_access_method == "ssh_key")
+    )
   }
 }
 
