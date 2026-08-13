@@ -4,6 +4,9 @@
 # Backup vaults are persistent IRE foundation resources and are intentionally
 # owned by a separate Terraform state. This disposable recovery environment
 # owns only the backup policy, execution role, and workload selection.
+#
+# Backup integration is disabled by default until the protected workload scope,
+# RPO, retention, and copy requirements are approved.
 
 ############################################
 # Backup Plan
@@ -20,6 +23,8 @@
 # Purpose: Creates the backup schedule, lifecycle settings, and copy actions.
 # Change when: Change timing or retention only when RPO and retention requirements change.
 module "backup_plan" {
+
+  count = var.backup_integration_enabled ? 1 : 0
 
   source = "../../modules/backup-plan"
 
@@ -85,6 +90,8 @@ module "backup_plan" {
 # Change when: Change permissions or trust only when protected resource types or governance requirements change.
 module "backup_role" {
 
+  count = var.backup_integration_enabled ? 1 : 0
+
   source = "../../modules/backup-role"
 
   name = local.backup.role_name
@@ -109,13 +116,15 @@ module "backup_role" {
 # Change when: Change protected resource ARNs only when backup scope changes.
 module "backup_selection" {
 
+  count = var.backup_integration_enabled ? 1 : 0
+
   source = "../../modules/backup-selection"
 
   name = local.backup.selection_name
 
-  backup_plan_id = module.backup_plan.id
+  backup_plan_id = module.backup_plan[0].id
 
-  iam_role_arn = module.backup_role.arn
+  iam_role_arn = module.backup_role[0].arn
 
   resources = [
 

@@ -463,19 +463,6 @@ network_config = {
 # In enterprise deployments, supply approved existing values through AAP.
 ################################################################################
 
-foundation_resources = {
-  standard_backup_vault_name = "org-ire-sandbox-use1-standard-backup-vault"
-
-  air_gapped_backup_vault_arn = (
-    "arn:aws:backup:us-east-1:123456789012:backup-vault:org-ire-sandbox-use1-airgap-backup-vault"
-  )
-
-  network_firewall_logging_kms_key_arn = (
-    "arn:aws:kms:us-east-1:123456789012:key/00000000-0000-0000-0000-000000000000"
-  )
-}
-
-
 ################################################################################
 # Persistent IRE Foundation
 ################################################################################
@@ -485,14 +472,17 @@ foundation_resources = {
 # In enterprise deployments, supply approved existing values through AAP.
 ################################################################################
 
-foundation_resources = {
-  standard_backup_vault_name = "org-ire-sandbox-use1-standard-backup-vault"
+################################################################################
+# Optional Foundation Integrations
+################################################################################
+# Keep these disabled until the corresponding capability is required.
+backup_integration_enabled         = false
+network_firewall_logging_enabled  = false
 
-  air_gapped_backup_vault_arn = (
-    "arn:aws:backup:us-east-1:123456789012:backup-vault:org-ire-sandbox-use1-airgap-backup-vault"
-  )
-
-  network_firewall_logging_kms_key_arn = (
-    "arn:aws:kms:us-east-1:123456789012:key/00000000-0000-0000-0000-000000000000"
-  )
-}
+# Supply only the references required by an enabled integration.
+#
+# foundation_resources = {
+#   standard_backup_vault_name           = "approved-standard-backup-vault"
+#   air_gapped_backup_vault_arn          = "arn:aws:backup:us-east-1:123456789012:backup-vault:approved-air-gapped-vault"
+#   network_firewall_logging_kms_key_arn = "arn:aws:kms:us-east-1:123456789012:key/00000000-0000-0000-0000-000000000000"
+# }

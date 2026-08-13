@@ -19,7 +19,7 @@ output "backup_plan_id" {
 
   description = "The ID of the Backup Plan."
 
-  value = module.backup_plan.id
+  value = try(module.backup_plan[0].id, null)
 
 }
 
@@ -27,7 +27,7 @@ output "backup_plan_arn" {
 
   description = "The ARN of the Backup Plan."
 
-  value = module.backup_plan.arn
+  value = try(module.backup_plan[0].arn, null)
 
 }
 
@@ -35,7 +35,7 @@ output "backup_plan_version" {
 
   description = "The version of the Backup Plan."
 
-  value = module.backup_plan.version
+  value = try(module.backup_plan[0].version, null)
 
 }
 
