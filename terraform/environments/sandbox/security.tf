@@ -16,24 +16,40 @@ module "security_group" {
   source = "../../modules/security-group"
 
   tags = local.org_tags
-  security_groups = {
+  security_groups = merge(
+    {
+      management = {
+        description = local.security_groups.tiers.management.description
+        vpc_id      = module.recovery_access.vpc_id
+      }
 
-    management = {
-      description = local.security_groups.tiers.management.description
-      vpc_id      = module.recovery_access.vpc_id
-    }
+      core = {
+        description = local.security_groups.tiers.core.description
+        vpc_id      = module.core_recovery.vpc_id
+      }
 
-    core = {
-      description = local.security_groups.tiers.core.description
-      vpc_id      = module.core_recovery.vpc_id
-    }
+      protected = {
+        description = local.security_groups.tiers.protected.description
+        vpc_id      = module.protected_data.vpc_id
+      }
+    },
+    var.ssm_management_plane_enabled ? {
+      ssm_recovery_access = {
+        description = "Private Systems Manager endpoints for Recovery Access"
+        vpc_id      = module.recovery_access.vpc_id
+      }
 
-    protected = {
-      description = local.security_groups.tiers.protected.description
-      vpc_id      = module.protected_data.vpc_id
-    }
+      ssm_core_recovery = {
+        description = "Private Systems Manager endpoints for Core Recovery"
+        vpc_id      = module.core_recovery.vpc_id
+      }
 
-  }
+      ssm_protected_data = {
+        description = "Private Systems Manager endpoints for Protected Data"
+        vpc_id      = module.protected_data.vpc_id
+      }
+    } : {}
+  )
 
 }
 
@@ -68,6 +84,16 @@ locals {
     protected_data  = module.protected_data.vpc_cidr
   }
 
+  # SSH rules used by the representative validation workloads are activated
+  # only when the demonstration lifecycle explicitly selects SSH-key access.
+  demo_ssh_security_group_rule_names = toset([
+    "management-ssh-from-client-vpn",
+    "management-ssh-from-core",
+    "core-ssh-from-recovery-access",
+    "core-ssh-from-protected-data",
+    "protected-ssh",
+  ])
+
   sandbox_security_group_rules = {
     for rule in var.security_group_rules :
     rule.name => {
@@ -96,7 +122,10 @@ locals {
         : null
       )
     }
-    if rule.enabled
+    if rule.enabled && (
+      !contains(local.demo_ssh_security_group_rule_names, rule.name) ||
+      (var.demo_ec2_enabled && var.demo_ec2_access_method == "ssh_key")
+    )
   }
 }
 
@@ -116,21 +145,8 @@ locals {
 module "security_group_rule" {
   source = "../../modules/security-group-rule"
 
-  rules = local.sandbox_security_group_rules
-}
-
-############################################
-# KMS
-############################################
-
-# Purpose: Creates the customer-managed KMS key used by supported Sandbox services.
-# Change when: Change alias, rotation, or policy only through approved key-management requirements.
-module "kms" {
-  source = "../../modules/kms"
-
-  description = local.kms.description
-
-  alias = local.kms.alias
-
-  tags = local.org_tags
+  rules = merge(
+    local.sandbox_security_group_rules,
+    local.ssm_endpoint_security_group_rules
+  )
 }

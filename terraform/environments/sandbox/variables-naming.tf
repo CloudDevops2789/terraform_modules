@@ -51,11 +51,9 @@ variable "resource_name_overrides" {
     backup_plan                        = optional(string)
     backup_role                        = optional(string)
     backup_selection                   = optional(string)
-    general_kms_alias                  = optional(string)
     network_firewall                   = optional(string)
     network_firewall_policy            = optional(string)
     network_firewall_rule_group        = optional(string)
-    network_firewall_logging_kms_alias = optional(string)
     network_firewall_log_group_prefix  = optional(string)
   })
 

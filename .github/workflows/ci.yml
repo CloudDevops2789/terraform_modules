@@ -118,7 +118,7 @@ jobs:
 
       - name: Validate Sandbox
         run: |
-          scripts/ci/terraform-validate-root.sh \
+          bash scripts/ci/terraform-validate-root.sh \
             terraform/environments/sandbox
 
       - name: Validate changed Terraform modules
@@ -146,7 +146,7 @@ jobs:
           echo "Base: $BASE_REF"
           echo "Head: $HEAD_REF"
 
-          scripts/ci/terraform-validate-changed.sh \
+          bash scripts/ci/terraform-validate-changed.sh \
             "$BASE_REF" \
             "$HEAD_REF"
 
@@ -156,7 +156,7 @@ jobs:
            github.base_ref == 'main') ||
           (github.event_name == 'push' &&
            github.ref == 'refs/heads/main')
-        run: scripts/ci/terraform-validate-all.sh
+        run: bash scripts/ci/terraform-validate-all.sh
 
   ##################################################################################################
   # Security

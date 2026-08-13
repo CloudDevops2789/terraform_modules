@@ -53,7 +53,7 @@ The environment is composed from reusable Terraform modules. Environment-specifi
 
 ```mermaid
 flowchart LR
-    ADMIN["Recovery Administrator"] --> CVPN["AWS Client VPN"]
+    ADMIN["Recovery Administrator"] -. "when enabled" .-> CVPN["AWS Client VPN"]
     CVPN --> RA["Recovery Access VPC"]
 
     RA --> TGW["AWS Transit Gateway"]
@@ -157,8 +157,8 @@ Use where the logical trust model must be retained without routing approved inte
 ### Administrative access
 
 - AWS Client VPN association to the Recovery Access VPC.
-- Certificate-based Client VPN authentication.
-- Terraform support for SAML-federated Client VPN authentication.
+- Optional AWS Client VPN with certificate or SAML-federated authentication.
+- Enterprise SAML/MFA as the target organizational access pattern.
 - Optional Terraform-managed IAM SAML provider composition.
 - Client VPN authorization rules scoped to approved destinations.
 
@@ -279,146 +279,165 @@ Route creation is intentionally separated from generic VPC construction where ro
 
 ## Configuration model
 
-Environment-specific values are supplied through root inputs rather than being embedded in reusable modules.
+The repository uses a three-layer configuration model.
 
-Important configuration groups include:
+| Layer | Source | Purpose |
+|---|---|---|
+| Architecture | Git | Stable non-sensitive desired state |
+| Environment binding | AAP | Region, execution role, backend and external resource references |
+| Runtime intent | AAP | Plan/apply, temporary workload lifecycle and approved AMI |
 
-| Input | Purpose |
-|---|---|
-| `aws_region` | AWS Region for the environment |
-| `naming` | Resource-naming components |
-| `resource_name_overrides` | Optional exact approved resource names |
-| `network_config` | Account, Client VPN, VPC, and subnet CIDR allocation |
-| `network_inspection_mode` | `firewall` or `bypass` traffic treatment |
-| `authentication_type` | Client VPN `certificate` or `federated` mode |
-| `server_certificate_arn` | ACM server certificate used by Client VPN |
-| `root_certificate_chain_arn` | Root CA certificate ARN used by certificate authentication |
-| `saml_provider_arn` | Existing IAM SAML provider ARN used by federated authentication |
-| `manage_saml_provider` | Controls whether the environment creates the IAM SAML provider |
-| `saml_provider_name` | Optional name for a Terraform-managed IAM SAML provider |
-| `saml_metadata_document` | Approved SAML metadata supplied at runtime when Terraform manages the provider |
-| `security_group_rules` | Logical security-group policy |
-| `network_firewall_rules` | Ordered Network Firewall policy |
-| `org_*` | Organization-approved tagging metadata |
+The integrated Sandbox automatically loads:
 
-Security-group and Network Firewall rules are maintained as version-controlled policy so that trust changes remain reviewable through the normal Git process.
+~~~text
+terraform/environments/sandbox/platform.auto.tfvars
+terraform/environments/sandbox/network-policy.auto.tfvars
+~~~
 
-### Sensitive inputs
+Git-controlled architecture includes:
 
-Sensitive runtime values must be supplied through approved automation or secret-management mechanisms. They must not be committed to Git.
+- `network_config`;
+- `network_inspection_mode`;
+- `client_vpn_enabled`;
+- `authentication_type`;
+- SSM management architecture;
+- naming;
+- standard tagging;
+- Foundation integration enablement; and
+- network security policy.
 
-Examples include:
+The deployment Region is an AAP environment binding. The playbook derives
+Terraform `aws_region` from `assume_role_aws_region`.
 
-- directory-service passwords;
-- private keys;
-- AWS credentials;
-- enterprise identity-provider metadata where classified as sensitive; and
-- other environment-specific secrets.
+The backend Region remains independently configured because the state bucket
+may reside in a different AWS Region.
 
----
+`terraform.tfvars` remains ignored and is used only for local/runtime bindings.
+Non-sensitive desired-state environment configuration belongs in tracked
+`.auto.tfvars` files rather than being re-entered by operators on every run.
+
+Secrets, credentials, state, plans and sensitive runtime artifacts remain
+outside Git.
 
 ## Client VPN authentication
 
-The Client VPN implementation supports two authentication patterns.
+AWS Client VPN is an optional access-plane component of the Sandbox.
 
-### Certificate authentication
+Initial infrastructure bootstrap uses:
 
-Required inputs include:
+~~~hcl
+client_vpn_enabled  = false
+authentication_type = "federated"
+~~~
 
-- ACM server certificate ARN; and
-- ACM root certificate-chain ARN.
+This allows VPCs, Transit Gateway, routing, security controls, SSM and the
+remaining persistent IRE platform to deploy before enterprise PKI and Identity
+dependencies are available.
 
-### Federated authentication
+When Client VPN is enabled, a server TLS certificate is required. Federated
+authentication additionally consumes the approved enterprise IAM SAML provider.
 
-The environment supports two IAM SAML provider ownership models.
+Enterprise enablement therefore follows:
 
-**Existing enterprise-managed provider**
+~~~text
+Persistent IRE platform
+      |
+      | client_vpn_enabled = false
+      v
+Platform bootstrap succeeds
+      |
+      +--> PKI provisions server certificate
+      |
+      +--> Identity team configures SAML + MFA
+      |
+      +--> IAM SAML provider becomes available
+      |
+      v
+Reviewed Git change
+client_vpn_enabled = true
+      |
+      v
+AAP supplies external certificate/SAML ARNs
+      |
+      v
+Client VPN endpoint created
+~~~
 
-- ACM server certificate ARN;
-- `manage_saml_provider = false`; and
-- existing IAM SAML provider ARN.
+The normal enterprise target is SAML-federated authentication with MFA
+controlled by the enterprise identity provider.
 
-**Terraform-managed provider**
+Mutual certificate authentication remains supported by the reusable module for
+controlled use cases, but it is not the normal enterprise AAP/laptop access
+pattern.
 
-- ACM server certificate ARN;
-- `manage_saml_provider = true`;
-- approved IAM SAML provider name; and
-- approved SAML metadata supplied at runtime.
-
-The resulting IAM SAML provider ARN is passed to the Client VPN endpoint.
-
-MFA is enforced by the enterprise identity provider as part of the SAML authentication policy. There is no separate Terraform Client VPN MFA switch.
-
-> [!IMPORTANT]
-> Identity-provider ownership, SAML metadata lifecycle, MFA policy, user/group assignment, and access governance remain enterprise identity responsibilities unless explicitly implemented by an approved automation component.
-
----
+Client VPN authorization remains scoped to approved destinations and does not
+create a direct Recovery Access-to-Protected Data trust path.
 
 ## AAP orchestration model
 
-AAP provides orchestration around Terraform rather than reimplementing AWS infrastructure provisioning in Ansible.
+AAP orchestrates Terraform; it does not redefine the infrastructure
+architecture.
 
-```text
-AAP / Ansible
-      ↓
-Assume approved AWS IAM role
-      ↓
-Temporary STS credentials
-      ↓
+~~~text
+Git reviewed desired state
+        |
+        v
+AAP assumes approved AWS role
+        |
+        v
+AAP injects deployment Region
+        |
+        v
 Terraform init
-      ↓
+        |
+        v
 Terraform validate
-      ↓
+        |
+        v
 Terraform plan
-      ↓
-Approval / execution control
-      ↓
-Terraform apply
-```
+        |
+        +--> plan only by default
+        |
+        v
+approved apply
+~~~
 
-### AssumeRole
+The deployment Region has one AAP source of truth:
 
-The `ire_platform.aws.assume_role` role:
+~~~text
+assume_role_aws_region
+      -> Terraform aws_region
+~~~
 
-1. validates required role and Region inputs;
-2. assumes the approved IAM role;
-3. publishes temporary AWS credentials for downstream tasks;
-4. verifies the resulting AWS identity; and
-5. avoids embedding long-lived AWS credentials in playbooks.
+The remote-state backend Region remains independently configured.
 
-### Runtime input handling
+For Sandbox, AAP runtime Terraform variables are explicitly allowlisted.
+Stable architecture such as network CIDRs, inspection mode, Client VPN
+authentication mode, SSM architecture, naming, tags and security policy cannot
+be changed through the normal runtime map.
 
-AAP is expected to supply environment-specific values at runtime through approved Job Template variables, credentials, or enterprise secret-management integrations.
+The initial persistent-platform run can therefore use:
 
-The orchestration playbooks can create temporary execution artifacts such as:
+~~~yaml
+terraform_variables: {}
+~~~
 
-- public SSH key files;
-- `.auto.tfvars.json` input files; and
-- saved Terraform plans.
+A recovery exercise needs only:
 
-Temporary artifacts are removed after execution through cleanup tasks.
+~~~yaml
+terraform_variables:
+  demo_ec2_enabled: true
+  ami_id: "<APPROVED_AMI>"
+~~~
 
----
+When Git later enables enterprise federated Client VPN, AAP supplies the
+existing external certificate and SAML-provider ARNs.
 
-### AAP runtime configuration
+The deploy workflow defaults to plan-only execution. Destroy remains separately
+guarded by explicit enablement and confirmation controls.
 
-AAP supplies environment-specific Terraform inputs at runtime through approved Job Template variables, credentials, or enterprise secret-management integrations.
-
-Runtime inputs are grouped into:
-
-- AWS execution context;
-- Terraform backend configuration;
-- environment and naming configuration;
-- network allocation;
-- authentication configuration;
-- organization metadata;
-- deployment control; and
-- protected credentials and secrets.
-
-The complete input contract is documented in [`docs/aap/variables.md`](docs/aap/variables.md).
-
-
----
+Temporary Terraform variable and plan files are created only inside the
+execution workspace and are cleaned up after execution.
 
 ## Remote state
 
@@ -544,7 +563,7 @@ The execution environment must provide:
 - permission to assume the approved AWS execution role; and
 - access to the configured Terraform remote-state backend.
 
-Environment-specific certificates, IAM roles, network allocations, identity configuration, and sensitive values must be provisioned or supplied through the approved enterprise process before deployment.
+Stable non-sensitive architecture is version controlled. External identity/PKI references and sensitive values are supplied through the approved enterprise deployment process when the dependent capability is enabled.
 
 > [!IMPORTANT]
 > Production execution should use a standardized AAP Execution Environment so that Terraform, Ansible, collections, and supporting dependencies are controlled and repeatable.

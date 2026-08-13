@@ -22,13 +22,4 @@ locals {
     }
   }
 
-  ##################################################################################################
-  # KMS
-  ##################################################################################################
-  # Static configuration for the customer managed KMS key used across the
-  # sandbox.
-  kms = {
-    description = "Customer managed KMS key for the ${var.naming.project_display_name} ${var.naming.environment}"
-    alias       = local.resource_names.general_kms_alias
-  }
 }

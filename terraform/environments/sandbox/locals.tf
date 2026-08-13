@@ -4,11 +4,31 @@ locals {
   # Portable naming and network inputs
   ##################################################################################################
 
+  region_code_by_region = {
+    "us-east-1"  = "use1"
+    "us-east-2"  = "use2"
+    "us-west-1"  = "usw1"
+    "us-west-2"  = "usw2"
+    "ap-south-1" = "aps1"
+    "ap-south-2" = "aps2"
+    "eu-west-1"  = "euw1"
+    "eu-west-2"  = "euw2"
+  }
+
+  effective_region_code = coalesce(
+    var.naming.region_code,
+    lookup(
+      local.region_code_by_region,
+      var.aws_region,
+      replace(lower(trimspace(var.aws_region)), "-", "")
+    )
+  )
+
   name_prefix = join("-", compact([
     lower(trimspace(var.naming.organization)),
     lower(trimspace(var.naming.project)),
     lower(trimspace(var.naming.environment)),
-    var.naming.region_code == null ? "" : lower(trimspace(var.naming.region_code)),
+    local.effective_region_code,
     var.naming.suffix == null ? "" : lower(trimspace(var.naming.suffix)),
   ]))
 
@@ -90,11 +110,6 @@ locals {
       "${local.name_prefix}-backup-selection"
     )
 
-    general_kms_alias = coalesce(
-      var.resource_name_overrides.general_kms_alias,
-      local.name_prefix
-    )
-
     network_firewall = coalesce(
       var.resource_name_overrides.network_firewall,
       local.derived_network_firewall_name
@@ -108,11 +123,6 @@ locals {
     network_firewall_rule_group = coalesce(
       var.resource_name_overrides.network_firewall_rule_group,
       "${local.name_prefix}-segmentation"
-    )
-
-    network_firewall_logging_kms_alias = coalesce(
-      var.resource_name_overrides.network_firewall_logging_kms_alias,
-      "${local.name_prefix}-network-firewall-logs"
     )
 
     network_firewall_log_group_prefix = coalesce(

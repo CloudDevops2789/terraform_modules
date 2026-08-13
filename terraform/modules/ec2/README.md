@@ -106,14 +106,15 @@ output "core_private_ip" {
 | `iam_instance_profile` | `string` | `null` | Instance profile name for an IAM role. |
 | `private_ip` | `string` | `null` | Fixed private IP. Omit to let AWS assign one. |
 | `associate_public_ip_address` | `bool` | `false` | Assign a public IP. Only meaningful in a subnet with an IGW route. |
-| `root_block_device` | `object` | `null` | Root volume settings. Omit to use the AMI default. |
+| `root_block_device` | `object` | `{}` | Root volume settings. Encryption is enabled by default while AMI/default size may be retained. |
+| `metadata_options` | `object` | secure defaults | EC2 Instance Metadata Service settings. IMDSv2 is required by default. |
 | `tags` | `map(string)` | `{}` | Tags for this instance, merged over the module-level `tags` input. |
 
 ### `root_block_device` object
 
 | Attribute | Type | Default | Description |
 |---|---|---|---|
-| `volume_size` | `number` | required | Size in GiB. |
+| `volume_size` | `number` | `null` | Root volume size in GiB. Omit to retain the AMI/provider default. |
 | `volume_type` | `string` | `"gp3"` | Volume type. |
 | `encrypted` | `bool` | `true` | Encrypt at rest. Defaults on. |
 | `delete_on_termination` | `bool` | `true` | Delete the volume when the instance terminates. |
@@ -137,7 +138,9 @@ Every output is keyed by the same name used in the `instances` input, so callers
 
 **The map key is the identity.** It becomes the `Name` tag, the Terraform resource address, and the output key. Renaming a key replaces the instance, so treat keys as stable identifiers.
 
-**Encryption is on by default.** `root_block_device.encrypted` defaults to `true`, so an explicitly configured root volume is encrypted unless someone opts out. Note the default only applies when `root_block_device` is supplied at all — omitting the block entirely leaves the AMI's own setting in place.
+**Root-volume encryption is on by default.** The module always emits a root block device configuration and defaults `encrypted` to `true`. Callers can omit `volume_size` to retain the AMI/provider default size.
+
+**IMDSv2 is required by default.** The module emits EC2 metadata options with `http_tokens = "required"`, which prevents IMDSv1 access. The metadata endpoint remains enabled, the default hop limit is `1`, and instance metadata tags are disabled.
 
 **Nothing validates network placement.** Setting `associate_public_ip_address = true` on a subnet with no Internet Gateway route produces an instance with an unreachable public IP. The module does not catch this; the caller is responsible for pairing subnets and settings correctly.
 
@@ -154,7 +157,7 @@ Every output is keyed by the same name used in the `instances` input, so callers
 | Map comprehension + `merge()` | `locals.tf` | Precompute per-instance tags with clear precedence |
 | `for` comprehension in outputs | `outputs.tf` | Return maps keyed by instance name |
 
-The `dynamic` block is the piece worth studying. Nested blocks cannot be set to `null` like arguments can, so generating the block from a collection — empty for "omit", one element for "include" — is the standard way to make a nested block conditional.
+The security-sensitive nested blocks are intentionally emitted for every instance. This prevents callers from accidentally relying on less restrictive AMI or account defaults for root-volume encryption or instance metadata behavior.
 
 ---
 

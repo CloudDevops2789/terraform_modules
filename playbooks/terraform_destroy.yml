@@ -13,11 +13,27 @@
     terraform_backend_use_lockfile: true
     terraform_backend_encrypt: true
 
+    # Sandbox AAP is an execution interface, not an architecture editor.
+    # Stable architecture and security settings remain Git controlled.
+    terraform_sandbox_runtime_variable_allowlist:
+      - demo_ec2_enabled
+      - ami_id
+      - server_certificate_arn
+      - root_certificate_chain_arn
+      - saml_provider_arn
+      - ssm_instance_profile_name
+      - foundation_resources
+
+
     # Destroy is plan-only unless explicitly enabled.
     terraform_destroy_enabled: false
 
     # Required when terraform_destroy_enabled is true.
     terraform_destroy_confirmation: ""
+
+    # Break-glass protection for the persistent Foundation environment.
+    # Foundation destroy remains blocked unless this is explicitly enabled.
+    terraform_allow_foundation_destroy: false
 
   pre_tasks:
     - name: Validate Terraform destroy inputs
@@ -28,12 +44,9 @@
 
           - terraform_environment | length > 0
           - terraform_environment is match('^[A-Za-z0-9._-]+$')
-
           - terraform_backend_bucket | default('') | length > 2
           - terraform_backend_key | default('') | length > 0
           - terraform_backend_region | default('') | length > 0
-
-          - terraform_public_key | default('') | length > 0
 
           - terraform_variables is defined
           - terraform_variables is mapping
@@ -41,18 +54,57 @@
         fail_msg: >-
           Required Terraform destroy inputs are missing or invalid.
           Supply the AssumeRole configuration, backend configuration,
-          SSH public key, and terraform_variables through AAP or extra vars.
+          terraform_variables, and any environment-specific required inputs
+          through AAP or extra vars.
+
+    - name: Protect persistent Foundation from accidental destroy
+      ansible.builtin.assert:
+        that:
+          - >-
+            terraform_environment != 'foundation'
+            or (terraform_allow_foundation_destroy | bool)
+        fail_msg: >-
+          Foundation destroy is blocked by default. Set
+          terraform_allow_foundation_destroy=true only for an explicitly
+          approved Foundation cleanup.
 
     - name: Validate Terraform destroy authorization
       ansible.builtin.assert:
         that:
           - >-
             not (terraform_destroy_enabled | bool)
-            or terraform_destroy_confirmation == 'DESTROY'
+            or (
+              (
+                terraform_environment == 'foundation'
+                and (terraform_allow_foundation_destroy | bool)
+                and terraform_destroy_confirmation == 'DESTROY FOUNDATION'
+              )
+              or (
+                terraform_environment != 'foundation'
+                and terraform_destroy_confirmation == 'DESTROY'
+              )
+            )
         fail_msg: >-
-          Destruction was enabled without explicit confirmation.
-          Set terraform_destroy_confirmation to DESTROY when an approved
-          infrastructure destruction is intended.
+          Destruction was enabled without the required explicit confirmation.
+          Use DESTROY for recovery environments. Foundation additionally
+          requires terraform_allow_foundation_destroy=true and the exact
+          confirmation DESTROY FOUNDATION.
+
+    - name: Enforce Sandbox Terraform runtime variable allowlist
+      ansible.builtin.assert:
+        that:
+          - >-
+            terraform_environment != 'sandbox'
+            or (
+              terraform_variables.keys()
+              | list
+              | difference(terraform_sandbox_runtime_variable_allowlist)
+              | length
+            ) == 0
+        fail_msg: >-
+          Sandbox AAP runtime variables contain Git-controlled architecture
+          settings. Only approved runtime and external-binding variables may
+          be supplied through AAP.
 
     - name: Check Terraform root
       ansible.builtin.stat:
@@ -79,21 +131,14 @@
 
     - name: Execute Terraform destroy workflow
       block:
-        - name: Write temporary SSH public key
-          ansible.builtin.copy:
-            content: "{{ terraform_public_key | trim }}\n"
-            dest: "{{ terraform_temp_dir.path }}/management.pub"
-            mode: "0600"
-
-        - name: Build effective Terraform variables
+        - name: Build effective Terraform runtime variables
           ansible.builtin.set_fact:
             terraform_effective_variables: >-
               {{
                 terraform_variables
                 | combine(
                     {
-                      'public_key_path':
-                        terraform_temp_dir.path ~ '/management.pub'
+                      'aws_region': assume_role_aws_region
                     }
                   )
               }}

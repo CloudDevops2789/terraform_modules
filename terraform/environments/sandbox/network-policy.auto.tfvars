@@ -122,7 +122,7 @@ security_group_rules = [
     peer_type      = "cidr"
     peer           = "0.0.0.0/0"
     description    = "Allow Protected Data tier outbound traffic"
-  }
+  },
 ]
 
 

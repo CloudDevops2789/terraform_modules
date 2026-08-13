@@ -1,0 +1,78 @@
+---
+################################################################################
+# Sandbox AAP Job Template Variables
+################################################################################
+#
+# AAP owns execution context and runtime intent.
+#
+# Git owns architecture through:
+#
+#   platform.auto.tfvars
+#   network-policy.auto.tfvars
+#
+# Do not place network topology, inspection mode, authentication mode,
+# naming, tagging, or management-plane architecture in terraform_variables.
+################################################################################
+
+terraform_environment: "sandbox"
+
+################################################################################
+# AWS execution binding
+################################################################################
+
+assume_role_role_arn: "<APPROVED_AAP_EXECUTION_ROLE_ARN>"
+
+# Single source of truth for the Terraform deployment Region.
+# The playbook automatically injects this into Terraform as aws_region.
+assume_role_aws_region: "us-east-1"
+
+################################################################################
+# Terraform backend binding
+################################################################################
+
+terraform_backend_bucket: "<APPROVED_TERRAFORM_STATE_BUCKET>"
+terraform_backend_key: "sandbox/terraform.tfstate"
+
+# Backend Region is independent from the infrastructure deployment Region.
+terraform_backend_region: "<BACKEND_BUCKET_REGION>"
+
+################################################################################
+# Deployment control
+################################################################################
+
+# false = plan only
+# true  = apply the reviewed saved plan
+terraform_apply_enabled: false
+
+################################################################################
+# Runtime / external Terraform bindings
+################################################################################
+
+# Initial platform bootstrap requires no additional values.
+terraform_variables: {}
+
+# Exercise example:
+#
+# terraform_variables:
+#   demo_ec2_enabled: true
+#   ami_id: "<APPROVED_AMI_IN_DEPLOYMENT_REGION>"
+
+# When Git enables Client VPN with federated authentication:
+#
+# terraform_variables:
+#   server_certificate_arn: "<ACM_SERVER_CERTIFICATE_ARN>"
+#   saml_provider_arn: "<ENTERPRISE_IAM_SAML_PROVIDER_ARN>"
+
+# When Git selects external SSM instance-profile ownership:
+#
+# terraform_variables:
+#   ssm_instance_profile_name: "<APPROVED_INSTANCE_PROFILE>"
+
+# Foundation references may be supplied only when the corresponding
+# Git-controlled integration flag is enabled.
+#
+# terraform_variables:
+#   foundation_resources:
+#     standard_backup_vault_name: "<STANDARD_VAULT_NAME>"
+#     air_gapped_backup_vault_arn: "<AIR_GAPPED_VAULT_ARN>"
+#     network_firewall_logging_kms_key_arn: "<KMS_KEY_ARN>"
