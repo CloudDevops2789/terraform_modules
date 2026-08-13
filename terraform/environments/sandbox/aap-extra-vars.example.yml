@@ -1,0 +1,88 @@
+---
+# IRE Sandbox - AAP Extra Variables Example
+#
+# The Terraform configuration supports both .tfvars and AAP-supplied inputs.
+# Replace all example values with approved environment-specific values.
+
+assume_role_role_arn: "arn:aws:iam::123456789012:role/org-ire-terraform-execution"
+assume_role_aws_region: "us-east-1"
+assume_role_application_name: "ire-terraform"
+
+terraform_environment: "sandbox"
+
+terraform_backend_bucket: "org-ire-terraform-state-123456789012"
+terraform_backend_key: "sandbox/networking/terraform.tfstate"
+terraform_backend_region: "us-east-1"
+
+# Safe default: generate a plan only.
+terraform_apply_enabled: false
+
+terraform_variables:
+
+  aws_region: "us-east-1"
+
+  # -------------------------------------------------------------------------
+  # Demonstration workload lifecycle
+  # -------------------------------------------------------------------------
+
+  # Persistent platform only.
+  demo_ec2_enabled: false
+  demo_ec2_access_method: "none"
+
+  # -------------------------------------------------------------------------
+  # Persistent Systems Manager management plane
+  # -------------------------------------------------------------------------
+
+  ssm_management_plane_enabled: false
+
+  # external  = organization-approved existing instance profile
+  # terraform = Terraform-managed role/profile
+  ssm_instance_profile_mode: "external"
+
+  # Supply only when required.
+  # ssm_instance_profile_name: "org-approved-ire-ssm-profile"
+
+  # Supply only when demo_ec2_enabled=true.
+  # ami_id: "ami-0123456789abcdef0"
+
+  # -------------------------------------------------------------------------
+  # Client VPN example
+  # -------------------------------------------------------------------------
+
+  authentication_type: "certificate"
+
+  server_certificate_arn: "arn:aws:acm:us-east-1:123456789012:certificate/11111111-2222-3333-4444-555555555555"
+  root_certificate_chain_arn: "arn:aws:acm:us-east-1:123456789012:certificate/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+
+  saml_provider_arn: null
+
+  # -------------------------------------------------------------------------
+  # Optional integrations
+  # -------------------------------------------------------------------------
+
+  backup_integration_enabled: false
+  network_firewall_logging_enabled: false
+  network_inspection_mode: "bypass"
+
+  # -------------------------------------------------------------------------
+  # Governance
+  # -------------------------------------------------------------------------
+
+  org_it_cost_center: "12345"
+  org_department: "cyber-resilience"
+  org_cmdb_calculated_app: "ire-platform"
+  org_business_criticality: "1"
+  org_environment: "recovery"
+  org_data_classification: "Internal"
+  org_project_name: "IRE"
+  org_managed_by: "Terraform"
+  org_additional_tags: {}
+
+  naming:
+    organization: "org"
+    project: "ire"
+    project_display_name: "IRE"
+    environment: "recovery"
+    environment_display_name: "Recovery"
+    region_code: "use1"
+    suffix: null

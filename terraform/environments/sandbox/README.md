@@ -288,3 +288,291 @@ Example:
 
 This lifecycle boundary ensures that destroying the Sandbox does not
 attempt to delete retained backup vaults or persistent encryption keys.
+
+<!-- BEGIN DEMO-WORKLOAD-LIFECYCLE -->
+
+## Demonstration Workload Lifecycle and Administrative Access
+
+The Sandbox separates the persistent IRE platform from temporary representative
+compute used for connectivity and recovery-flow validation.
+
+~~~mermaid
+flowchart TD
+    A[Persistent IRE Platform] --> B[Recovery Access VPC]
+    A --> C[Core Recovery VPC]
+    A --> D[Protected Data VPC]
+    A --> E[Transit and Security Controls]
+
+    F{SSM management plane enabled?} -->|Yes| G[Private SSM and SSMMessages Endpoints]
+    G --> B
+    G --> C
+    G --> D
+
+    H{demo_ec2_enabled} -->|false| I[Platform remains ready without demo compute]
+    H -->|true| J[Temporary Representative EC2 Instances]
+
+    J --> K{demo_ec2_access_method}
+    K -->|none| L[No interactive administrative access]
+    K -->|ssm| M[Systems Manager Session Manager]
+    K -->|ssh_key| N[SSH key-based access]
+~~~
+
+### Persistent versus temporary resources
+
+The following platform capabilities remain independent of the demonstration
+EC2 lifecycle:
+
+- VPCs and subnets
+- route tables and routing controls
+- Transit Gateway connectivity and segmentation
+- baseline security groups and network controls
+- Client VPN and other configured access-plane services
+- private Systems Manager endpoints when `ssm_management_plane_enabled = true`
+- Terraform-managed Systems Manager IAM capability when enabled
+
+The representative Management, Core Recovery, and Protected Data EC2 instances
+are temporary validation workloads.
+
+Setting:
+
+~~~hcl
+demo_ec2_enabled = false
+~~~
+
+retains the platform without creating the representative EC2 instances.
+
+Changing:
+
+~~~hcl
+demo_ec2_enabled = true
+~~~
+
+to:
+
+~~~hcl
+demo_ec2_enabled = false
+~~~
+
+and performing a normal Terraform plan and apply removes the demonstration
+compute while preserving persistent platform resources.
+
+Do not use a full environment destroy merely to remove demonstration compute.
+
+### Administrative access methods
+
+`demo_ec2_access_method` supports three values.
+
+| Value | Purpose | SSH public key | EC2 instance profile |
+|---|---|---|---|
+| `none` | No interactive administrative access | Not required | Not required |
+| `ssm` | AWS Systems Manager Session Manager | Not required | Required |
+| `ssh_key` | SSH-key compatibility/testing | Required | Not required by this access method |
+
+`ssm` is the preferred private administrative-access pattern where the
+organization has approved Systems Manager.
+
+The approved AMI must contain a functioning Systems Manager Agent when SSM
+access is selected.
+
+Operator permissions to start or control Session Manager sessions are separate
+from the EC2 instance role and should be governed through the organization's
+identity and privileged-access model.
+
+### Systems Manager instance-profile modes
+
+`ssm_instance_profile_mode` supports:
+
+- `external` - consume an organization-managed EC2 instance profile.
+- `terraform` - create the EC2 role and instance profile through the reusable
+  IAM module.
+
+When `external` is used for an SSM-enabled demonstration deployment,
+`ssm_instance_profile_name` must identify the approved existing profile.
+
+This allows the same Terraform configuration to operate in environments where
+IAM lifecycle is centrally controlled as well as environments where Terraform
+is authorized to manage the required IAM resources.
+
+### Private Systems Manager connectivity
+
+When:
+
+~~~hcl
+ssm_management_plane_enabled = true
+~~~
+
+the Sandbox creates private interface endpoints for:
+
+- Systems Manager (`ssm`)
+- Systems Manager messages (`ssmmessages`)
+
+in the endpoint subnets of:
+
+- Recovery Access
+- Core Recovery
+- Protected Data
+
+No Systems Manager endpoint is created in the Inspection VPC.
+
+Endpoint security groups permit HTTPS on TCP 443 only from the corresponding
+workload security group for that trust tier.
+
+Additional endpoints such as CloudWatch Logs or S3 should be enabled separately
+when required by the organization's session logging, software distribution, or
+management policy.
+
+## Terraform Variable File Examples
+
+The same Terraform variable contract can be supplied through a Terraform
+variable file or through AAP `terraform_variables`.
+
+### Persistent platform only
+
+~~~hcl
+demo_ec2_enabled              = false
+demo_ec2_access_method        = "none"
+ssm_management_plane_enabled  = false
+ssm_instance_profile_mode     = "external"
+~~~
+
+Neither `ami_id` nor `public_key_path` is required.
+
+### Persistent SSM management plane without demo compute
+
+~~~hcl
+demo_ec2_enabled              = false
+demo_ec2_access_method        = "none"
+
+ssm_management_plane_enabled  = true
+ssm_instance_profile_mode     = "external"
+~~~
+
+This keeps the private Systems Manager connectivity ready without creating the
+representative EC2 instances.
+
+### Demo compute with SSM and Terraform-managed instance profile
+
+~~~hcl
+demo_ec2_enabled              = true
+demo_ec2_access_method        = "ssm"
+ami_id                        = "ami-0123456789abcdef0"
+
+ssm_management_plane_enabled  = true
+ssm_instance_profile_mode     = "terraform"
+~~~
+
+No SSH public key is required.
+
+### Demo compute with an existing enterprise instance profile
+
+~~~hcl
+demo_ec2_enabled              = true
+demo_ec2_access_method        = "ssm"
+ami_id                        = "ami-0123456789abcdef0"
+
+ssm_management_plane_enabled  = true
+ssm_instance_profile_mode     = "external"
+ssm_instance_profile_name     = "org-approved-ire-ssm-profile"
+~~~
+
+The supplied profile is consumed but is not created or modified by this
+Terraform configuration.
+
+### Demo compute with SSH-key access
+
+~~~hcl
+demo_ec2_enabled       = true
+demo_ec2_access_method = "ssh_key"
+ami_id                 = "ami-0123456789abcdef0"
+
+public_key_path = "/approved/path/ire-demo.pub"
+~~~
+
+SSH-key mode is provided for compatibility and controlled testing. Network
+reachability and security-group policy must still explicitly permit SSH where
+required.
+
+## AAP Variable Examples
+
+AAP supplies the same Terraform inputs through the `terraform_variables`
+mapping.
+
+### AAP - persistent platform only
+
+~~~yaml
+terraform_environment: sandbox
+terraform_apply_enabled: false
+
+terraform_variables:
+  demo_ec2_enabled: false
+  demo_ec2_access_method: none
+
+  ssm_management_plane_enabled: false
+  ssm_instance_profile_mode: external
+~~~
+
+### AAP - demo compute using SSM
+
+~~~yaml
+terraform_environment: sandbox
+terraform_apply_enabled: false
+
+terraform_variables:
+  demo_ec2_enabled: true
+  demo_ec2_access_method: ssm
+  ami_id: ami-0123456789abcdef0
+
+  ssm_management_plane_enabled: true
+  ssm_instance_profile_mode: external
+  ssm_instance_profile_name: org-approved-ire-ssm-profile
+~~~
+
+`terraform_public_key` is not required for SSM access.
+
+### AAP - demo compute using SSH key
+
+~~~yaml
+terraform_environment: sandbox
+terraform_apply_enabled: false
+
+terraform_public_key: "ssh-ed25519 AAAA...approved-public-key"
+
+terraform_variables:
+  demo_ec2_enabled: true
+  demo_ec2_access_method: ssh_key
+  ami_id: ami-0123456789abcdef0
+~~~
+
+AAP writes the supplied public key to its temporary execution workspace and
+injects the resulting temporary `public_key_path` into Terraform.
+
+The public key is required only when both of the following are true:
+
+~~~text
+demo_ec2_enabled       = true
+demo_ec2_access_method = ssh_key
+~~~
+
+It is not required for baseline-only, `none`, or `ssm` deployments.
+
+## Operational Lifecycle
+
+A typical exercise lifecycle is:
+
+~~~mermaid
+flowchart LR
+    A[Deploy Persistent Platform] --> B[Validate Platform Controls]
+    B --> C[Enable Demo Compute]
+    C --> D[Validate Recovery Traffic]
+    D --> E[Perform Exercise]
+    E --> F[Set demo_ec2_enabled false]
+    F --> G[Terraform Plan]
+    G --> H[Terraform Apply]
+    H --> I[Demo Compute Removed]
+    I --> J[Persistent IRE Platform Remains]
+~~~
+
+A full Terraform destroy is reserved for deliberate environment teardown and
+is not part of the normal demonstration-workload lifecycle.
+
+<!-- END DEMO-WORKLOAD-LIFECYCLE -->

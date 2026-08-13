@@ -31,7 +31,9 @@
           - terraform_backend_region | default('') | length > 0
 
           - >-
-            terraform_environment == 'foundation'
+            terraform_environment != 'sandbox'
+            or not (terraform_variables.demo_ec2_enabled | default(false) | bool)
+            or (terraform_variables.demo_ec2_access_method | default('none')) != 'ssh_key'
             or terraform_public_key | default('') | length > 0
 
           - terraform_variables is defined
@@ -72,7 +74,10 @@
             content: "{{ terraform_public_key | trim }}\n"
             dest: "{{ terraform_temp_dir.path }}/management.pub"
             mode: "0600"
-          when: terraform_environment == 'sandbox'
+          when:
+            - terraform_environment == 'sandbox'
+            - terraform_variables.demo_ec2_enabled | default(false) | bool
+            - (terraform_variables.demo_ec2_access_method | default('none')) == 'ssh_key'
 
         - name: Build effective Terraform variables
           ansible.builtin.set_fact:
@@ -85,7 +90,11 @@
                         'public_key_path':
                           terraform_temp_dir.path ~ '/management.pub'
                       }
-                      if terraform_environment == 'sandbox'
+                      if (
+                        terraform_environment == 'sandbox'
+                        and (terraform_variables.demo_ec2_enabled | default(false) | bool)
+                        and (terraform_variables.demo_ec2_access_method | default('none')) == 'ssh_key'
+                      )
                       else {}
                     )
                   )

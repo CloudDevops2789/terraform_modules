@@ -16,24 +16,40 @@ module "security_group" {
   source = "../../modules/security-group"
 
   tags = local.org_tags
-  security_groups = {
+  security_groups = merge(
+    {
+      management = {
+        description = local.security_groups.tiers.management.description
+        vpc_id      = module.recovery_access.vpc_id
+      }
 
-    management = {
-      description = local.security_groups.tiers.management.description
-      vpc_id      = module.recovery_access.vpc_id
-    }
+      core = {
+        description = local.security_groups.tiers.core.description
+        vpc_id      = module.core_recovery.vpc_id
+      }
 
-    core = {
-      description = local.security_groups.tiers.core.description
-      vpc_id      = module.core_recovery.vpc_id
-    }
+      protected = {
+        description = local.security_groups.tiers.protected.description
+        vpc_id      = module.protected_data.vpc_id
+      }
+    },
+    var.ssm_management_plane_enabled ? {
+      ssm_recovery_access = {
+        description = "Private Systems Manager endpoints for Recovery Access"
+        vpc_id      = module.recovery_access.vpc_id
+      }
 
-    protected = {
-      description = local.security_groups.tiers.protected.description
-      vpc_id      = module.protected_data.vpc_id
-    }
+      ssm_core_recovery = {
+        description = "Private Systems Manager endpoints for Core Recovery"
+        vpc_id      = module.core_recovery.vpc_id
+      }
 
-  }
+      ssm_protected_data = {
+        description = "Private Systems Manager endpoints for Protected Data"
+        vpc_id      = module.protected_data.vpc_id
+      }
+    } : {}
+  )
 
 }
 
@@ -116,5 +132,8 @@ locals {
 module "security_group_rule" {
   source = "../../modules/security-group-rule"
 
-  rules = local.sandbox_security_group_rules
+  rules = merge(
+    local.sandbox_security_group_rules,
+    local.ssm_endpoint_security_group_rules
+  )
 }
