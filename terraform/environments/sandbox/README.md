@@ -38,9 +38,9 @@ AAP supplies the deployment Region, backend binding, approved temporary AMI,
 and externally managed resource references. It does not normally redefine the
 network or security architecture.
 
-The reusable repository intentionally uses enterprise-neutral example
-allocations. Real organization IPAM values belong in the approved private
-environment/deployment configuration.
+The Sandbox reference environment uses its approved account network
+allocation. Reusable Terraform modules remain CIDR-agnostic; environment
+network allocation is controlled through reviewed Git configuration.
 
 ## Four-VPC topology
 
