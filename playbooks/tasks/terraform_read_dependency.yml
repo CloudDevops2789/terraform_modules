@@ -1,0 +1,126 @@
+---
+- name: Validate dependency backend binding
+  ansible.builtin.assert:
+    that:
+      - terraform_dependency_stack | length > 0
+      - terraform_dependency_output_names | length > 0
+      - terraform_dependency_backend_keys[terraform_environment] is defined
+      - terraform_dependency_backend_keys[terraform_environment][terraform_dependency_stack] is defined
+    fail_msg: >-
+      Missing approved backend or output binding for dependency
+      {{ terraform_dependency_stack }}.
+
+- name: Derive dependency Terraform binding
+  ansible.builtin.set_fact:
+    terraform_dependency_root: >-
+      {{ playbook_dir }}/../terraform/stacks/{{ terraform_dependency_stack }}
+    terraform_dependency_backend_key: >-
+      {{ terraform_dependency_backend_keys[terraform_environment][terraform_dependency_stack] }}
+    terraform_dependency_tf_data_dir: >-
+      {{ terraform_temp_dir.path }}/tfdata-{{ terraform_dependency_stack }}
+
+- name: Check dependency Terraform root
+  ansible.builtin.stat:
+    path: "{{ terraform_dependency_root }}"
+  register: terraform_dependency_root_stat
+
+- name: Validate dependency Terraform root
+  ansible.builtin.assert:
+    that:
+      - terraform_dependency_root_stat.stat.exists
+      - terraform_dependency_root_stat.stat.isdir
+    fail_msg: >-
+      Dependency Terraform root does not exist:
+      {{ terraform_dependency_root }}
+
+- name: Initialize dependency backend
+  ansible.builtin.command:
+    argv:
+      - terraform
+      - init
+      - -input=false
+      - -reconfigure
+      - "-backend-config=bucket={{ terraform_backend_bucket }}"
+      - "-backend-config=key={{ terraform_dependency_backend_key }}"
+      - "-backend-config=region={{ terraform_backend_region }}"
+      - "-backend-config=encrypt={{ terraform_backend_encrypt | lower }}"
+      - "-backend-config=use_lockfile={{ terraform_backend_use_lockfile | lower }}"
+  args:
+    chdir: "{{ terraform_dependency_root }}"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+    AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+    AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+    AWS_REGION: "{{ assume_role_aws_auth.region }}"
+    AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+    TF_IN_AUTOMATION: "true"
+    TF_DATA_DIR: "{{ terraform_dependency_tf_data_dir }}"
+  changed_when: false
+  no_log: true
+
+- name: Read approved dependency outputs
+  ansible.builtin.command:
+    argv:
+      - terraform
+      - output
+      - -json
+      - "{{ terraform_dependency_output_name }}"
+  args:
+    chdir: "{{ terraform_dependency_root }}"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+    AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+    AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+    AWS_REGION: "{{ assume_role_aws_auth.region }}"
+    AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+    TF_IN_AUTOMATION: "true"
+    TF_DATA_DIR: "{{ terraform_dependency_tf_data_dir }}"
+  loop: "{{ terraform_dependency_output_names }}"
+  loop_control:
+    loop_var: terraform_dependency_output_name
+    label: "{{ terraform_dependency_output_name }}"
+  register: terraform_dependency_output_reads
+  changed_when: false
+  no_log: true
+
+- name: Initialize dependency output map
+  ansible.builtin.set_fact:
+    terraform_current_dependency_outputs: {}
+  no_log: true
+
+- name: Build approved dependency output map
+  ansible.builtin.set_fact:
+    terraform_current_dependency_outputs: >-
+      {{
+        terraform_current_dependency_outputs
+        | combine(
+            {
+              terraform_dependency_output_result.terraform_dependency_output_name:
+                (
+                  terraform_dependency_output_result.stdout
+                  | from_json
+                )
+            }
+          )
+      }}
+  loop: "{{ terraform_dependency_output_reads.results }}"
+  loop_control:
+    loop_var: terraform_dependency_output_result
+    label: >-
+      {{ terraform_dependency_output_result.terraform_dependency_output_name }}
+  no_log: true
+
+- name: Register dependency outputs
+  ansible.builtin.set_fact:
+    terraform_dependency_outputs: >-
+      {{
+        terraform_dependency_outputs
+        | combine(
+            {
+              terraform_dependency_stack:
+                terraform_current_dependency_outputs
+            },
+            recursive=True
+          )
+      }}
+  no_log: true

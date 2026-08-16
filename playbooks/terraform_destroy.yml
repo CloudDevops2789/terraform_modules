@@ -195,15 +195,21 @@
 
     - name: Execute Terraform destroy workflow
       block:
+        - name: Resolve approved Terraform lifecycle contracts
+          ansible.builtin.include_tasks:
+            file: tasks/terraform_resolve_contracts.yml
+
         - name: Build effective Terraform runtime variables
           ansible.builtin.set_fact:
             terraform_effective_variables: >-
               {{
                 terraform_variables
                 | combine(
-                    {
-                      'aws_region': assume_role_aws_region
-                    }
+                    terraform_contract_variables | default({}),
+                    recursive=true
+                  )
+                | combine(
+                    dict(aws_region=assume_role_aws_region)
                   )
               }}
           no_log: true
