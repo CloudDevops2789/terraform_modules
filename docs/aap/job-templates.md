@@ -20,12 +20,12 @@ Recommended fixed Job Template / Inventory bindings:
 
 ~~~yaml
 terraform_environment: "sandbox"
+terraform_stack: "platform"
 
 assume_role_role_arn: "<APPROVED_AAP_EXECUTION_ROLE_ARN>"
 assume_role_aws_region: "us-east-1"
 
 terraform_backend_bucket: "<APPROVED_STATE_BUCKET>"
-terraform_backend_key: "sandbox/terraform.tfstate"
 terraform_backend_region: "<BACKEND_BUCKET_REGION>"
 ~~~
 
@@ -110,10 +110,9 @@ Safe defaults:
 ~~~yaml
 terraform_destroy_enabled: false
 terraform_destroy_confirmation: ""
-terraform_allow_foundation_destroy: false
 ~~~
 
-Approved Sandbox destruction requires:
+Approved Recovery stack destruction requires:
 
 ~~~yaml
 terraform_destroy_enabled: true

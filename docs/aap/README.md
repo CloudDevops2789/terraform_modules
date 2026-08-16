@@ -29,17 +29,28 @@ Terraform
 
 ## Git-controlled desired state
 
-The Sandbox automatically loads:
+## Git-controlled desired state
+
+AAP explicitly supplies the Git-controlled variable files for the selected
+Terraform lifecycle stack.
+
+For Sandbox, these files are stored under:
 
 ~~~text
-platform.auto.tfvars
-network-policy.auto.tfvars
+terraform/environments/sandbox/stacks/
+  common-tags.tfvars
+  platform.tfvars
+  platform-network-policy.tfvars
+  identity.tfvars
+  recovery.tfvars
 ~~~
+
+Only the files associated with the selected `terraform_stack` are passed to
+Terraform.
 
 These contain stable non-sensitive architecture and security policy.
 
 AAP must not normally override them.
-
 ## Deployment Region
 
 `assume_role_aws_region` is the AAP deployment-Region binding.
