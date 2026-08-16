@@ -4,36 +4,23 @@
   connection: local
   gather_facts: false
 
+  vars_files:
+    - vars/terraform_stack_bindings.yml
+
   vars:
     terraform_environment: "sandbox"
-
-    terraform_root: >-
-      {{ playbook_dir }}/../terraform/environments/{{ terraform_environment }}
+    terraform_stack: ""
 
     terraform_backend_use_lockfile: true
     terraform_backend_encrypt: true
 
-    # Sandbox AAP is an execution interface, not an architecture editor.
-    # Stable architecture and security settings remain Git controlled.
-    terraform_sandbox_runtime_variable_allowlist:
-      - demo_ec2_enabled
-      - ami_id
-      - server_certificate_arn
-      - root_certificate_chain_arn
-      - saml_provider_arn
-      - ssm_instance_profile_name
-      - foundation_resources
-
-
-    # Destroy is plan-only unless explicitly enabled.
+    # Destroy always defaults to plan-only.
     terraform_destroy_enabled: false
-
-    # Required when terraform_destroy_enabled is true.
     terraform_destroy_confirmation: ""
 
-    # Break-glass protection for the persistent Foundation environment.
-    # Foundation destroy remains blocked unless this is explicitly enabled.
-    terraform_allow_foundation_destroy: false
+    # Elevated lifecycle-stack destruction controls.
+    terraform_allow_platform_destroy: false
+    terraform_allow_identity_destroy: false
 
   pre_tasks:
     - name: Validate Terraform destroy inputs
@@ -42,55 +29,60 @@
           - assume_role_role_arn | default('') | length > 0
           - assume_role_aws_region | default('') | length > 0
 
-          - terraform_environment | length > 0
-          - terraform_environment is match('^[A-Za-z0-9._-]+$')
+          - terraform_environment | default('') | length > 0
+          - terraform_environment in terraform_allowed_environments
+
+          - terraform_stack | default('') | length > 0
+          - terraform_stack in terraform_active_stacks
+          - terraform_stack_var_files[terraform_stack] is defined
+
           - terraform_backend_bucket | default('') | length > 2
-          - terraform_backend_key | default('') | length > 0
           - terraform_backend_region | default('') | length > 0
 
           - terraform_variables is defined
           - terraform_variables is mapping
 
+          - terraform_backend_key is not defined
+          - terraform_root is not defined
+
         fail_msg: >-
           Required Terraform destroy inputs are missing or invalid.
-          Supply the AssumeRole configuration, backend configuration,
-          terraform_variables, and any environment-specific required inputs
-          through AAP or extra vars.
+          Supply an approved terraform_environment, terraform_stack,
+          AssumeRole configuration, backend bucket/Region, and
+          terraform_variables. terraform_backend_key and terraform_root
+          are derived internally and must not be supplied.
 
-    - name: Protect persistent Foundation from accidental destroy
-      ansible.builtin.assert:
-        that:
-          - >-
-            terraform_environment != 'foundation'
-            or (terraform_allow_foundation_destroy | bool)
-        fail_msg: >-
-          Foundation destroy is blocked by default. Set
-          terraform_allow_foundation_destroy=true only for an explicitly
-          approved Foundation cleanup.
-
-    - name: Validate Terraform destroy authorization
+    - name: Validate lifecycle-stack destroy authorization
       ansible.builtin.assert:
         that:
           - >-
             not (terraform_destroy_enabled | bool)
-            or (
-              (
-                terraform_environment == 'foundation'
-                and (terraform_allow_foundation_destroy | bool)
-                and terraform_destroy_confirmation == 'DESTROY FOUNDATION'
-              )
-              or (
-                terraform_environment != 'foundation'
-                and terraform_destroy_confirmation == 'DESTROY'
-              )
+            or
+            (
+              terraform_stack == 'recovery'
+              and terraform_destroy_confirmation == 'DESTROY'
+            )
+            or
+            (
+              terraform_stack == 'platform'
+              and (terraform_allow_platform_destroy | bool)
+              and terraform_destroy_confirmation == 'DESTROY PLATFORM'
+            )
+            or
+            (
+              terraform_stack == 'identity'
+              and (terraform_allow_identity_destroy | bool)
+              and terraform_destroy_confirmation == 'DESTROY IDENTITY'
             )
         fail_msg: >-
-          Destruction was enabled without the required explicit confirmation.
-          Use DESTROY for recovery environments. Foundation additionally
-          requires terraform_allow_foundation_destroy=true and the exact
-          confirmation DESTROY FOUNDATION.
+          Destruction was enabled without the authorization required for the
+          selected lifecycle stack. Recovery requires DESTROY. Platform
+          requires terraform_allow_platform_destroy=true and DESTROY PLATFORM.
+          Identity requires terraform_allow_identity_destroy=true and
+          DESTROY IDENTITY. Foundation is not enabled in this workflow until
+          its existing state is migrated through the controlled cutover.
 
-    - name: Enforce Sandbox Terraform runtime variable allowlist
+    - name: Enforce Sandbox stack runtime variable allowlist
       ansible.builtin.assert:
         that:
           - >-
@@ -98,26 +90,98 @@
             or (
               terraform_variables.keys()
               | list
-              | difference(terraform_sandbox_runtime_variable_allowlist)
+              | difference(
+                  terraform_sandbox_runtime_variable_allowlists[terraform_stack]
+                )
               | length
             ) == 0
         fail_msg: >-
-          Sandbox AAP runtime variables contain Git-controlled architecture
-          settings. Only approved runtime and external-binding variables may
-          be supplied through AAP.
+          Sandbox AAP runtime variables contain values not approved for the
+          selected lifecycle stack. Stable architecture and security settings
+          must remain Git controlled.
 
-    - name: Check Terraform root
+    - name: Derive Terraform execution binding
+      ansible.builtin.set_fact:
+        terraform_effective_root: >-
+          {{ playbook_dir }}/../terraform/stacks/{{ terraform_stack }}
+        terraform_effective_environment_config_root: >-
+          {{ playbook_dir }}/../terraform/environments/{{ terraform_environment }}/stacks
+        terraform_effective_backend_key: >-
+          ire/{{ terraform_environment }}/{{ terraform_stack }}/terraform.tfstate
+
+    - name: Check Terraform stack root
       ansible.builtin.stat:
-        path: "{{ terraform_root }}"
+        path: "{{ terraform_effective_root }}"
       register: terraform_root_stat
 
-    - name: Validate Terraform root
+    - name: Validate Terraform stack root
       ansible.builtin.assert:
         that:
           - terraform_root_stat.stat.exists
           - terraform_root_stat.stat.isdir
         fail_msg: >-
-          Terraform root does not exist: {{ terraform_root }}
+          Terraform lifecycle stack root does not exist:
+          {{ terraform_effective_root }}
+
+    - name: Check environment stack configuration directory
+      ansible.builtin.stat:
+        path: "{{ terraform_effective_environment_config_root }}"
+      register: terraform_environment_config_stat
+
+    - name: Validate environment stack configuration directory
+      ansible.builtin.assert:
+        that:
+          - terraform_environment_config_stat.stat.exists
+          - terraform_environment_config_stat.stat.isdir
+        fail_msg: >-
+          Terraform environment stack configuration directory does not exist:
+          {{ terraform_effective_environment_config_root }}
+
+    - name: Check required Git-controlled Terraform variable files
+      ansible.builtin.stat:
+        path: "{{ terraform_effective_environment_config_root }}/{{ item }}"
+      loop: "{{ terraform_stack_var_files[terraform_stack] }}"
+      register: terraform_git_var_file_stats
+
+    - name: Validate required Git-controlled Terraform variable files
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+          - item.stat.isreg
+        fail_msg: >-
+          Required Git-controlled Terraform variable file does not exist:
+          {{ item.item }}
+      loop: "{{ terraform_git_var_file_stats.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Initialize Terraform Git variable-file argument list
+      ansible.builtin.set_fact:
+        terraform_git_var_file_args: []
+
+    - name: Build Terraform Git variable-file arguments
+      ansible.builtin.set_fact:
+        terraform_git_var_file_args: >-
+          {{
+            terraform_git_var_file_args
+            +
+            [
+              '-var-file='
+              ~ terraform_effective_environment_config_root
+              ~ '/'
+              ~ item
+            ]
+          }}
+      loop: "{{ terraform_stack_var_files[terraform_stack] }}"
+
+    - name: Report derived Terraform destroy binding
+      ansible.builtin.debug:
+        msg:
+          - "Environment: {{ terraform_environment }}"
+          - "Stack: {{ terraform_stack }}"
+          - "Terraform root: {{ terraform_effective_root }}"
+          - "Backend key: {{ terraform_effective_backend_key }}"
+          - "Git variable files: {{ terraform_stack_var_files[terraform_stack] }}"
 
   roles:
     - role: ire_platform.aws.assume_role
@@ -144,7 +208,7 @@
               }}
           no_log: true
 
-        - name: Write temporary Terraform variable file
+        - name: Write temporary Terraform runtime variable file
           ansible.builtin.copy:
             content: "{{ terraform_effective_variables | to_nice_json }}"
             dest: "{{ terraform_temp_dir.path }}/terraform.auto.tfvars.json"
@@ -159,12 +223,12 @@
               - -input=false
               - -reconfigure
               - "-backend-config=bucket={{ terraform_backend_bucket }}"
-              - "-backend-config=key={{ terraform_backend_key }}"
+              - "-backend-config=key={{ terraform_effective_backend_key }}"
               - "-backend-config=region={{ terraform_backend_region }}"
               - "-backend-config=encrypt={{ terraform_backend_encrypt | lower }}"
               - "-backend-config=use_lockfile={{ terraform_backend_use_lockfile | lower }}"
           args:
-            chdir: "{{ terraform_root }}"
+            chdir: "{{ terraform_effective_root }}"
           environment:
             AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
             AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
@@ -181,25 +245,36 @@
               - terraform
               - validate
           args:
-            chdir: "{{ terraform_root }}"
+            chdir: "{{ terraform_effective_root }}"
           environment:
             TF_IN_AUTOMATION: "true"
           changed_when: false
 
         - name: Create Terraform destroy plan
           ansible.builtin.command:
-            argv:
-              - terraform
-              - plan
-              - -destroy
-              - -no-color
-              - -input=false
-              - -lock=true
-              - -detailed-exitcode
-              - "-var-file={{ terraform_temp_dir.path }}/terraform.auto.tfvars.json"
-              - "-out={{ terraform_temp_dir.path }}/destroy.tfplan"
+            argv: >-
+              {{
+                [
+                  'terraform',
+                  'plan',
+                  '-destroy',
+                  '-no-color',
+                  '-input=false',
+                  '-lock=true',
+                  '-detailed-exitcode'
+                ]
+                + terraform_git_var_file_args
+                + [
+                  '-var-file='
+                  ~ terraform_temp_dir.path
+                  ~ '/terraform.auto.tfvars.json',
+                  '-out='
+                  ~ terraform_temp_dir.path
+                  ~ '/destroy.tfplan'
+                ]
+              }}
           args:
-            chdir: "{{ terraform_root }}"
+            chdir: "{{ terraform_effective_root }}"
           environment:
             AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
             AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
@@ -235,7 +310,7 @@
               - -input=false
               - "{{ terraform_temp_dir.path }}/destroy.tfplan"
           args:
-            chdir: "{{ terraform_root }}"
+            chdir: "{{ terraform_effective_root }}"
           environment:
             AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
             AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
@@ -246,19 +321,20 @@
           when:
             - terraform_destroy_plan.rc == 2
             - terraform_destroy_enabled | bool
-            - terraform_destroy_confirmation == "DESTROY"
           changed_when: true
 
         - name: Report Terraform destroy result
           ansible.builtin.debug:
             msg: >-
               {% if terraform_destroy_plan.rc == 0 %}
-              Terraform state contains no infrastructure requiring destruction.
+              Terraform {{ terraform_environment }}/{{ terraform_stack }}
+              state contains no infrastructure requiring destruction.
               {% elif terraform_destroy_enabled | bool %}
-              Terraform infrastructure destroyed successfully.
+              Terraform {{ terraform_environment }}/{{ terraform_stack }}
+              infrastructure destroyed successfully.
               {% else %}
-              Terraform destroy plan completed successfully.
-              Destruction was not enabled.
+              Terraform {{ terraform_environment }}/{{ terraform_stack }}
+              destroy plan completed successfully. Destruction was not enabled.
               {% endif %}
 
       always:

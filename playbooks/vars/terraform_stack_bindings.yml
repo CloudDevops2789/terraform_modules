@@ -1,0 +1,65 @@
+---
+################################################################################
+# Terraform Stack Execution Bindings
+################################################################################
+#
+# AAP selects an approved environment and lifecycle stack.
+# The playbooks derive the Terraform root, Git-controlled variable files,
+# and remote-state key from these values.
+#
+# Operators must not supply arbitrary Terraform roots or backend keys.
+################################################################################
+
+terraform_allowed_environments:
+  - sandbox
+
+# Foundation is deliberately excluded until its existing populated remote state
+# is migrated through the separately controlled Foundation cutover workflow.
+terraform_active_stacks:
+  - platform
+  - identity
+  - recovery
+
+################################################################################
+# Git-controlled variable files by lifecycle stack
+################################################################################
+
+terraform_stack_var_files:
+  platform:
+    - common-tags.tfvars
+    - platform.tfvars
+    - platform-network-policy.tfvars
+
+  identity:
+    - common-tags.tfvars
+    - identity.tfvars
+
+  recovery:
+    - common-tags.tfvars
+    - recovery.tfvars
+
+################################################################################
+# Sandbox AAP runtime / external-binding allowlists
+################################################################################
+#
+# Architecture and security policy remain Git controlled.
+# These values are the only normal launch-time or environment-binding values
+# accepted through terraform_variables for each stack.
+################################################################################
+
+terraform_sandbox_runtime_variable_allowlists:
+  platform:
+    - server_certificate_arn
+    - root_certificate_chain_arn
+    - saml_provider_arn
+    - ssm_instance_profile_name
+    - foundation_resources
+
+  identity:
+    - platform_contract
+
+  recovery:
+    - demo_ec2_enabled
+    - ami_id
+    - platform_contract
+    - foundation_resources
