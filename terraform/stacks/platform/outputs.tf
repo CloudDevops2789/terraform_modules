@@ -1,53 +1,63 @@
 ##################################################################################################
-# Platform Contract Outputs
-#
-# These outputs form the controlled interface consumed by downstream Identity
-# and Recovery stacks. Downstream stacks must not depend on internal module
-# implementation details.
+# Generic Platform Contract
 ##################################################################################################
 
-output "recovery_access_vpc_id" {
-  description = "Recovery Access VPC ID."
-  value       = module.recovery_access.vpc_id
+output "vpc_ids" {
+  description = "VPC IDs keyed by caller-defined logical VPC key."
+
+  value = {
+    for vpc_key, vpc in module.vpc :
+    vpc_key => vpc.vpc_id
+  }
 }
 
-output "core_recovery_vpc_id" {
-  description = "Core Recovery VPC ID."
-  value       = module.core_recovery.vpc_id
+output "vpc_cidrs" {
+  description = "VPC CIDRs keyed by caller-defined logical VPC key."
+
+  value = {
+    for vpc_key, vpc in module.vpc :
+    vpc_key => vpc.vpc_cidr
+  }
 }
 
-output "protected_data_vpc_id" {
-  description = "Protected Data VPC ID."
-  value       = module.protected_data.vpc_id
+output "subnet_ids" {
+  description = "Subnet IDs keyed first by VPC key and then subnet key."
+
+  value = {
+    for vpc_key, vpc in module.vpc :
+    vpc_key => vpc.subnet_ids
+  }
 }
 
-output "inspection_vpc_id" {
-  description = "Inspection VPC ID."
-  value       = module.inspection_vpc.vpc_id
+output "subnet_ids_by_group" {
+  description = "Subnet IDs grouped by caller-defined function inside each VPC."
+
+  value = {
+    for vpc_key, vpc in module.vpc :
+    vpc_key => vpc.subnet_ids_by_group
+  }
 }
 
-output "recovery_access_subnet_ids" {
-  description = "Recovery Access subnet IDs keyed by logical subnet name."
-  value       = module.recovery_access.subnet_ids
+output "route_table_ids" {
+  description = "Route-table IDs keyed first by VPC key and then route-table key."
+
+  value = {
+    for vpc_key, vpc in module.vpc :
+    vpc_key => vpc.route_table_ids
+  }
 }
 
-output "core_recovery_subnet_ids" {
-  description = "Core Recovery subnet IDs keyed by logical subnet name."
-  value       = module.core_recovery.subnet_ids
-}
+output "route_table_ids_by_group" {
+  description = "Route-table IDs grouped by function inside each VPC."
 
-output "core_recovery_subnet_ids_by_group" {
-  description = "Core Recovery subnet IDs grouped by subnet function."
-  value       = module.core_recovery.subnet_ids_by_group
-}
-
-output "protected_data_subnet_ids" {
-  description = "Protected Data subnet IDs keyed by logical subnet name."
-  value       = module.protected_data.subnet_ids
+  value = {
+    for vpc_key, vpc in module.vpc :
+    vpc_key => vpc.route_table_ids_by_group
+  }
 }
 
 output "security_group_ids" {
-  description = "Platform security group IDs keyed by logical security-group name."
+  description = "Security-group IDs keyed by caller-defined logical name."
   value       = module.security_group.security_group_ids
 }
 
@@ -56,22 +66,64 @@ output "transit_gateway_id" {
   value       = module.transit_gateway.id
 }
 
+output "transit_gateway_attachment_ids" {
+  description = "Transit Gateway attachment IDs keyed by VPC key."
+  value       = module.transit_gateway.attachment_ids
+}
+
+output "transit_gateway_route_table_ids" {
+  description = "Transit Gateway route-table IDs keyed by VPC key."
+  value       = module.transit_gateway.route_table_ids
+}
+
 output "ssm_instance_profile_name" {
-  description = "EC2 instance profile used by SSM-managed recovery compute, or null when externally managed or disabled."
+  description = "EC2 instance profile used by SSM-managed recovery compute."
   value       = local.effective_ssm_instance_profile_name
 }
 
 output "client_vpn_endpoint_id" {
-  description = "AWS Client VPN endpoint ID, or null when Client VPN is disabled."
+  description = "Client VPN endpoint ID, or null when Client VPN is disabled."
   value       = try(module.client_vpn[0].id, null)
 }
 
 output "client_vpn_saml_provider_arn" {
-  description = "Resolved IAM SAML provider ARN used by Client VPN federation."
+  description = "Resolved IAM SAML provider ARN used by Client VPN."
   value       = local.resolved_saml_provider_arn
 }
 
-output "directory_services_subnet_ids" {
-  description = "Core Recovery subnet IDs reserved for directory services."
-  value       = module.core_recovery.subnet_ids_by_group["directory-services"]
+output "platform_contract" {
+  description = "Topology-agnostic downstream Platform contract."
+
+  value = {
+    vpc_ids = {
+      for vpc_key, vpc in module.vpc :
+      vpc_key => vpc.vpc_id
+    }
+
+    vpc_cidrs = {
+      for vpc_key, vpc in module.vpc :
+      vpc_key => vpc.vpc_cidr
+    }
+
+    subnet_ids = {
+      for vpc_key, vpc in module.vpc :
+      vpc_key => vpc.subnet_ids
+    }
+
+    subnet_ids_by_group = {
+      for vpc_key, vpc in module.vpc :
+      vpc_key => vpc.subnet_ids_by_group
+    }
+
+    route_table_ids = {
+      for vpc_key, vpc in module.vpc :
+      vpc_key => vpc.route_table_ids
+    }
+
+    security_group_ids = module.security_group.security_group_ids
+
+    ssm_instance_profile_name = (
+      local.effective_ssm_instance_profile_name
+    )
+  }
 }

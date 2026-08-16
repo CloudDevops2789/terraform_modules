@@ -1,138 +1,108 @@
 ##################################################################################################
-# VPCs
+# Generic VPC Composition
 ##################################################################################################
-# The environment owns CIDRs, subnet roles, AZ placement, and route-table
-# relationships. The reusable VPC module creates no routes.
 
-# Purpose: Creates the Recovery Access VPC used as the administrative entry tier.
-# Change when: Change CIDRs, subnet allocation, or naming through environment inputs.
-module "recovery_access" {
+module "vpc" {
+  for_each = local.vpc_definitions
+
   source = "../../modules/vpc"
 
-  vpc_name   = local.recovery_access.vpc_name
-  cidr_block = local.recovery_access.cidr_block
+  vpc_name   = each.value.vpc_name
+  cidr_block = each.value.cidr_block
 
-  route_tables = local.recovery_access.route_tables
-  subnets      = local.recovery_access.subnets
+  route_tables = each.value.route_tables
+  subnets      = each.value.subnets
 
-  create_internet_gateway = false
-
-  tags = local.org_tags
-}
-
-# Purpose: Creates the Core Recovery VPC for shared recovery and directory services.
-# Change when: Change CIDRs, subnet allocation, or naming only when the approved topology changes.
-module "core_recovery" {
-  source = "../../modules/vpc"
-
-  vpc_name   = local.core_recovery.vpc_name
-  cidr_block = local.core_recovery.cidr_block
-
-  route_tables = local.core_recovery.route_tables
-  subnets      = local.core_recovery.subnets
-
-  create_internet_gateway = false
-
-  tags = local.org_tags
-}
-
-# Purpose: Creates the Protected Data VPC for restored workloads and recovery data.
-# Change when: Change CIDRs, subnet allocation, or naming only when the approved isolation model changes.
-module "protected_data" {
-  source = "../../modules/vpc"
-
-  vpc_name   = local.protected_data.vpc_name
-  cidr_block = local.protected_data.cidr_block
-
-  route_tables = local.protected_data.route_tables
-  subnets      = local.protected_data.subnets
-
-  create_internet_gateway = false
+  create_internet_gateway = each.value.create_internet_gateway
 
   tags = local.org_tags
 }
 
 ##################################################################################################
-# Transit Gateway
+# Generic Transit Gateway Composition
 ##################################################################################################
-# Every approved inter-VPC path is steered first to the centralized Inspection VPC attachment.
-# Recovery Access and Protected Data still receive no route to one another.
 
-# Purpose: Creates Transit Gateway, its route tables, and VPC attachment relationships.
-# Change when: Change route-table association or propagation only when an approved traffic path changes.
+locals {
+  transit_gateway_vpcs = {
+    for vpc_key, vpc in local.vpc_definitions :
+    vpc_key => vpc
+    if(
+      vpc.transit_gateway.enabled &&
+      (
+        vpc_key != local.inspection_vpc_key ||
+        local.network_firewall_enabled
+      )
+    )
+  }
+
+  bypass_propagation_targets = {
+    for destination_vpc_key in keys(local.transit_gateway_vpcs) :
+    destination_vpc_key => distinct([
+      for edge in values(var.network_config.connectivity) :
+      edge.source_vpc_key
+      if(
+        edge.destination_vpc_key == destination_vpc_key &&
+        contains(
+          keys(local.transit_gateway_vpcs),
+          edge.source_vpc_key
+        )
+      )
+    ])
+  }
+
+  transit_gateway_route_tables = {
+    for vpc_key, vpc in local.transit_gateway_vpcs :
+    vpc_key => {
+      name = coalesce(
+        vpc.transit_gateway.route_table_name,
+        "${local.name_prefix}-${replace(vpc_key, "_", "-")}-tgw-rt"
+      )
+    }
+  }
+
+  transit_gateway_attachments = {
+    for vpc_key, vpc in local.transit_gateway_vpcs :
+    vpc_key => {
+      vpc_id = module.vpc[vpc_key].vpc_id
+
+      subnet_ids = module.vpc[
+        vpc_key
+      ].subnet_ids_by_group["transit-gateway"]
+
+      route_table = vpc_key
+
+      propagate_to = (
+        local.network_firewall_enabled
+        ? (
+          vpc_key == local.inspection_vpc_key
+          ? []
+          : [local.inspection_vpc_key]
+        )
+        : local.bypass_propagation_targets[vpc_key]
+      )
+
+      appliance_mode_support = (
+        vpc.transit_gateway.appliance_mode_support
+      )
+    }
+  }
+}
+
 module "transit_gateway" {
   source = "../../modules/transit-gateway"
 
-  name = local.transit_gateway.name
+  name = local.resource_names.transit_gateway
 
-  default_route_table_association = local.transit_gateway.default_route_table_association
-  default_route_table_propagation = local.transit_gateway.default_route_table_propagation
-  # Make TGW automatically choose its topology if Network firewall is disabled. This allows the Inspection VPC to be bypassed while retaining the same VPC and subnet structure.
-  route_tables = merge(
-    local.transit_gateway.route_tables,
+  default_route_table_association = "disable"
+  default_route_table_propagation = "disable"
 
-    local.network_firewall_enabled ? {
-      inspection = {
-        name = local.resource_names.transit_gateway_inspection_rt
-      }
-    } : {}
-  )
-
-  vpc_attachments = merge(
-    {
-      recovery_access = {
-        vpc_id      = module.recovery_access.vpc_id
-        subnet_ids  = module.recovery_access.subnet_ids_by_group["transit-gateway"]
-        route_table = "recovery_access"
-
-        propagate_to = (
-          local.network_firewall_enabled
-          ? ["inspection"]
-          : ["core_recovery"]
-        )
-      }
-
-      core_recovery = {
-        vpc_id      = module.core_recovery.vpc_id
-        subnet_ids  = module.core_recovery.subnet_ids_by_group["transit-gateway"]
-        route_table = "core_recovery"
-
-        propagate_to = (
-          local.network_firewall_enabled
-          ? ["inspection"]
-          : ["recovery_access", "protected_data"]
-        )
-      }
-
-      protected_data = {
-        vpc_id      = module.protected_data.vpc_id
-        subnet_ids  = module.protected_data.subnet_ids_by_group["transit-gateway"]
-        route_table = "protected_data"
-
-        propagate_to = (
-          local.network_firewall_enabled
-          ? ["inspection"]
-          : ["core_recovery"]
-        )
-      }
-    },
-
-    local.network_firewall_enabled ? {
-      inspection = {
-        vpc_id       = module.inspection_vpc.vpc_id
-        subnet_ids   = module.inspection_vpc.subnet_ids_by_group["transit-gateway"]
-        route_table  = "inspection"
-        propagate_to = []
-
-        appliance_mode_support = "enable"
-      }
-    } : {}
-  )
+  route_tables    = local.transit_gateway_route_tables
+  vpc_attachments = local.transit_gateway_attachments
 
   tags = merge(
     local.org_tags,
     {
-      Name = local.transit_gateway.name
+      Name = local.resource_names.transit_gateway
     }
   )
 }

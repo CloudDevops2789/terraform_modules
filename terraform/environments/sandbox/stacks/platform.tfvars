@@ -154,65 +154,399 @@ network_config = {
     recovery_access = {
       cidr_block = "10.213.252.0/24"
 
-      subnet_cidrs = {
-        client_vpn_a      = "10.213.252.0/27"
-        client_vpn_b      = "10.213.252.32/27"
-        admin_tools_a     = "10.213.252.64/27"
-        admin_tools_b     = "10.213.252.96/27"
-        endpoints_a       = "10.213.252.128/28"
-        endpoints_b       = "10.213.252.144/28"
-        transit_gateway_a = "10.213.252.160/28"
-        transit_gateway_b = "10.213.252.176/28"
+      route_tables = {
+        client-vpn-a      = { group = "client-vpn" }
+        client-vpn-b      = { group = "client-vpn" }
+        admin-tools-a     = { group = "admin-tools" }
+        admin-tools-b     = { group = "admin-tools" }
+        endpoints-a       = { group = "endpoints" }
+        endpoints-b       = { group = "endpoints" }
+        transit-gateway-a = { group = "transit-gateway" }
+        transit-gateway-b = { group = "transit-gateway" }
+      }
+
+      subnets = {
+        client-vpn-a = {
+          cidr_block              = "10.213.252.0/27"
+          availability_zone_index = 0
+          group                   = "client-vpn"
+          route_table_key         = "client-vpn-a"
+        }
+
+        client-vpn-b = {
+          cidr_block              = "10.213.252.32/27"
+          availability_zone_index = 1
+          group                   = "client-vpn"
+          route_table_key         = "client-vpn-b"
+        }
+
+        admin-tools-a = {
+          cidr_block              = "10.213.252.64/27"
+          availability_zone_index = 0
+          group                   = "admin-tools"
+          route_table_key         = "admin-tools-a"
+        }
+
+        admin-tools-b = {
+          cidr_block              = "10.213.252.96/27"
+          availability_zone_index = 1
+          group                   = "admin-tools"
+          route_table_key         = "admin-tools-b"
+        }
+
+        endpoints-a = {
+          cidr_block              = "10.213.252.128/28"
+          availability_zone_index = 0
+          group                   = "endpoints"
+          route_table_key         = "endpoints-a"
+        }
+
+        endpoints-b = {
+          cidr_block              = "10.213.252.144/28"
+          availability_zone_index = 1
+          group                   = "endpoints"
+          route_table_key         = "endpoints-b"
+        }
+
+        transit-gateway-a = {
+          cidr_block              = "10.213.252.160/28"
+          availability_zone_index = 0
+          group                   = "transit-gateway"
+          route_table_key         = "transit-gateway-a"
+        }
+
+        transit-gateway-b = {
+          cidr_block              = "10.213.252.176/28"
+          availability_zone_index = 1
+          group                   = "transit-gateway"
+          route_table_key         = "transit-gateway-b"
+        }
       }
     }
 
     core_recovery = {
       cidr_block = "10.213.253.0/24"
 
-      subnet_cidrs = {
-        recovery_services_a  = "10.213.253.0/26"
-        recovery_services_b  = "10.213.253.64/26"
-        directory_services_a = "10.213.253.128/28"
-        directory_services_b = "10.213.253.144/28"
-        endpoints_a          = "10.213.253.160/28"
-        endpoints_b          = "10.213.253.176/28"
-        transit_gateway_a    = "10.213.253.192/28"
-        transit_gateway_b    = "10.213.253.208/28"
+      route_tables = {
+        recovery-services-a  = { group = "recovery-services" }
+        recovery-services-b  = { group = "recovery-services" }
+        directory-services-a = { group = "directory-services" }
+        directory-services-b = { group = "directory-services" }
+        endpoints-a          = { group = "endpoints" }
+        endpoints-b          = { group = "endpoints" }
+        transit-gateway-a    = { group = "transit-gateway" }
+        transit-gateway-b    = { group = "transit-gateway" }
+      }
+
+      subnets = {
+        recovery-services-a = {
+          cidr_block              = "10.213.253.0/26"
+          availability_zone_index = 0
+          group                   = "recovery-services"
+          route_table_key         = "recovery-services-a"
+        }
+
+        recovery-services-b = {
+          cidr_block              = "10.213.253.64/26"
+          availability_zone_index = 1
+          group                   = "recovery-services"
+          route_table_key         = "recovery-services-b"
+        }
+
+        directory-services-a = {
+          cidr_block              = "10.213.253.128/28"
+          availability_zone_index = 0
+          group                   = "directory-services"
+          route_table_key         = "directory-services-a"
+        }
+
+        directory-services-b = {
+          cidr_block              = "10.213.253.144/28"
+          availability_zone_index = 1
+          group                   = "directory-services"
+          route_table_key         = "directory-services-b"
+        }
+
+        endpoints-a = {
+          cidr_block              = "10.213.253.160/28"
+          availability_zone_index = 0
+          group                   = "endpoints"
+          route_table_key         = "endpoints-a"
+        }
+
+        endpoints-b = {
+          cidr_block              = "10.213.253.176/28"
+          availability_zone_index = 1
+          group                   = "endpoints"
+          route_table_key         = "endpoints-b"
+        }
+
+        transit-gateway-a = {
+          cidr_block              = "10.213.253.192/28"
+          availability_zone_index = 0
+          group                   = "transit-gateway"
+          route_table_key         = "transit-gateway-a"
+        }
+
+        transit-gateway-b = {
+          cidr_block              = "10.213.253.208/28"
+          availability_zone_index = 1
+          group                   = "transit-gateway"
+          route_table_key         = "transit-gateway-b"
+        }
       }
     }
 
     protected_data = {
       cidr_block = "10.213.254.0/24"
 
-      subnet_cidrs = {
-        protected_workloads_a = "10.213.254.0/27"
-        protected_workloads_b = "10.213.254.32/27"
-        ingestion_a           = "10.213.254.64/28"
-        ingestion_b           = "10.213.254.80/28"
-        database_a            = "10.213.254.96/28"
-        database_b            = "10.213.254.112/28"
-        file_services_a       = "10.213.254.128/28"
-        file_services_b       = "10.213.254.144/28"
-        endpoints_a           = "10.213.254.160/28"
-        endpoints_b           = "10.213.254.176/28"
-        transit_gateway_a     = "10.213.254.192/28"
-        transit_gateway_b     = "10.213.254.208/28"
+      route_tables = {
+        protected-workloads-a = { group = "protected-workloads" }
+        protected-workloads-b = { group = "protected-workloads" }
+        ingestion-a           = { group = "ingestion" }
+        ingestion-b           = { group = "ingestion" }
+        database-a            = { group = "database" }
+        database-b            = { group = "database" }
+        file-services-a       = { group = "file-services" }
+        file-services-b       = { group = "file-services" }
+        endpoints-a           = { group = "endpoints" }
+        endpoints-b           = { group = "endpoints" }
+        transit-gateway-a     = { group = "transit-gateway" }
+        transit-gateway-b     = { group = "transit-gateway" }
+      }
+
+      subnets = {
+        protected-workloads-a = {
+          cidr_block              = "10.213.254.0/27"
+          availability_zone_index = 0
+          group                   = "protected-workloads"
+          route_table_key         = "protected-workloads-a"
+        }
+
+        protected-workloads-b = {
+          cidr_block              = "10.213.254.32/27"
+          availability_zone_index = 1
+          group                   = "protected-workloads"
+          route_table_key         = "protected-workloads-b"
+        }
+
+        ingestion-a = {
+          cidr_block              = "10.213.254.64/28"
+          availability_zone_index = 0
+          group                   = "ingestion"
+          route_table_key         = "ingestion-a"
+        }
+
+        ingestion-b = {
+          cidr_block              = "10.213.254.80/28"
+          availability_zone_index = 1
+          group                   = "ingestion"
+          route_table_key         = "ingestion-b"
+        }
+
+        database-a = {
+          cidr_block              = "10.213.254.96/28"
+          availability_zone_index = 0
+          group                   = "database"
+          route_table_key         = "database-a"
+        }
+
+        database-b = {
+          cidr_block              = "10.213.254.112/28"
+          availability_zone_index = 1
+          group                   = "database"
+          route_table_key         = "database-b"
+        }
+
+        file-services-a = {
+          cidr_block              = "10.213.254.128/28"
+          availability_zone_index = 0
+          group                   = "file-services"
+          route_table_key         = "file-services-a"
+        }
+
+        file-services-b = {
+          cidr_block              = "10.213.254.144/28"
+          availability_zone_index = 1
+          group                   = "file-services"
+          route_table_key         = "file-services-b"
+        }
+
+        endpoints-a = {
+          cidr_block              = "10.213.254.160/28"
+          availability_zone_index = 0
+          group                   = "endpoints"
+          route_table_key         = "endpoints-a"
+        }
+
+        endpoints-b = {
+          cidr_block              = "10.213.254.176/28"
+          availability_zone_index = 1
+          group                   = "endpoints"
+          route_table_key         = "endpoints-b"
+        }
+
+        transit-gateway-a = {
+          cidr_block              = "10.213.254.192/28"
+          availability_zone_index = 0
+          group                   = "transit-gateway"
+          route_table_key         = "transit-gateway-a"
+        }
+
+        transit-gateway-b = {
+          cidr_block              = "10.213.254.208/28"
+          availability_zone_index = 1
+          group                   = "transit-gateway"
+          route_table_key         = "transit-gateway-b"
+        }
       }
     }
 
     inspection = {
       cidr_block = "10.213.255.0/24"
 
-      subnet_cidrs = {
-        firewall_a        = "10.213.255.0/28"
-        firewall_b        = "10.213.255.16/28"
-        transit_gateway_a = "10.213.255.32/28"
-        transit_gateway_b = "10.213.255.48/28"
+      route_tables = {
+        firewall-a        = { group = "network-firewall" }
+        firewall-b        = { group = "network-firewall" }
+        transit-gateway-a = { group = "transit-gateway" }
+        transit-gateway-b = { group = "transit-gateway" }
+      }
+
+      subnets = {
+        firewall-a = {
+          cidr_block              = "10.213.255.0/28"
+          availability_zone_index = 0
+          group                   = "network-firewall"
+          route_table_key         = "firewall-a"
+        }
+
+        firewall-b = {
+          cidr_block              = "10.213.255.16/28"
+          availability_zone_index = 1
+          group                   = "network-firewall"
+          route_table_key         = "firewall-b"
+        }
+
+        transit-gateway-a = {
+          cidr_block              = "10.213.255.32/28"
+          availability_zone_index = 0
+          group                   = "transit-gateway"
+          route_table_key         = "transit-gateway-a"
+        }
+
+        transit-gateway-b = {
+          cidr_block              = "10.213.255.48/28"
+          availability_zone_index = 1
+          group                   = "transit-gateway"
+          route_table_key         = "transit-gateway-b"
+        }
+      }
+
+      transit_gateway = {
+        appliance_mode_support = "enable"
       }
     }
   }
+
+  connectivity = {
+    recovery_to_core = {
+      source_vpc_key            = "recovery_access"
+      destination_vpc_key       = "core_recovery"
+      source_route_table_groups = ["admin-tools"]
+    }
+
+    core_to_recovery = {
+      source_vpc_key      = "core_recovery"
+      destination_vpc_key = "recovery_access"
+      source_route_table_groups = [
+        "recovery-services",
+        "directory-services"
+      ]
+    }
+
+    core_to_protected = {
+      source_vpc_key      = "core_recovery"
+      destination_vpc_key = "protected_data"
+      source_route_table_groups = [
+        "recovery-services",
+        "directory-services"
+      ]
+    }
+
+    protected_to_core = {
+      source_vpc_key      = "protected_data"
+      destination_vpc_key = "core_recovery"
+      source_route_table_groups = [
+        "protected-workloads",
+        "ingestion",
+        "database",
+        "file-services"
+      ]
+    }
+  }
+
+  inspection = {
+    vpc_key                      = "inspection"
+    firewall_subnet_group        = "network-firewall"
+    transit_gateway_subnet_group = "transit-gateway"
+  }
 }
 
+################################################################################
+# Generic Service Placement
+################################################################################
+
+security_groups = {
+  management = {
+    description = "Management"
+    vpc_key     = "recovery_access"
+  }
+
+  core = {
+    description = "Core Recovery"
+    vpc_key     = "core_recovery"
+  }
+
+  protected = {
+    description = "Protected Data"
+    vpc_key     = "protected_data"
+  }
+}
+
+client_vpn_network_binding = {
+  vpc_key             = "recovery_access"
+  subnet_group        = "client-vpn"
+  security_group_keys = ["management"]
+
+  authorization_vpc_keys = [
+    "recovery_access"
+  ]
+}
+
+ssm_endpoint_bindings = {
+  recovery_access = {
+    subnet_group               = "endpoints"
+    source_security_group_keys = ["management"]
+  }
+
+  core_recovery = {
+    subnet_group               = "endpoints"
+    source_security_group_keys = ["core"]
+  }
+
+  protected_data = {
+    subnet_group               = "endpoints"
+    source_security_group_keys = ["protected"]
+  }
+}
+
+ssh_key_access_rule_names = [
+  "management-ssh-from-client-vpn",
+  "management-ssh-from-core",
+  "core-ssh-from-recovery-access",
+  "core-ssh-from-protected-data",
+  "protected-ssh"
+]
 
 ################################################################################
 # Client VPN Architecture

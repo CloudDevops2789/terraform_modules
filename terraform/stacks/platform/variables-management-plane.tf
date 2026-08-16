@@ -46,3 +46,9 @@ variable "ssm_instance_profile_name" {
     error_message = "ssm_instance_profile_name is required when the SSM management plane is enabled with external instance-profile ownership."
   }
 }
+
+variable "ssh_key_access_rule_names" {
+  description = "Security-group rule names that require the explicit Platform ssh_key_access_enabled control."
+  type        = set(string)
+  default     = []
+}

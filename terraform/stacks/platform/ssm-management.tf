@@ -1,5 +1,5 @@
 ##################################################################################################
-# Persistent Systems Manager Management Plane
+# Generic Systems Manager Management Plane
 ##################################################################################################
 
 data "aws_partition" "ssm" {}
@@ -11,7 +11,7 @@ locals {
       var.naming.organization,
       var.naming.project,
       var.naming.environment,
-      var.naming.region_code,
+      local.effective_region_code,
       "ssm-managed-compute"
     ])
   )
@@ -19,43 +19,59 @@ locals {
   effective_ssm_instance_profile_name = (
     var.ssm_instance_profile_mode == "external"
     ? var.ssm_instance_profile_name
-    : try(module.ssm_iam[0].instance_profile_names["managed_compute"], null)
+    : try(
+      module.ssm_iam[0].instance_profile_names["managed_compute"],
+      null
+    )
   )
 
-  ssm_endpoint_security_group_rules = var.ssm_management_plane_enabled ? {
-    ssm-recovery-access-https = {
-      type                         = "ingress"
-      description                  = "HTTPS from Recovery Access to private Systems Manager endpoints"
-      security_group_id            = module.security_group.security_group_ids["ssm_recovery_access"]
-      ip_protocol                  = "tcp"
-      from_port                    = 443
-      to_port                      = 443
-      cidr_ipv4                    = null
-      referenced_security_group_id = module.security_group.security_group_ids["management"]
+  ssm_endpoint_security_group_definitions = (
+    var.ssm_management_plane_enabled
+    ? {
+      for vpc_key, binding in var.ssm_endpoint_bindings :
+      "ssm_${vpc_key}" => {
+        description = "Private Systems Manager endpoints for ${vpc_key}"
+        vpc_id      = module.vpc[vpc_key].vpc_id
+        tags        = {}
+      }
     }
+    : {}
+  )
 
-    ssm-core-recovery-https = {
-      type                         = "ingress"
-      description                  = "HTTPS from Core Recovery to private Systems Manager endpoints"
-      security_group_id            = module.security_group.security_group_ids["ssm_core_recovery"]
-      ip_protocol                  = "tcp"
-      from_port                    = 443
-      to_port                      = 443
-      cidr_ipv4                    = null
-      referenced_security_group_id = module.security_group.security_group_ids["core"]
-    }
+  ssm_endpoint_security_group_rules = (
+    var.ssm_management_plane_enabled
+    ? merge(
+      {},
+      [
+        for vpc_key, binding in var.ssm_endpoint_bindings : {
+          for source_security_group_key in binding.source_security_group_keys :
+          "ssm-${replace(vpc_key, "_", "-")}-${replace(source_security_group_key, "_", "-")}-https" => {
+            type        = "ingress"
+            description = "HTTPS to private Systems Manager endpoints"
 
-    ssm-protected-data-https = {
-      type                         = "ingress"
-      description                  = "HTTPS from Protected Data to private Systems Manager endpoints"
-      security_group_id            = module.security_group.security_group_ids["ssm_protected_data"]
-      ip_protocol                  = "tcp"
-      from_port                    = 443
-      to_port                      = 443
-      cidr_ipv4                    = null
-      referenced_security_group_id = module.security_group.security_group_ids["protected"]
-    }
-  } : {}
+            security_group_id = (
+              module.security_group.security_group_ids[
+                "ssm_${vpc_key}"
+              ]
+            )
+
+            ip_protocol = "tcp"
+            from_port   = 443
+            to_port     = 443
+
+            cidr_ipv4 = null
+
+            referenced_security_group_id = (
+              module.security_group.security_group_ids[
+                source_security_group_key
+              ]
+            )
+          }
+        }
+      ]...
+    )
+    : {}
+  )
 }
 
 ##################################################################################################
@@ -99,27 +115,35 @@ module "ssm_iam" {
 }
 
 ##################################################################################################
-# Recovery Access - Systems Manager Endpoints
+# Generic Private SSM Endpoints
 ##################################################################################################
 
-module "recovery_access_ssm_endpoints" {
-  count  = var.ssm_management_plane_enabled ? 1 : 0
+module "ssm_endpoints" {
+  for_each = (
+    var.ssm_management_plane_enabled
+    ? var.ssm_endpoint_bindings
+    : {}
+  )
+
   source = "../../modules/vpc-endpoints"
 
-  vpc_id = module.recovery_access.vpc_id
+  vpc_id = module.vpc[each.key].vpc_id
 
   interface_endpoints = {
     ssm = {
       service_name = "com.amazonaws.${var.aws_region}.ssm"
 
-      subnet_ids = [
-        module.recovery_access.subnet_ids["endpoints-a"],
-        module.recovery_access.subnet_ids["endpoints-b"]
-      ]
+      subnet_ids = toset(
+        module.vpc[
+          each.key
+        ].subnet_ids_by_group[each.value.subnet_group]
+      )
 
-      security_group_ids = [
-        module.security_group.security_group_ids["ssm_recovery_access"]
-      ]
+      security_group_ids = toset([
+        module.security_group.security_group_ids[
+          "ssm_${each.key}"
+        ]
+      ])
 
       private_dns_enabled = true
     }
@@ -127,104 +151,17 @@ module "recovery_access_ssm_endpoints" {
     ssmmessages = {
       service_name = "com.amazonaws.${var.aws_region}.ssmmessages"
 
-      subnet_ids = [
-        module.recovery_access.subnet_ids["endpoints-a"],
-        module.recovery_access.subnet_ids["endpoints-b"]
-      ]
+      subnet_ids = toset(
+        module.vpc[
+          each.key
+        ].subnet_ids_by_group[each.value.subnet_group]
+      )
 
-      security_group_ids = [
-        module.security_group.security_group_ids["ssm_recovery_access"]
-      ]
-
-      private_dns_enabled = true
-    }
-  }
-
-  tags = local.org_tags
-}
-
-##################################################################################################
-# Core Recovery - Systems Manager Endpoints
-##################################################################################################
-
-module "core_recovery_ssm_endpoints" {
-  count  = var.ssm_management_plane_enabled ? 1 : 0
-  source = "../../modules/vpc-endpoints"
-
-  vpc_id = module.core_recovery.vpc_id
-
-  interface_endpoints = {
-    ssm = {
-      service_name = "com.amazonaws.${var.aws_region}.ssm"
-
-      subnet_ids = [
-        module.core_recovery.subnet_ids["endpoints-a"],
-        module.core_recovery.subnet_ids["endpoints-b"]
-      ]
-
-      security_group_ids = [
-        module.security_group.security_group_ids["ssm_core_recovery"]
-      ]
-
-      private_dns_enabled = true
-    }
-
-    ssmmessages = {
-      service_name = "com.amazonaws.${var.aws_region}.ssmmessages"
-
-      subnet_ids = [
-        module.core_recovery.subnet_ids["endpoints-a"],
-        module.core_recovery.subnet_ids["endpoints-b"]
-      ]
-
-      security_group_ids = [
-        module.security_group.security_group_ids["ssm_core_recovery"]
-      ]
-
-      private_dns_enabled = true
-    }
-  }
-
-  tags = local.org_tags
-}
-
-##################################################################################################
-# Protected Data - Systems Manager Endpoints
-##################################################################################################
-
-module "protected_data_ssm_endpoints" {
-  count  = var.ssm_management_plane_enabled ? 1 : 0
-  source = "../../modules/vpc-endpoints"
-
-  vpc_id = module.protected_data.vpc_id
-
-  interface_endpoints = {
-    ssm = {
-      service_name = "com.amazonaws.${var.aws_region}.ssm"
-
-      subnet_ids = [
-        module.protected_data.subnet_ids["endpoints-a"],
-        module.protected_data.subnet_ids["endpoints-b"]
-      ]
-
-      security_group_ids = [
-        module.security_group.security_group_ids["ssm_protected_data"]
-      ]
-
-      private_dns_enabled = true
-    }
-
-    ssmmessages = {
-      service_name = "com.amazonaws.${var.aws_region}.ssmmessages"
-
-      subnet_ids = [
-        module.protected_data.subnet_ids["endpoints-a"],
-        module.protected_data.subnet_ids["endpoints-b"]
-      ]
-
-      security_group_ids = [
-        module.security_group.security_group_ids["ssm_protected_data"]
-      ]
+      security_group_ids = toset([
+        module.security_group.security_group_ids[
+          "ssm_${each.key}"
+        ]
+      ])
 
       private_dns_enabled = true
     }

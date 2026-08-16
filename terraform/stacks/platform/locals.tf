@@ -131,14 +131,16 @@ locals {
     )
   }
 
-  network_cidrs = {
-    account         = var.network_config.account_cidr_block
-    client_vpn      = var.network_config.client_vpn_cidr_block
-    recovery_access = var.network_config.vpcs.recovery_access.cidr_block
-    core_recovery   = var.network_config.vpcs.core_recovery.cidr_block
-    protected_data  = var.network_config.vpcs.protected_data.cidr_block
-    inspection      = var.network_config.vpcs.inspection.cidr_block
-  }
+  network_cidrs = merge(
+    {
+      account    = var.network_config.account_cidr_block
+      client_vpn = var.network_config.client_vpn_cidr_block
+    },
+    {
+      for vpc_key, vpc in var.network_config.vpcs :
+      vpc_key => vpc.cidr_block
+    }
+  )
 
   ##################################################################################################
   # Common Tags

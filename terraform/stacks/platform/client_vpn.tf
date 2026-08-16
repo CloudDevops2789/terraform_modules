@@ -2,14 +2,6 @@
 # Client VPN
 ##################################################################################################
 
-# Purpose: Creates AWS Client VPN, target-network associations, authorization rules, and optional routes.
-# Change when: Change certificates, the client address pool, or authorized destinations through environment inputs.
-##################################################################################################
-# Client VPN SAML Provider Composition
-##################################################################################################
-
-# Purpose: Optionally manages the IAM SAML provider used by federated Client VPN authentication.
-# Change when: AWS-side SAML provider ownership moves between enterprise identity management and Terraform/AAP.
 module "client_vpn_saml_provider" {
   count = (
     var.client_vpn_enabled &&
@@ -41,19 +33,45 @@ module "client_vpn" {
   saml_provider_arn          = local.effective_saml_provider_arn
 
   client_cidr_block = local.client_vpn.client_cidr_block
-  vpc_id            = module.recovery_access.vpc_id
 
-  network_associations = {
-    for key, subnet in module.recovery_access.subnets :
-    key => {
-      subnet_id = subnet.id
+  vpc_id = try(
+    module.vpc[
+      var.client_vpn_network_binding.vpc_key
+    ].vpc_id,
+    null
+  )
+
+  network_associations = (
+    var.client_vpn_enabled
+    ? {
+      for subnet_key, subnet in module.vpc[
+        var.client_vpn_network_binding.vpc_key
+      ].subnets :
+      subnet_key => {
+        subnet_id = subnet.id
+      }
+      if(
+        subnet.group ==
+        var.client_vpn_network_binding.subnet_group
+      )
     }
-    if subnet.group == "client-vpn"
-  }
+    : {}
+  )
 
-  security_group_ids = [
-    module.security_group.security_group_ids["management"],
-  ]
+  security_group_ids = (
+    var.client_vpn_enabled
+    ? [
+      for security_group_key in sort(
+        tolist(
+          var.client_vpn_network_binding.security_group_keys
+        )
+      ) :
+      module.security_group.security_group_ids[
+        security_group_key
+      ]
+    ]
+    : []
+  )
 
   split_tunnel       = local.client_vpn.split_tunnel
   transport_protocol = local.client_vpn.transport_protocol
@@ -62,16 +80,21 @@ module "client_vpn" {
 
   session_timeout_hours = local.client_vpn.session_timeout_hours
 
-  authorization_rules = {
-    # Purpose: Authorizes authenticated VPN users to reach the Recovery Access VPC.
-    # Change when: Change the destination or user-group scope only when Client VPN access policy changes.
-    recovery_access = {
-      target_network_cidr  = module.recovery_access.vpc_cidr
-      authorize_all_groups = local.client_vpn.authorize_all_groups
-    }
-  }
+  authorization_rules = (
+    var.client_vpn_enabled
+    ? {
+      for vpc_key in var.client_vpn_network_binding.authorization_vpc_keys :
+      vpc_key => {
+        target_network_cidr = module.vpc[vpc_key].vpc_cidr
 
-  # No direct Client VPN route to Core Recovery or Protected Data.
+        authorize_all_groups = (
+          local.client_vpn.authorize_all_groups
+        )
+      }
+    }
+    : {}
+  )
+
   routes = {}
 
   tags = local.org_tags
