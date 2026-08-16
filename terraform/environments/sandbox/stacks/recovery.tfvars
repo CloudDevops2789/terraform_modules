@@ -23,3 +23,43 @@ naming = {
 
 # Recovery owns only Recovery-specific name overrides.
 resource_name_overrides = {}
+
+# Representative Recovery workload placement.
+# These logical selectors may change without changing Recovery Terraform code.
+recovery_workloads = {
+  management = {
+    vpc_key      = "recovery_access"
+    subnet_group = "admin-tools"
+    subnet_index = 0
+
+    security_group_keys = [
+      "management"
+    ]
+
+    backup_enabled = false
+  }
+
+  core = {
+    vpc_key      = "core_recovery"
+    subnet_group = "recovery-services"
+    subnet_index = 0
+
+    security_group_keys = [
+      "core"
+    ]
+
+    backup_enabled = true
+  }
+
+  protected = {
+    vpc_key      = "protected_data"
+    subnet_group = "protected-workloads"
+    subnet_index = 0
+
+    security_group_keys = [
+      "protected"
+    ]
+
+    backup_enabled = false
+  }
+}

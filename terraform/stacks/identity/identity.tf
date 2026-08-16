@@ -19,9 +19,9 @@
 # Future dependency contract:
 #
 #   vpc_id =
-#     var.platform_contract.core_recovery_vpc_id
+#     local.identity_platform_placement.vpc_id
 #
 #   subnet_ids =
-#     var.platform_contract.directory_services_subnet_ids
+#     local.identity_platform_placement.subnet_ids
 #
 ##################################################################################################

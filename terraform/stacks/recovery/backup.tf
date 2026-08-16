@@ -109,9 +109,8 @@ module "backup_role" {
 #
 # Only resources included in this
 # selection are protected by AWS Backup.
-# In this environment, the Core Recovery
-# EC2 instance is designated as the
-# protected workload.
+# Workload protection is selected through the configuration-driven
+# recovery_workloads backup_enabled attribute.
 # Purpose: Associates the selected Sandbox resources with the backup plan.
 # Change when: Change protected resource ARNs only when backup scope changes.
 module "backup_selection" {
@@ -127,9 +126,9 @@ module "backup_selection" {
   iam_role_arn = module.backup_role[0].arn
 
   resources = [
-
-    module.ec2.instance_arns["core"] # associate the core instance with the backup plan
-
+    for workload_key, instance_arn in module.ec2.instance_arns :
+    instance_arn
+    if var.recovery_workloads[workload_key].backup_enabled
   ]
 
   tags = local.org_tags
