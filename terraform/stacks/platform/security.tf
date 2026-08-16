@@ -124,7 +124,7 @@ locals {
     }
     if rule.enabled && (
       !contains(local.demo_ssh_security_group_rule_names, rule.name) ||
-      (var.demo_ec2_enabled && var.demo_ec2_access_method == "ssh_key")
+      var.ssh_key_access_enabled
     )
   }
 }
