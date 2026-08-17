@@ -185,6 +185,80 @@
               - "Data-source count: {{ terraform_legacy_data_addresses | length }}"
               - "{{ terraform_legacy_data_addresses }}"
 
+        - name: Select legacy KMS key addresses
+          ansible.builtin.set_fact:
+            terraform_legacy_kms_addresses: >-
+              {{
+                terraform_legacy_managed_addresses
+                | select('search', '\.aws_kms_key\.')
+                | list
+              }}
+
+        - name: Read safe legacy KMS state metadata
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - state
+              - show
+              - -no-color
+              - "{{ item }}"
+          args:
+            chdir: "{{ terraform_legacy_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: "{{ terraform_legacy_temp_dir.path }}/tfdata"
+          loop: "{{ terraform_legacy_kms_addresses }}"
+          register: terraform_legacy_kms_state_show
+          changed_when: false
+
+        - name: Display safe legacy KMS state metadata
+          ansible.builtin.debug:
+            msg:
+              - "State address: {{ item.item }}"
+              - >-
+                {{
+                  item.stdout_lines
+                  | select(
+                      'match',
+                      '^\s*(arn|description|id|key_id|enable_key_rotation|is_enabled)\s*='
+                    )
+                  | list
+                }}
+          loop: "{{ terraform_legacy_kms_state_show.results | default([]) }}"
+          loop_control:
+            label: "{{ item.item }}"
+
+        - name: Read AWS Backup vault metadata
+          amazon.aws.backup_vault_info:
+            region: "{{ assume_role_aws_auth.region }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+          register: terraform_legacy_backup_vault_info
+          changed_when: false
+
+        - name: Display AWS Backup vault metadata
+          ansible.builtin.debug:
+            msg:
+              backup_vault_name: "{{ item.backup_vault_name | default('') }}"
+              backup_vault_arn: "{{ item.backup_vault_arn | default('') }}"
+              encryption_key_arn: "{{ item.encryption_key_arn | default('') }}"
+              number_of_recovery_points: "{{ item.number_of_recovery_points | default(0) }}"
+              locked: "{{ item.locked | default(false) }}"
+              lock_date: "{{ item.lock_date | default('') }}"
+              min_retention_days: "{{ item.min_retention_days | default('') }}"
+              max_retention_days: "{{ item.max_retention_days | default('') }}"
+          loop: "{{ terraform_legacy_backup_vault_info.backup_vaults | default([]) }}"
+          loop_control:
+            label: "{{ item.backup_vault_name | default('backup-vault') }}"
         - name: Confirm read-only legacy inventory
           ansible.builtin.debug:
             msg: >-
