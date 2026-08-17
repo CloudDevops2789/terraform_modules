@@ -21,20 +21,20 @@ variable "tags" {
   validation {
     condition = alltrue([
       for key in [
-        "org_it_cost_center",
-        "org_department",
-        "org_cmdb_calculated_app",
-        "org_business_criticality",
-        "org_environment",
-        "org_data_classification",
-        "org_project_name",
-        "org_managed_by"
+        "fv:it_cost_center",
+        "fv:department",
+        "fv:cmdb_calculated_app",
+        "fv:business_criticality",
+        "fv:environment",
+        "fv:data_classification",
+        "fv:project_name",
+        "fv:managed_by"
       ] :
       contains(keys(var.tags), key) &&
       length(trimspace(lookup(var.tags, key, ""))) > 0
     ])
 
-    error_message = "tags must contain all mandatory enterprise org_* tag keys with non-empty values."
+    error_message = "tags must contain all mandatory Fairview fv:* tag keys with non-empty values."
   }
 }
 

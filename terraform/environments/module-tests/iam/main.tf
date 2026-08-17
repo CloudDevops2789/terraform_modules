@@ -29,7 +29,7 @@ module "iam" {
   }
 
   tags = {
-    org_environment = "test"
-    org_managed_by  = "Terraform"
+    "fv:environment" = "test"
+    "fv:managed_by"  = "Terraform"
   }
 }
