@@ -42,3 +42,8 @@ tfplan.*
 
 # Git-controlled Sandbox architecture
 !terraform/environments/sandbox/platform.auto.tfvars
+
+# Git-controlled, non-secret Terraform stack configuration.
+# Runtime/local terraform.tfvars files remain ignored.
+!terraform/environments/*/stacks/
+!terraform/environments/*/stacks/*.tfvars
