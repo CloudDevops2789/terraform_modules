@@ -52,34 +52,35 @@
     - role: ire_platform.aws.assume_role
 
   tasks:
-    - name: Discover current Terraform state objects in backend bucket
-      ansible.builtin.command:
-        argv:
-          - aws
-          - s3api
-          - list-objects-v2
-          - --bucket
-          - "{{ terraform_backend_bucket }}"
-          - --query
-          - "Contents[?ends_with(Key, `.tfstate`)].{Key:Key,Size:Size,LastModified:LastModified}"
-          - --output
-          - json
-          - --region
-          - "{{ terraform_backend_region }}"
+    - name: Discover current objects in Terraform backend bucket
+      amazon.aws.s3_object_info:
+        bucket_name: "{{ terraform_backend_bucket }}"
+        region: "{{ terraform_backend_region }}"
       environment:
         AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
         AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
         AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
         AWS_REGION: "{{ assume_role_aws_auth.region }}"
         AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
-      register: terraform_state_object_discovery
+      register: terraform_backend_objects
       changed_when: false
+
+    - name: Filter Terraform state objects
+      ansible.builtin.set_fact:
+        terraform_state_object_keys: >-
+          {{
+            terraform_backend_objects.s3_keys
+            | default([])
+            | select("search", "[.]tfstate )
+            | list
+            | sort
+          }}
 
     - name: Display discovered Terraform state objects
       ansible.builtin.debug:
         msg:
           - "Backend bucket Terraform state objects:"
-          - "{{ terraform_state_object_discovery.stdout | from_json }}"
+          - "{{ terraform_state_object_keys }}"
 
     - name: Report discovery-only execution
       ansible.builtin.debug:
