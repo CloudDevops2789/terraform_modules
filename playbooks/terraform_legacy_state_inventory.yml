@@ -213,8 +213,11 @@
             TF_IN_AUTOMATION: "true"
             TF_DATA_DIR: "{{ terraform_legacy_temp_dir.path }}/tfdata"
           loop: "{{ terraform_legacy_kms_addresses }}"
+
           register: terraform_legacy_kms_state_show
           changed_when: false
+          no_log: true
+          when: terraform_legacy_kms_diagnostics_enabled | default(false) | bool
 
         - name: Display safe legacy KMS state metadata
           ansible.builtin.debug:
@@ -232,6 +235,7 @@
           loop: "{{ terraform_legacy_kms_state_show.results | default([]) }}"
           loop_control:
             label: "{{ item.item }}"
+          when: terraform_legacy_kms_diagnostics_enabled | default(false) | bool
 
         - name: Read AWS Backup vault metadata
           amazon.aws.backup_vault_info:
@@ -259,6 +263,38 @@
           loop: "{{ terraform_legacy_backup_vault_info.backup_vaults | default([]) }}"
           loop_control:
             label: "{{ item.backup_vault_name | default('backup-vault') }}"
+        - name: Read explicit standard AWS Backup vault metadata
+          amazon.aws.backup_vault_info:
+            backup_vault_names:
+              - "{{ terraform_standard_backup_vault_name }}"
+            region: "{{ assume_role_aws_auth.region }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+          register: terraform_standard_backup_vault_info
+          changed_when: false
+          when:
+            - terraform_standard_backup_vault_name | default('') | trim | length > 0
+
+        - name: Display explicit standard AWS Backup vault metadata
+          ansible.builtin.debug:
+            msg:
+              backup_vault_name: "{{ item.backup_vault_name | default('') }}"
+              backup_vault_arn: "{{ item.backup_vault_arn | default('') }}"
+              encryption_key_arn: "{{ item.encryption_key_arn | default('') }}"
+              number_of_recovery_points: "{{ item.number_of_recovery_points | default(0) }}"
+              locked: "{{ item.locked | default(false) }}"
+              lock_date: "{{ item.lock_date | default('') }}"
+              min_retention_days: "{{ item.min_retention_days | default('') }}"
+              max_retention_days: "{{ item.max_retention_days | default('') }}"
+          loop: "{{ terraform_standard_backup_vault_info.backup_vaults | default([]) }}"
+          loop_control:
+            label: "{{ item.backup_vault_name | default('standard-backup-vault') }}"
+          when:
+            - terraform_standard_backup_vault_name | default('') | trim | length > 0
         - name: Confirm read-only legacy inventory
           ansible.builtin.debug:
             msg: >-
