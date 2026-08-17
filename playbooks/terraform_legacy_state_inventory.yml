@@ -71,7 +71,7 @@
           {{
             terraform_backend_objects.s3_keys
             | default([])
-            | select("search", "[.]tfstate )
+            | select("search", "[.]tfstate$")
             | list
             | sort
           }}
