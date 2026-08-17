@@ -702,12 +702,46 @@
                     | list
                   }}
 
+            - name: Extract redacted Foundation plan diagnostics
+              ansible.builtin.set_fact:
+                terraform_foundation_plan_resource_actions: >-
+                  {{
+                    terraform_foundation_migration_plan.stdout_lines
+                    | select(
+                        'match',
+                        '^  # .* (will be created|will be updated in-place|must be replaced|will be destroyed)$'
+                      )
+                    | map('regex_replace', '^  # ', '')
+                    | list
+                  }}
+                terraform_foundation_plan_replacement_attributes: >-
+                  {{
+                    terraform_foundation_migration_plan.stdout_lines
+                    | select(
+                        'match',
+                        '^ *[~+/-]* *[^ =:{]+.*# forces replacement *$'
+                      )
+                    | map(
+                        'regex_replace',
+                        '^ *[~+/-]* *(?P<attribute>[^ =:{]+).+$',
+                        '\\g<attribute>'
+                      )
+                    | list
+                  }}
+              no_log: true
+
             - name: Display safe Foundation plan summary
               ansible.builtin.debug:
                 msg:
                   - "Plan exit code: {{ terraform_foundation_migration_plan.rc }}"
                   - "Summary: {{ terraform_foundation_plan_summary }}"
                   - "Replacement/destroy detected: {{ terraform_foundation_plan_destructive }}"
+                  - >-
+                    Resource actions:
+                    {{ terraform_foundation_plan_resource_actions }}
+                  - >-
+                    Replacement-triggering attributes:
+                    {{ terraform_foundation_plan_replacement_attributes }}
 
             - name: Block destructive Foundation reconciliation
               ansible.builtin.assert:
