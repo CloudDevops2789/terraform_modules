@@ -1,0 +1,87 @@
+---
+################################################################################
+# Terraform Stack Execution Bindings
+################################################################################
+
+terraform_allowed_environments:
+  - sandbox
+
+# Foundation remains outside normal execution until controlled state migration.
+terraform_active_stacks:
+  - platform
+  - identity
+  - recovery
+
+################################################################################
+# Git-controlled variable files
+################################################################################
+
+terraform_stack_var_files:
+  platform:
+    - common-tags.tfvars
+    - platform.tfvars
+    - platform-network-policy.tfvars
+
+  identity:
+    - common-tags.tfvars
+    - identity.tfvars
+
+  recovery:
+    - common-tags.tfvars
+    - recovery.tfvars
+
+################################################################################
+# Operator/runtime inputs
+################################################################################
+# Cross-stack contracts are NOT operator inputs.
+# AAP resolves them internally from approved upstream Terraform outputs.
+
+terraform_sandbox_runtime_variable_allowlists:
+  platform:
+    - server_certificate_arn
+    - root_certificate_chain_arn
+    - saml_provider_arn
+    - ssm_instance_profile_name
+
+  identity: []
+
+  recovery:
+    - demo_ec2_enabled
+    - ami_id
+
+################################################################################
+# Approved lifecycle dependencies and output contracts
+################################################################################
+#
+# This describes STACK dependencies only.
+# It contains no VPC, subnet, security-group, workload, or topology knowledge.
+
+terraform_stack_dependency_outputs:
+  platform:
+    foundation:
+      - network_firewall_logging_kms_key_arn
+
+  identity:
+    platform:
+      - platform_contract
+
+  recovery:
+    foundation:
+      - standard_backup_vault_name
+      - air_gapped_backup_vault_arn
+
+    platform:
+      - platform_contract
+
+################################################################################
+# Dependency remote-state locations
+################################################################################
+#
+# Foundation temporarily uses its existing legacy key.
+# Platform uses the new lifecycle-separated key.
+# Foundation will move to ire/<env>/foundation during its controlled cutover.
+
+terraform_dependency_backend_keys:
+  sandbox:
+    foundation: "foundation/terraform.tfstate"
+    platform: "ire/sandbox/platform/terraform.tfstate"
