@@ -514,6 +514,29 @@
           when:
             - terraform_state_migration_apply_enabled | bool
 
+        - name: Remove legacy Network Firewall KMS binding before destination import
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - state
+              - rm
+              - -lock=true
+              - -lock-timeout=5m
+              - "{{ terraform_legacy_nfw_kms_address }}"
+          args:
+            chdir: "{{ terraform_legacy_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: "{{ terraform_migration_temp_dir.path }}/legacy-tfdata"
+          changed_when: true
+          when:
+            - terraform_state_migration_apply_enabled | bool
+
         - name: Stage destination Foundation ownership
           when:
             - terraform_state_migration_apply_enabled | bool
@@ -670,7 +693,7 @@
                   - not (terraform_foundation_plan_destructive | bool)
                 fail_msg: >-
                   Imported Foundation resources would be replaced or destroyed.
-                  Source state ownership has NOT been removed.
+                  Migration rollback will restore legacy source ownership.
 
             - name: List staged Foundation state
               ansible.builtin.command:
@@ -718,37 +741,28 @@
                 AWS_REGION: "{{ assume_role_aws_auth.region }}"
                 AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
 
+            - name: Restore legacy Terraform state from migration backup
+              amazon.aws.s3_object:
+                bucket: "{{ terraform_backend_bucket }}"
+                object: "{{ terraform_legacy_backend_key }}"
+                mode: copy
+                copy_src:
+                  bucket: "{{ terraform_backend_bucket }}"
+                  object: "{{ terraform_migration_backup_key | regex_replace('\\s+', '') }}"
+                region: "{{ terraform_backend_region }}"
+              environment:
+                AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+                AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+                AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+                AWS_REGION: "{{ assume_role_aws_auth.region }}"
+                AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+
             - name: Stop after destination staging failure
               ansible.builtin.fail:
                 msg: >-
-                  Foundation destination staging failed and the newly-created
-                  destination state object was removed. Legacy source ownership
-                  was not intentionally removed. Review the migration backup
-                  and job output before retrying.
-
-        - name: Remove legacy Network Firewall KMS binding after validated staging
-          ansible.builtin.command:
-            argv:
-              - terraform
-              - state
-              - rm
-              - -lock=true
-              - -lock-timeout=5m
-              - "{{ terraform_legacy_nfw_kms_address }}"
-          args:
-            chdir: "{{ terraform_legacy_root }}"
-          environment:
-            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
-            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
-            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
-            AWS_REGION: "{{ assume_role_aws_auth.region }}"
-            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
-            TF_IN_AUTOMATION: "true"
-            TF_DATA_DIR: "{{ terraform_migration_temp_dir.path }}/legacy-tfdata"
-          changed_when: true
-          when:
-            - terraform_state_migration_apply_enabled | bool
-            - terraform_foundation_stage_validated | default(false) | bool
+                  Foundation destination staging failed. The newly-created
+                  Foundation state was removed and the legacy state backup was
+                  restored. Review the job output before retrying.
 
         - name: Verify legacy Network Firewall KMS binding is removed
           ansible.builtin.command:
