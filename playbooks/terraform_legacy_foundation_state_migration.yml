@@ -1,0 +1,803 @@
+---
+- name: Migrate legacy persistent resources into Foundation Terraform state
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    terraform_environment: "sandbox"
+
+    # Existing organization monolithic state.
+    terraform_legacy_backend_key: ""
+
+    # Final lifecycle-separated Foundation state.
+    terraform_foundation_backend_key: >-
+      ire/{{ terraform_environment }}/foundation/terraform.tfstate
+
+    terraform_backend_use_lockfile: true
+    terraform_backend_encrypt: true
+
+    # Safe default. First AAP run must remain false.
+    terraform_state_migration_apply_enabled: false
+
+    # Required only when write mode is deliberately enabled.
+    terraform_state_migration_confirmation: ""
+    terraform_state_migration_expected_confirmation: "MIGRATE FOUNDATION STATE"
+
+    # Generic Terraform state addresses.
+    terraform_legacy_nfw_kms_address: >-
+      module.network_firewall_logging_kms.aws_kms_key.this
+
+    terraform_foundation_nfw_kms_address: >-
+      module.network_firewall_logging_kms.aws_kms_key.this
+
+    terraform_foundation_nfw_kms_alias_address: >-
+      module.network_firewall_logging_kms.aws_kms_alias.this
+
+    terraform_foundation_standard_vault_address: >-
+      module.backup_standard_vault.aws_backup_vault.this
+
+    terraform_foundation_airgap_vault_address: >-
+      module.backup_logically_air_gapped_vault.aws_backup_logically_air_gapped_vault.this
+
+    terraform_air_gapped_min_retention_days: 30
+    terraform_air_gapped_max_retention_days: 365
+
+  pre_tasks:
+    - name: Validate migration inputs
+      ansible.builtin.assert:
+        that:
+          - assume_role_role_arn | default('') | length > 0
+          - assume_role_aws_region | default('') | length > 0
+          - terraform_backend_bucket | default('') | length > 2
+          - terraform_backend_region | default('') | length > 0
+          - terraform_legacy_backend_key | default('') | length > 0
+          - terraform_foundation_name_prefix | default('') | length > 0
+        fail_msg: >-
+          Required Foundation migration inputs are missing.
+
+    - name: Enforce write-mode confirmation
+      ansible.builtin.assert:
+        that:
+          - >-
+            not (terraform_state_migration_apply_enabled | bool)
+            or terraform_state_migration_confirmation
+            == terraform_state_migration_expected_confirmation
+        fail_msg: >-
+          Foundation state migration write mode requires the exact confirmation
+          MIGRATE FOUNDATION STATE.
+
+    - name: Validate Foundation runtime configuration for write mode
+      ansible.builtin.assert:
+        that:
+          - >-
+            not (terraform_state_migration_apply_enabled | bool)
+            or terraform_foundation_tags | default({}) | length > 0
+          - >-
+            not (terraform_state_migration_apply_enabled | bool)
+            or terraform_foundation_kms_key_administrators | default([]) | length > 0
+          - >-
+            not (terraform_state_migration_apply_enabled | bool)
+            or terraform_foundation_network_firewall_log_group_prefix
+               | default('') | length > 0
+          - >-
+            not (terraform_state_migration_apply_enabled | bool)
+            or 'fv:it_cost_center' in (terraform_foundation_tags | default({}))
+          - >-
+            not (terraform_state_migration_apply_enabled | bool)
+            or 'fv:department' in (terraform_foundation_tags | default({}))
+          - >-
+            not (terraform_state_migration_apply_enabled | bool)
+            or 'fv:cmdb_calculated_app' in (terraform_foundation_tags | default({}))
+          - >-
+            not (terraform_state_migration_apply_enabled | bool)
+            or 'fv:business_criticality' in (terraform_foundation_tags | default({}))
+          - >-
+            not (terraform_state_migration_apply_enabled | bool)
+            or 'fv:environment' in (terraform_foundation_tags | default({}))
+          - >-
+            not (terraform_state_migration_apply_enabled | bool)
+            or 'fv:data_classification' in (terraform_foundation_tags | default({}))
+          - >-
+            not (terraform_state_migration_apply_enabled | bool)
+            or 'fv:project_name' in (terraform_foundation_tags | default({}))
+          - >-
+            not (terraform_state_migration_apply_enabled | bool)
+            or 'fv:managed_by' in (terraform_foundation_tags | default({}))
+        fail_msg: >-
+          Write mode requires the complete approved Foundation configuration.
+
+    - name: Derive Terraform roots
+      ansible.builtin.set_fact:
+        terraform_legacy_root: >-
+          {{ playbook_dir }}/../terraform/environments/{{ terraform_environment }}
+        terraform_foundation_root: >-
+          {{ playbook_dir }}/../terraform/stacks/foundation
+
+    - name: Check Terraform roots
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ terraform_legacy_root }}"
+        - "{{ terraform_foundation_root }}"
+      register: terraform_migration_root_stats
+
+    - name: Validate Terraform roots
+      ansible.builtin.assert:
+        that:
+          - terraform_migration_root_stats.results[0].stat.isdir
+          - terraform_migration_root_stats.results[1].stat.isdir
+        fail_msg: >-
+          Legacy or Foundation Terraform root is missing.
+
+  roles:
+    - role: ire_platform.aws.assume_role
+
+  tasks:
+    - name: Derive persistent AWS resource names
+      ansible.builtin.set_fact:
+        terraform_standard_backup_vault_name: >-
+          {{ terraform_foundation_name_prefix }}-standard-backup-vault
+        terraform_airgap_backup_vault_name: >-
+          {{ terraform_foundation_name_prefix }}-airgap-backup-vault
+        terraform_expected_nfw_kms_alias: >-
+          alias/{{ terraform_foundation_name_prefix }}-network-firewall-logs
+
+    - name: Discover Terraform state objects
+      amazon.aws.s3_object_info:
+        bucket_name: "{{ terraform_backend_bucket }}"
+        region: "{{ terraform_backend_region }}"
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+        AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+        AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+        AWS_REGION: "{{ assume_role_aws_auth.region }}"
+        AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+      register: terraform_backend_objects
+      changed_when: false
+
+    - name: Determine source and destination state existence
+      ansible.builtin.set_fact:
+        terraform_backend_state_keys: >-
+          {{
+            terraform_backend_objects.s3_keys
+            | default([])
+            | list
+          }}
+        terraform_legacy_state_exists: >-
+          {{
+            terraform_legacy_backend_key
+            in (terraform_backend_objects.s3_keys | default([]))
+          }}
+        terraform_foundation_state_exists: >-
+          {{
+            terraform_foundation_backend_key
+            in (terraform_backend_objects.s3_keys | default([]))
+          }}
+
+    - name: Require the confirmed legacy state
+      ansible.builtin.assert:
+        that:
+          - terraform_legacy_state_exists | bool
+        fail_msg: >-
+          Confirmed legacy state object was not found.
+
+    - name: Create temporary migration directory
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: ire-foundation-state-migration-
+      register: terraform_migration_temp_dir
+
+    - name: Perform Foundation migration preflight
+      block:
+        - name: Initialize legacy Terraform backend
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - init
+              - -input=false
+              - -reconfigure
+              - "-backend-config=bucket={{ terraform_backend_bucket }}"
+              - "-backend-config=key={{ terraform_legacy_backend_key }}"
+              - "-backend-config=region={{ terraform_backend_region }}"
+              - "-backend-config=encrypt={{ terraform_backend_encrypt | lower }}"
+              - "-backend-config=use_lockfile={{ terraform_backend_use_lockfile | lower }}"
+          args:
+            chdir: "{{ terraform_legacy_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: "{{ terraform_migration_temp_dir.path }}/legacy-tfdata"
+          changed_when: false
+          no_log: true
+
+        - name: List legacy state
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - state
+              - list
+          args:
+            chdir: "{{ terraform_legacy_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: "{{ terraform_migration_temp_dir.path }}/legacy-tfdata"
+          register: terraform_legacy_state_list
+          changed_when: false
+
+        - name: Require legacy Network Firewall logging KMS ownership
+          ansible.builtin.assert:
+            that:
+              - terraform_legacy_nfw_kms_address in terraform_legacy_state_list.stdout_lines
+            fail_msg: >-
+              Expected legacy Network Firewall logging KMS address is not present.
+              No migration is permitted.
+
+        - name: Read legacy Network Firewall logging KMS state
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - state
+              - show
+              - -no-color
+              - "{{ terraform_legacy_nfw_kms_address }}"
+          args:
+            chdir: "{{ terraform_legacy_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: "{{ terraform_migration_temp_dir.path }}/legacy-tfdata"
+          register: terraform_legacy_nfw_kms_state
+          changed_when: false
+          no_log: true
+
+        - name: Select legacy KMS key ID line
+          ansible.builtin.set_fact:
+            terraform_legacy_nfw_kms_key_id_lines: >-
+              {{
+                terraform_legacy_nfw_kms_state.stdout_lines
+                | select('match', '^\s*key_id\s*=')
+                | list
+              }}
+
+        - name: Require KMS key ID in legacy state
+          ansible.builtin.assert:
+            that:
+              - terraform_legacy_nfw_kms_key_id_lines | length == 1
+            fail_msg: >-
+              Could not safely derive the Network Firewall logging KMS key ID.
+
+        - name: Derive legacy Network Firewall logging KMS key ID
+          ansible.builtin.set_fact:
+            terraform_legacy_nfw_kms_key_id: >-
+              {{
+                terraform_legacy_nfw_kms_key_id_lines[0]
+                | regex_replace('^\s*key_id\s*=\s*"([^"]+)".*$', '\1')
+              }}
+
+        - name: Read Network Firewall logging KMS metadata
+          amazon.aws.kms_key_info:
+            key_id: "{{ terraform_legacy_nfw_kms_key_id }}"
+            region: "{{ assume_role_aws_auth.region }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+          register: terraform_nfw_kms_info
+          changed_when: false
+
+        - name: Require Network Firewall logging KMS key
+          ansible.builtin.assert:
+            that:
+              - terraform_nfw_kms_info.kms_keys | default([]) | length == 1
+            fail_msg: >-
+              Network Firewall logging KMS key could not be verified in AWS.
+
+        - name: Derive existing KMS aliases
+          ansible.builtin.set_fact:
+            terraform_existing_nfw_kms_aliases: >-
+              {{
+                terraform_nfw_kms_info.kms_keys[0].aliases
+                | default([])
+              }}
+
+        - name: Read explicit standard Backup vault
+          amazon.aws.backup_vault_info:
+            backup_vault_names:
+              - "{{ terraform_standard_backup_vault_name }}"
+            region: "{{ assume_role_aws_auth.region }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+          register: terraform_standard_vault_info
+          changed_when: false
+
+        - name: Read explicit logically air-gapped Backup vault
+          amazon.aws.backup_vault_info:
+            backup_vault_names:
+              - "{{ terraform_airgap_backup_vault_name }}"
+            region: "{{ assume_role_aws_auth.region }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+          register: terraform_airgap_vault_info
+          changed_when: false
+
+        - name: Require both persistent Backup vaults
+          ansible.builtin.assert:
+            that:
+              - terraform_standard_vault_info.backup_vaults | default([]) | length == 1
+              - terraform_airgap_vault_info.backup_vaults | default([]) | length == 1
+            fail_msg: >-
+              One or more persistent AWS Backup vaults could not be verified.
+
+        - name: Initialize Foundation Terraform backend
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - init
+              - -input=false
+              - -reconfigure
+              - "-backend-config=bucket={{ terraform_backend_bucket }}"
+              - "-backend-config=key={{ terraform_foundation_backend_key }}"
+              - "-backend-config=region={{ terraform_backend_region }}"
+              - "-backend-config=encrypt={{ terraform_backend_encrypt | lower }}"
+              - "-backend-config=use_lockfile={{ terraform_backend_use_lockfile | lower }}"
+          args:
+            chdir: "{{ terraform_foundation_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: "{{ terraform_migration_temp_dir.path }}/foundation-tfdata"
+          changed_when: false
+          no_log: true
+
+        - name: List existing Foundation state when present
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - state
+              - list
+          args:
+            chdir: "{{ terraform_foundation_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: "{{ terraform_migration_temp_dir.path }}/foundation-tfdata"
+          register: terraform_existing_foundation_state_list
+          changed_when: false
+          when:
+            - terraform_foundation_state_exists | bool
+
+        - name: Set empty Foundation state for new backend
+          ansible.builtin.set_fact:
+            terraform_existing_foundation_addresses: []
+          when:
+            - not (terraform_foundation_state_exists | bool)
+
+        - name: Set existing Foundation addresses
+          ansible.builtin.set_fact:
+            terraform_existing_foundation_addresses: >-
+              {{
+                terraform_existing_foundation_state_list.stdout_lines
+                | default([])
+              }}
+          when:
+            - terraform_foundation_state_exists | bool
+
+        - name: Verify destination ownership is clear
+          ansible.builtin.assert:
+            that:
+              - terraform_foundation_nfw_kms_address not in terraform_existing_foundation_addresses
+              - terraform_foundation_standard_vault_address not in terraform_existing_foundation_addresses
+              - terraform_foundation_airgap_vault_address not in terraform_existing_foundation_addresses
+              - terraform_foundation_nfw_kms_alias_address not in terraform_existing_foundation_addresses
+            fail_msg: >-
+              Foundation state already owns one or more migration targets.
+              Stop and investigate before continuing.
+
+        - name: Display migration preflight summary
+          ansible.builtin.debug:
+            msg:
+              - "Mode: {{ 'WRITE ENABLED' if terraform_state_migration_apply_enabled | bool else 'PRECHECK ONLY' }}"
+              - "Legacy backend: {{ terraform_legacy_backend_key }}"
+              - "Foundation backend: {{ terraform_foundation_backend_key }}"
+              - "Legacy NFW KMS ownership verified: true"
+              - "Standard Backup vault verified: {{ terraform_standard_backup_vault_name }}"
+              - "Air-gapped Backup vault verified: {{ terraform_airgap_backup_vault_name }}"
+              - >-
+                Expected Foundation KMS alias already exists:
+                {{
+                  terraform_expected_nfw_kms_alias
+                  in terraform_existing_nfw_kms_aliases
+                }}
+              - "Legacy generic KMS is intentionally untouched."
+
+        - name: Report safe preflight completion
+          ansible.builtin.debug:
+            msg: >-
+              Foundation state migration preflight passed.
+              No Terraform state was modified.
+          when:
+            - not (terraform_state_migration_apply_enabled | bool)
+
+        ######################################################################
+        # WRITE MODE
+        ######################################################################
+
+        - name: Require a new Foundation state for controlled cutover
+          ansible.builtin.assert:
+            that:
+              - not (terraform_foundation_state_exists | bool)
+            fail_msg: >-
+              Write mode requires the final Foundation backend key to be absent
+              before the one-time migration.
+          when:
+            - terraform_state_migration_apply_enabled | bool
+
+        - name: Build Foundation runtime Terraform variables
+          ansible.builtin.set_fact:
+            terraform_foundation_runtime_variables:
+              aws_region: "{{ assume_role_aws_region }}"
+              name_prefix: "{{ terraform_foundation_name_prefix }}"
+              tags: "{{ terraform_foundation_tags }}"
+              air_gapped_min_retention_days: "{{ terraform_air_gapped_min_retention_days }}"
+              air_gapped_max_retention_days: "{{ terraform_air_gapped_max_retention_days }}"
+              kms_key_administrators: "{{ terraform_foundation_kms_key_administrators }}"
+              network_firewall_log_group_prefix: >-
+                {{ terraform_foundation_network_firewall_log_group_prefix }}
+          when:
+            - terraform_state_migration_apply_enabled | bool
+
+        - name: Write temporary Foundation variable file
+          ansible.builtin.copy:
+            dest: "{{ terraform_migration_temp_dir.path }}/foundation.auto.tfvars.json"
+            content: "{{ terraform_foundation_runtime_variables | to_nice_json }}"
+            mode: "0600"
+          when:
+            - terraform_state_migration_apply_enabled | bool
+          no_log: true
+
+        - name: Build migration backup key
+          ansible.builtin.set_fact:
+            terraform_migration_backup_key: >-
+              migration-backups/{{ terraform_environment }}/
+              {{ now(utc=true, fmt='%Y%m%dT%H%M%SZ') }}/
+              legacy-terraform.tfstate.backup
+          when:
+            - terraform_state_migration_apply_enabled | bool
+
+        - name: Backup legacy Terraform state object
+          amazon.aws.s3_object:
+            bucket: "{{ terraform_backend_bucket }}"
+            object: "{{ terraform_migration_backup_key | regex_replace('\\s+', '') }}"
+            mode: copy
+            copy_src:
+              bucket: "{{ terraform_backend_bucket }}"
+              object: "{{ terraform_legacy_backend_key }}"
+            region: "{{ terraform_backend_region }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+          when:
+            - terraform_state_migration_apply_enabled | bool
+
+        - name: Stage destination Foundation ownership
+          when:
+            - terraform_state_migration_apply_enabled | bool
+          block:
+            - name: Import Network Firewall logging KMS key
+              ansible.builtin.command:
+                argv:
+                  - terraform
+                  - import
+                  - -input=false
+                  - -lock=true
+                  - -lock-timeout=5m
+                  - "-var-file={{ terraform_migration_temp_dir.path }}/foundation.auto.tfvars.json"
+                  - "{{ terraform_foundation_nfw_kms_address }}"
+                  - "{{ terraform_legacy_nfw_kms_key_id }}"
+              args:
+                chdir: "{{ terraform_foundation_root }}"
+              environment:
+                AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+                AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+                AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+                AWS_REGION: "{{ assume_role_aws_auth.region }}"
+                AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+                TF_IN_AUTOMATION: "true"
+                TF_DATA_DIR: "{{ terraform_migration_temp_dir.path }}/foundation-tfdata"
+              changed_when: true
+              no_log: true
+
+            - name: Import existing expected KMS alias
+              ansible.builtin.command:
+                argv:
+                  - terraform
+                  - import
+                  - -input=false
+                  - -lock=true
+                  - -lock-timeout=5m
+                  - "-var-file={{ terraform_migration_temp_dir.path }}/foundation.auto.tfvars.json"
+                  - "{{ terraform_foundation_nfw_kms_alias_address }}"
+                  - "{{ terraform_expected_nfw_kms_alias }}"
+              args:
+                chdir: "{{ terraform_foundation_root }}"
+              environment:
+                AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+                AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+                AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+                AWS_REGION: "{{ assume_role_aws_auth.region }}"
+                AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+                TF_IN_AUTOMATION: "true"
+                TF_DATA_DIR: "{{ terraform_migration_temp_dir.path }}/foundation-tfdata"
+              changed_when: true
+              no_log: true
+              when:
+                - terraform_expected_nfw_kms_alias in terraform_existing_nfw_kms_aliases
+
+            - name: Import standard Backup vault
+              ansible.builtin.command:
+                argv:
+                  - terraform
+                  - import
+                  - -input=false
+                  - -lock=true
+                  - -lock-timeout=5m
+                  - "-var-file={{ terraform_migration_temp_dir.path }}/foundation.auto.tfvars.json"
+                  - "{{ terraform_foundation_standard_vault_address }}"
+                  - "{{ terraform_standard_backup_vault_name }}"
+              args:
+                chdir: "{{ terraform_foundation_root }}"
+              environment:
+                AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+                AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+                AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+                AWS_REGION: "{{ assume_role_aws_auth.region }}"
+                AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+                TF_IN_AUTOMATION: "true"
+                TF_DATA_DIR: "{{ terraform_migration_temp_dir.path }}/foundation-tfdata"
+              changed_when: true
+              no_log: true
+
+            - name: Import logically air-gapped Backup vault
+              ansible.builtin.command:
+                argv:
+                  - terraform
+                  - import
+                  - -input=false
+                  - -lock=true
+                  - -lock-timeout=5m
+                  - "-var-file={{ terraform_migration_temp_dir.path }}/foundation.auto.tfvars.json"
+                  - "{{ terraform_foundation_airgap_vault_address }}"
+                  - "{{ terraform_airgap_backup_vault_name }}"
+              args:
+                chdir: "{{ terraform_foundation_root }}"
+              environment:
+                AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+                AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+                AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+                AWS_REGION: "{{ assume_role_aws_auth.region }}"
+                AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+                TF_IN_AUTOMATION: "true"
+                TF_DATA_DIR: "{{ terraform_migration_temp_dir.path }}/foundation-tfdata"
+              changed_when: true
+              no_log: true
+
+            - name: Plan imported Foundation configuration
+              ansible.builtin.command:
+                argv:
+                  - terraform
+                  - plan
+                  - -input=false
+                  - -no-color
+                  - -detailed-exitcode
+                  - -lock-timeout=5m
+                  - "-var-file={{ terraform_migration_temp_dir.path }}/foundation.auto.tfvars.json"
+              args:
+                chdir: "{{ terraform_foundation_root }}"
+              environment:
+                AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+                AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+                AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+                AWS_REGION: "{{ assume_role_aws_auth.region }}"
+                AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+                TF_IN_AUTOMATION: "true"
+                TF_DATA_DIR: "{{ terraform_migration_temp_dir.path }}/foundation-tfdata"
+              register: terraform_foundation_migration_plan
+              changed_when: false
+              failed_when:
+                - terraform_foundation_migration_plan.rc not in [0, 2]
+              no_log: true
+
+            - name: Classify Foundation migration plan
+              ansible.builtin.set_fact:
+                terraform_foundation_plan_destructive: >-
+                  {{
+                    'must be replaced' in terraform_foundation_migration_plan.stdout
+                    or ' will be destroyed' in terraform_foundation_migration_plan.stdout
+                    or '-/+' in terraform_foundation_migration_plan.stdout
+                  }}
+                terraform_foundation_plan_summary: >-
+                  {{
+                    terraform_foundation_migration_plan.stdout_lines
+                    | select('match', '^(Plan:|No changes)')
+                    | list
+                  }}
+
+            - name: Display safe Foundation plan summary
+              ansible.builtin.debug:
+                msg:
+                  - "Plan exit code: {{ terraform_foundation_migration_plan.rc }}"
+                  - "Summary: {{ terraform_foundation_plan_summary }}"
+                  - "Replacement/destroy detected: {{ terraform_foundation_plan_destructive }}"
+
+            - name: Block destructive Foundation reconciliation
+              ansible.builtin.assert:
+                that:
+                  - not (terraform_foundation_plan_destructive | bool)
+                fail_msg: >-
+                  Imported Foundation resources would be replaced or destroyed.
+                  Source state ownership has NOT been removed.
+
+            - name: List staged Foundation state
+              ansible.builtin.command:
+                argv:
+                  - terraform
+                  - state
+                  - list
+              args:
+                chdir: "{{ terraform_foundation_root }}"
+              environment:
+                AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+                AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+                AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+                AWS_REGION: "{{ assume_role_aws_auth.region }}"
+                AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+                TF_IN_AUTOMATION: "true"
+                TF_DATA_DIR: "{{ terraform_migration_temp_dir.path }}/foundation-tfdata"
+              register: terraform_staged_foundation_state
+              changed_when: false
+
+            - name: Verify staged Foundation ownership
+              ansible.builtin.assert:
+                that:
+                  - terraform_foundation_nfw_kms_address in terraform_staged_foundation_state.stdout_lines
+                  - terraform_foundation_standard_vault_address in terraform_staged_foundation_state.stdout_lines
+                  - terraform_foundation_airgap_vault_address in terraform_staged_foundation_state.stdout_lines
+                fail_msg: >-
+                  Foundation destination state does not contain all required resources.
+
+            - name: Mark Foundation destination stage validated
+              ansible.builtin.set_fact:
+                terraform_foundation_stage_validated: true
+
+          rescue:
+            - name: Remove incomplete new Foundation state
+              amazon.aws.s3_object:
+                bucket: "{{ terraform_backend_bucket }}"
+                object: "{{ terraform_foundation_backend_key }}"
+                mode: delobj
+                region: "{{ terraform_backend_region }}"
+              environment:
+                AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+                AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+                AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+                AWS_REGION: "{{ assume_role_aws_auth.region }}"
+                AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+
+            - name: Stop after destination staging failure
+              ansible.builtin.fail:
+                msg: >-
+                  Foundation destination staging failed and the newly-created
+                  destination state object was removed. Legacy source ownership
+                  was not intentionally removed. Review the migration backup
+                  and job output before retrying.
+
+        - name: Remove legacy Network Firewall KMS binding after validated staging
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - state
+              - rm
+              - -lock=true
+              - -lock-timeout=5m
+              - "{{ terraform_legacy_nfw_kms_address }}"
+          args:
+            chdir: "{{ terraform_legacy_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: "{{ terraform_migration_temp_dir.path }}/legacy-tfdata"
+          changed_when: true
+          when:
+            - terraform_state_migration_apply_enabled | bool
+            - terraform_foundation_stage_validated | default(false) | bool
+
+        - name: Verify legacy Network Firewall KMS binding is removed
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - state
+              - list
+          args:
+            chdir: "{{ terraform_legacy_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: "{{ terraform_migration_temp_dir.path }}/legacy-tfdata"
+          register: terraform_post_migration_legacy_state
+          changed_when: false
+          when:
+            - terraform_state_migration_apply_enabled | bool
+
+        - name: Confirm Foundation ownership cutover
+          ansible.builtin.assert:
+            that:
+              - terraform_legacy_nfw_kms_address not in terraform_post_migration_legacy_state.stdout_lines
+            fail_msg: >-
+              Legacy NFW KMS state ownership was not removed as expected.
+          when:
+            - terraform_state_migration_apply_enabled | bool
+
+        - name: Report successful Foundation state migration
+          ansible.builtin.debug:
+            msg:
+              - "Foundation state migration completed."
+              - "Destination: {{ terraform_foundation_backend_key }}"
+              - "Legacy generic KMS remains untouched."
+              - "No Terraform apply was performed."
+              - >-
+                Legacy state backup:
+                {{ terraform_migration_backup_key | regex_replace('\\s+', '') }}
+          when:
+            - terraform_state_migration_apply_enabled | bool
+
+      always:
+        - name: Remove temporary migration directory
+          ansible.builtin.file:
+            path: "{{ terraform_migration_temp_dir.path }}"
+            state: absent
+          when:
+            - terraform_migration_temp_dir is defined
+            - terraform_migration_temp_dir.path is defined
