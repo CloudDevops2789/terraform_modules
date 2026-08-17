@@ -1,0 +1,121 @@
+---
+################################################################################
+# Terraform Lifecycle Contract Broker
+################################################################################
+#
+# AAP reads only explicitly approved outputs from upstream lifecycle states.
+# Downstream Terraform receives narrow variable contracts.
+#
+# AAP does not interpret Platform topology.
+################################################################################
+
+- name: Initialize Terraform lifecycle contracts
+  ansible.builtin.set_fact:
+    terraform_dependency_outputs: {}
+    terraform_contract_variables: {}
+  no_log: true
+
+- name: Read approved upstream lifecycle outputs
+  ansible.builtin.include_tasks:
+    file: terraform_read_dependency.yml
+  loop: >-
+    {{
+      terraform_stack_dependency_outputs[terraform_stack]
+      | default({})
+      | dict2items
+    }}
+  loop_control:
+    loop_var: terraform_dependency_binding
+    label: "{{ terraform_dependency_binding.key }}"
+  vars:
+    terraform_dependency_stack: "{{ terraform_dependency_binding.key }}"
+    terraform_dependency_output_names: "{{ terraform_dependency_binding.value }}"
+
+################################################################################
+# Foundation -> Platform
+################################################################################
+
+- name: Build Platform Foundation contract
+  ansible.builtin.set_fact:
+    terraform_contract_variables: >-
+      {{
+        {
+          'foundation_resources': {
+            'network_firewall_logging_kms_key_arn':
+              terraform_dependency_outputs.foundation.network_firewall_logging_kms_key_arn
+          }
+        }
+      }}
+  when:
+    - terraform_stack == 'platform'
+  no_log: true
+
+################################################################################
+# Platform -> Identity
+################################################################################
+
+- name: Build Identity Platform contract
+  ansible.builtin.set_fact:
+    terraform_contract_variables: >-
+      {{
+        {
+          'platform_contract':
+            terraform_dependency_outputs.platform.platform_contract
+        }
+      }}
+  when:
+    - terraform_stack == 'identity'
+  no_log: true
+
+################################################################################
+# Foundation + Platform -> Recovery
+################################################################################
+
+- name: Build Recovery lifecycle contracts
+  ansible.builtin.set_fact:
+    terraform_contract_variables: >-
+      {{
+        {
+          'platform_contract':
+            terraform_dependency_outputs.platform.platform_contract,
+
+          'foundation_resources': {
+            'standard_backup_vault_name':
+              terraform_dependency_outputs.foundation.standard_backup_vault_name,
+
+            'air_gapped_backup_vault_arn':
+              terraform_dependency_outputs.foundation.air_gapped_backup_vault_arn
+          }
+        }
+      }}
+  when:
+    - terraform_stack == 'recovery'
+  no_log: true
+
+- name: Prevent operator override of lifecycle contracts
+  ansible.builtin.assert:
+    that:
+      - >-
+        (
+          terraform_variables.keys()
+          | list
+          | intersect(terraform_contract_variables.keys() | list)
+          | length
+        ) == 0
+    fail_msg: >-
+      Lifecycle contracts are resolved internally by AAP and cannot be
+      supplied or overridden through terraform_variables.
+
+- name: Report resolved lifecycle dependencies
+  ansible.builtin.debug:
+    msg:
+      - "Stack: {{ terraform_stack }}"
+      - >-
+        Dependencies:
+        {{
+          terraform_stack_dependency_outputs[terraform_stack]
+          | default({})
+          | dict2items
+          | map(attribute='key')
+          | list
+        }}

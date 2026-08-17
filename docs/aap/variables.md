@@ -21,8 +21,10 @@ changing IRE network or security architecture.
 The Sandbox stores stable non-sensitive desired state in:
 
 ~~~text
-terraform/environments/sandbox/platform.auto.tfvars
-terraform/environments/sandbox/network-policy.auto.tfvars
+terraform/environments/sandbox/stacks/common-tags.tfvars
+terraform/environments/sandbox/stacks/platform.tfvars
+terraform/environments/sandbox/stacks/platform-network-policy.tfvars
+terraform/environments/sandbox/stacks/recovery.tfvars
 ~~~
 
 Examples include:
@@ -52,7 +54,7 @@ The Job Template or Inventory supplies:
 | `assume_role_role_arn` | Approved AWS execution role |
 | `assume_role_aws_region` | Deployment Region and Terraform `aws_region` source of truth |
 | `terraform_backend_bucket` | Terraform remote-state bucket |
-| `terraform_backend_key` | Environment state key |
+| `terraform_stack` | Lifecycle stack: platform, identity, or recovery |
 | `terraform_backend_region` | Region containing the state bucket |
 
 `terraform_backend_region` is intentionally independent from
