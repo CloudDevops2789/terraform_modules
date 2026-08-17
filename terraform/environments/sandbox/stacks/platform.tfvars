@@ -541,11 +541,12 @@ ssm_endpoint_bindings = {
 }
 
 ssh_key_access_rule_names = [
+  "management-ssh-from-client-vpn"
+]
+
+client_vpn_security_group_rule_names = [
   "management-ssh-from-client-vpn",
-  "management-ssh-from-core",
-  "core-ssh-from-recovery-access",
-  "core-ssh-from-protected-data",
-  "protected-ssh"
+  "management-ping"
 ]
 
 ################################################################################

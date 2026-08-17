@@ -134,3 +134,9 @@ variable "saml_metadata_document" {
     error_message = "saml_metadata_document is required when Terraform manages the SAML provider for an enabled federated Client VPN."
   }
 }
+
+variable "client_vpn_security_group_rule_names" {
+  description = "Security-group rule names that are active only when Client VPN is enabled."
+  type        = set(string)
+  default     = []
+}

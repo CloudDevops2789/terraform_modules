@@ -69,6 +69,13 @@ locals {
           rule.name
         ) ||
         var.ssh_key_access_enabled
+      ) &&
+      (
+        !contains(
+          var.client_vpn_security_group_rule_names,
+          rule.name
+        ) ||
+        var.client_vpn_enabled
       )
     )
   }
