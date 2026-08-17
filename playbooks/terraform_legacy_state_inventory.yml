@@ -1,0 +1,201 @@
+---
+- name: Inventory legacy Terraform state
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    terraform_environment: "sandbox"
+
+    # Leave empty on the first run.
+    # After the backend discovery output identifies the monolithic state,
+    # configure this as a fixed Job Template variable and rerun.
+    terraform_legacy_backend_key: ""
+
+    terraform_backend_use_lockfile: true
+    terraform_backend_encrypt: true
+
+  pre_tasks:
+    - name: Validate legacy state inventory inputs
+      ansible.builtin.assert:
+        that:
+          - assume_role_role_arn | default('') | length > 0
+          - assume_role_aws_region | default('') | length > 0
+          - terraform_environment | default('') | length > 0
+          - terraform_backend_bucket | default('') | length > 2
+          - terraform_backend_region | default('') | length > 0
+        fail_msg: >-
+          Required legacy state inventory inputs are missing.
+          Supply the approved AssumeRole configuration, environment,
+          backend bucket, and backend Region.
+
+    - name: Derive legacy Terraform root
+      ansible.builtin.set_fact:
+        terraform_legacy_root: >-
+          {{ playbook_dir }}/../terraform/environments/{{ terraform_environment }}
+
+    - name: Check legacy Terraform root
+      ansible.builtin.stat:
+        path: "{{ terraform_legacy_root }}"
+      register: terraform_legacy_root_stat
+
+    - name: Validate legacy Terraform root
+      ansible.builtin.assert:
+        that:
+          - terraform_legacy_root_stat.stat.exists
+          - terraform_legacy_root_stat.stat.isdir
+        fail_msg: >-
+          Legacy Terraform root does not exist:
+          {{ terraform_legacy_root }}
+
+  roles:
+    - role: ire_platform.aws.assume_role
+
+  tasks:
+    - name: Discover current Terraform state objects in backend bucket
+      ansible.builtin.command:
+        argv:
+          - aws
+          - s3api
+          - list-objects-v2
+          - --bucket
+          - "{{ terraform_backend_bucket }}"
+          - --query
+          - "Contents[?ends_with(Key, `.tfstate`)].{Key:Key,Size:Size,LastModified:LastModified}"
+          - --output
+          - json
+          - --region
+          - "{{ terraform_backend_region }}"
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+        AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+        AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+        AWS_REGION: "{{ assume_role_aws_auth.region }}"
+        AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+      register: terraform_state_object_discovery
+      changed_when: false
+
+    - name: Display discovered Terraform state objects
+      ansible.builtin.debug:
+        msg:
+          - "Backend bucket Terraform state objects:"
+          - "{{ terraform_state_object_discovery.stdout | from_json }}"
+
+    - name: Report discovery-only execution
+      ansible.builtin.debug:
+        msg: >-
+          Discovery-only run completed. Identify the legacy monolithic
+          Terraform state key from the output and configure
+          terraform_legacy_backend_key as a fixed Job Template variable
+          before rerunning the inventory.
+      when:
+        - terraform_legacy_backend_key | default('') | length == 0
+
+    - name: Create temporary Terraform data directory
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: ire-legacy-state-
+      register: terraform_legacy_temp_dir
+      when:
+        - terraform_legacy_backend_key | default('') | length > 0
+
+    - name: Read selected legacy Terraform state
+      when:
+        - terraform_legacy_backend_key | default('') | length > 0
+      block:
+        - name: Report selected legacy state binding
+          ansible.builtin.debug:
+            msg:
+              - "Environment: {{ terraform_environment }}"
+              - "Legacy Terraform root: {{ terraform_legacy_root }}"
+              - "Legacy backend key: {{ terraform_legacy_backend_key }}"
+              - "Mode: READ ONLY"
+
+        - name: Initialize selected legacy Terraform backend
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - init
+              - -input=false
+              - -reconfigure
+              - "-backend-config=bucket={{ terraform_backend_bucket }}"
+              - "-backend-config=key={{ terraform_legacy_backend_key }}"
+              - "-backend-config=region={{ terraform_backend_region }}"
+              - "-backend-config=encrypt={{ terraform_backend_encrypt | lower }}"
+              - "-backend-config=use_lockfile={{ terraform_backend_use_lockfile | lower }}"
+          args:
+            chdir: "{{ terraform_legacy_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: "{{ terraform_legacy_temp_dir.path }}/tfdata"
+          register: terraform_legacy_init
+          changed_when: false
+          no_log: true
+
+        - name: List legacy Terraform state addresses
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - state
+              - list
+          args:
+            chdir: "{{ terraform_legacy_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: "{{ terraform_legacy_temp_dir.path }}/tfdata"
+          register: terraform_legacy_state_list
+          changed_when: false
+
+        - name: Classify legacy Terraform state addresses
+          ansible.builtin.set_fact:
+            terraform_legacy_managed_addresses: >-
+              {{
+                terraform_legacy_state_list.stdout_lines
+                | reject('match', '^data\\.')
+                | reject('search', '\\.data\\.')
+                | list
+              }}
+            terraform_legacy_data_addresses: >-
+              {{
+                terraform_legacy_state_list.stdout_lines
+                | select('search', '(^data\\.|\\.data\\.)')
+                | list
+              }}
+
+        - name: Display legacy managed resource addresses
+          ansible.builtin.debug:
+            msg:
+              - "Managed resource count: {{ terraform_legacy_managed_addresses | length }}"
+              - "{{ terraform_legacy_managed_addresses }}"
+
+        - name: Display legacy data-source addresses
+          ansible.builtin.debug:
+            msg:
+              - "Data-source count: {{ terraform_legacy_data_addresses | length }}"
+              - "{{ terraform_legacy_data_addresses }}"
+
+        - name: Confirm read-only legacy inventory
+          ansible.builtin.debug:
+            msg: >-
+              Legacy Terraform state inventory completed successfully.
+              No import, state removal, state push, apply, or destroy
+              operation was performed.
+
+      always:
+        - name: Remove temporary Terraform data directory
+          ansible.builtin.file:
+            path: "{{ terraform_legacy_temp_dir.path }}"
+            state: absent
+          when:
+            - terraform_legacy_temp_dir is defined
+            - terraform_legacy_temp_dir.path is defined
