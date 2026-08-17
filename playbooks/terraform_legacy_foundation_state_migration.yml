@@ -487,30 +487,52 @@
             - terraform_state_migration_apply_enabled | bool
           no_log: true
 
-        - name: Build migration backup key
-          ansible.builtin.set_fact:
-            terraform_migration_backup_key: >-
-              migration-backups/{{ terraform_environment }}/
-              {{ now(utc=true, fmt='%Y%m%dT%H%M%SZ') }}/
-              legacy-terraform.tfstate.backup
-          when:
-            - terraform_state_migration_apply_enabled | bool
-
-        - name: Backup legacy Terraform state object
-          amazon.aws.s3_object:
-            bucket: "{{ terraform_backend_bucket }}"
-            object: "{{ terraform_migration_backup_key | regex_replace('\\s+', '') }}"
-            mode: copy
-            copy_src:
-              bucket: "{{ terraform_backend_bucket }}"
-              object: "{{ terraform_legacy_backend_key }}"
-            region: "{{ terraform_backend_region }}"
+        - name: Pull legacy Terraform rollback snapshot
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - state
+              - pull
+          args:
+            chdir: "{{ terraform_legacy_root }}"
           environment:
             AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
             AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
             AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
             AWS_REGION: "{{ assume_role_aws_auth.region }}"
             AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: "{{ terraform_migration_temp_dir.path }}/legacy-tfdata"
+          register: terraform_legacy_state_snapshot
+          changed_when: false
+          no_log: true
+          when:
+            - terraform_state_migration_apply_enabled | bool
+
+        - name: Write protected legacy Terraform rollback snapshot
+          ansible.builtin.copy:
+            dest: "{{ terraform_migration_temp_dir.path }}/legacy-terraform.tfstate.backup"
+            content: "{{ terraform_legacy_state_snapshot.stdout }}"
+            mode: "0600"
+          no_log: true
+          when:
+            - terraform_state_migration_apply_enabled | bool
+
+        - name: Inspect legacy Terraform rollback snapshot
+          ansible.builtin.stat:
+            path: "{{ terraform_migration_temp_dir.path }}/legacy-terraform.tfstate.backup"
+          register: terraform_legacy_state_snapshot_file
+          when:
+            - terraform_state_migration_apply_enabled | bool
+
+        - name: Require valid legacy Terraform rollback snapshot
+          ansible.builtin.assert:
+            that:
+              - terraform_legacy_state_snapshot_file.stat.exists
+              - terraform_legacy_state_snapshot_file.stat.size | int > 0
+            fail_msg: >-
+              terraform state pull did not produce a valid rollback snapshot.
+              No state migration is permitted.
           when:
             - terraform_state_migration_apply_enabled | bool
 
@@ -728,41 +750,122 @@
                 terraform_foundation_stage_validated: true
 
           rescue:
-            - name: Remove incomplete new Foundation state
-              amazon.aws.s3_object:
-                bucket: "{{ terraform_backend_bucket }}"
-                object: "{{ terraform_foundation_backend_key }}"
-                mode: delobj
-                region: "{{ terraform_backend_region }}"
+            - name: List staged Foundation state during rollback
+              ansible.builtin.command:
+                argv:
+                  - terraform
+                  - state
+                  - list
+              args:
+                chdir: "{{ terraform_foundation_root }}"
               environment:
                 AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
                 AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
                 AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
                 AWS_REGION: "{{ assume_role_aws_auth.region }}"
                 AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+                TF_IN_AUTOMATION: "true"
+                TF_DATA_DIR: "{{ terraform_migration_temp_dir.path }}/foundation-tfdata"
+              register: terraform_foundation_rollback_state
+              changed_when: false
 
-            - name: Restore legacy Terraform state from migration backup
-              amazon.aws.s3_object:
-                bucket: "{{ terraform_backend_bucket }}"
-                object: "{{ terraform_legacy_backend_key }}"
-                mode: copy
-                copy_src:
-                  bucket: "{{ terraform_backend_bucket }}"
-                  object: "{{ terraform_migration_backup_key | regex_replace('\\s+', '') }}"
-                region: "{{ terraform_backend_region }}"
+            - name: Select staged Foundation bindings for rollback
+              ansible.builtin.set_fact:
+                terraform_foundation_rollback_addresses: >-
+                  {{
+                    [
+                      terraform_foundation_nfw_kms_address,
+                      terraform_foundation_nfw_kms_alias_address,
+                      terraform_foundation_standard_vault_address,
+                      terraform_foundation_airgap_vault_address
+                    ]
+                    | intersect(
+                        terraform_foundation_rollback_state.stdout_lines
+                        | default([])
+                      )
+                  }}
+
+            - name: Remove staged Foundation bindings during rollback
+              ansible.builtin.command:
+                argv:
+                  - terraform
+                  - state
+                  - rm
+                  - -lock=true
+                  - -lock-timeout=5m
+                  - "{{ item }}"
+              args:
+                chdir: "{{ terraform_foundation_root }}"
               environment:
                 AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
                 AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
                 AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
                 AWS_REGION: "{{ assume_role_aws_auth.region }}"
                 AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+                TF_IN_AUTOMATION: "true"
+                TF_DATA_DIR: "{{ terraform_migration_temp_dir.path }}/foundation-tfdata"
+              loop: "{{ terraform_foundation_rollback_addresses }}"
+              changed_when: true
+              when:
+                - terraform_foundation_rollback_addresses | length > 0
+
+            - name: Restore legacy Terraform rollback snapshot
+              ansible.builtin.command:
+                argv:
+                  - terraform
+                  - state
+                  - push
+                  - -force
+                  - "{{ terraform_migration_temp_dir.path }}/legacy-terraform.tfstate.backup"
+              args:
+                chdir: "{{ terraform_legacy_root }}"
+              environment:
+                AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+                AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+                AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+                AWS_REGION: "{{ assume_role_aws_auth.region }}"
+                AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+                TF_IN_AUTOMATION: "true"
+                TF_DATA_DIR: "{{ terraform_migration_temp_dir.path }}/legacy-tfdata"
+              changed_when: true
+              no_log: true
+
+            - name: Verify restored legacy Terraform ownership
+              ansible.builtin.command:
+                argv:
+                  - terraform
+                  - state
+                  - list
+              args:
+                chdir: "{{ terraform_legacy_root }}"
+              environment:
+                AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+                AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+                AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+                AWS_REGION: "{{ assume_role_aws_auth.region }}"
+                AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+                TF_IN_AUTOMATION: "true"
+                TF_DATA_DIR: "{{ terraform_migration_temp_dir.path }}/legacy-tfdata"
+              register: terraform_legacy_rollback_verification
+              changed_when: false
+
+            - name: Confirm legacy Network Firewall KMS ownership restored
+              ansible.builtin.assert:
+                that:
+                  - >-
+                    terraform_legacy_nfw_kms_address
+                    in terraform_legacy_rollback_verification.stdout_lines
+                fail_msg: >-
+                  Automatic rollback completed but legacy Network Firewall
+                  KMS ownership could not be verified.
 
             - name: Stop after destination staging failure
               ansible.builtin.fail:
                 msg: >-
-                  Foundation destination staging failed. The newly-created
-                  Foundation state was removed and the legacy state backup was
-                  restored. Review the job output before retrying.
+                  Foundation state migration failed. Staged Foundation
+                  bindings were removed and the original legacy Terraform
+                  state snapshot was restored. Review the failed task before
+                  retrying.
 
         - name: Verify legacy Network Firewall KMS binding is removed
           ansible.builtin.command:
@@ -801,9 +904,9 @@
               - "Destination: {{ terraform_foundation_backend_key }}"
               - "Legacy generic KMS remains untouched."
               - "No Terraform apply was performed."
-              - >-
-                Legacy state backup:
-                {{ terraform_migration_backup_key | regex_replace('\\s+', '') }}
+
+              - "Rollback snapshot captured with terraform state pull."
+
           when:
             - terraform_state_migration_apply_enabled | bool
 
