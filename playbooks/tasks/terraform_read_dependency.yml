@@ -5,7 +5,9 @@
       - terraform_dependency_stack | length > 0
       - terraform_dependency_output_names | length > 0
       - terraform_dependency_backend_keys[terraform_environment] is defined
-      - terraform_dependency_backend_keys[terraform_environment][terraform_dependency_stack] is defined
+      - >-
+        terraform_dependency_backend_keys[terraform_environment]
+        [terraform_dependency_stack] is defined
     fail_msg: >-
       Missing approved backend or output binding for dependency
       {{ terraform_dependency_stack }}.
@@ -44,7 +46,8 @@
       - "-backend-config=key={{ terraform_dependency_backend_key }}"
       - "-backend-config=region={{ terraform_backend_region }}"
       - "-backend-config=encrypt={{ terraform_backend_encrypt | lower }}"
-      - "-backend-config=use_lockfile={{ terraform_backend_use_lockfile | lower }}"
+      - >-
+        -backend-config=use_lockfile={{ terraform_backend_use_lockfile | lower }}
   args:
     chdir: "{{ terraform_dependency_root }}"
   environment:
@@ -58,13 +61,12 @@
   changed_when: false
   no_log: true
 
-- name: Read approved dependency outputs
+- name: Read dependency output document
   ansible.builtin.command:
     argv:
       - terraform
       - output
       - -json
-      - "{{ terraform_dependency_output_name }}"
   args:
     chdir: "{{ terraform_dependency_root }}"
   environment:
@@ -75,13 +77,32 @@
     AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
     TF_IN_AUTOMATION: "true"
     TF_DATA_DIR: "{{ terraform_dependency_tf_data_dir }}"
-  loop: "{{ terraform_dependency_output_names }}"
-  loop_control:
-    loop_var: terraform_dependency_output_name
-    label: "{{ terraform_dependency_output_name }}"
-  register: terraform_dependency_output_reads
+  register: terraform_dependency_output_read
   changed_when: false
   no_log: true
+
+- name: Parse dependency output document
+  ansible.builtin.set_fact:
+    terraform_dependency_output_document: >-
+      {{ terraform_dependency_output_read.stdout | from_json }}
+  no_log: true
+
+- name: Validate required dependency outputs
+  ansible.builtin.assert:
+    that:
+      - >-
+        (terraform_dependency_outputs_optional | default(false) | bool)
+        or
+        (
+          terraform_dependency_output_names
+          | difference(
+              terraform_dependency_output_document.keys() | list
+            )
+          | length
+        ) == 0
+    fail_msg: >-
+      Required outputs are missing from the {{ terraform_dependency_stack }}
+      Terraform state. Apply the approved upstream stack before retrying.
 
 - name: Initialize dependency output map
   ansible.builtin.set_fact:
@@ -95,19 +116,22 @@
         terraform_current_dependency_outputs
         | combine(
             {
-              terraform_dependency_output_result.terraform_dependency_output_name:
+              terraform_dependency_output_name:
                 (
-                  terraform_dependency_output_result.stdout
-                  | from_json
+                  terraform_dependency_output_document[
+                    terraform_dependency_output_name
+                  ].value
+                  if terraform_dependency_output_name
+                     in terraform_dependency_output_document
+                  else none
                 )
             }
           )
       }}
-  loop: "{{ terraform_dependency_output_reads.results }}"
+  loop: "{{ terraform_dependency_output_names }}"
   loop_control:
-    loop_var: terraform_dependency_output_result
-    label: >-
-      {{ terraform_dependency_output_result.terraform_dependency_output_name }}
+    loop_var: terraform_dependency_output_name
+    label: "{{ terraform_dependency_output_name }}"
   no_log: true
 
 - name: Register dependency outputs

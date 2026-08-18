@@ -54,6 +54,8 @@
     loop_var: terraform_dependency_binding
     label: "{{ terraform_dependency_binding.key }}"
   vars:
+    terraform_dependency_outputs_optional: >-
+      {{ terraform_dependency_binding.key == 'persistent' }}
     terraform_dependency_stack: "{{ terraform_dependency_binding.key }}"
     terraform_dependency_output_names: "{{ terraform_dependency_binding.value }}"
 

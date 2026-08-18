@@ -1,0 +1,14 @@
+---
+# Copy outside Git and replace placeholders before running the local matrix.
+terraform_environment: sandbox
+
+assume_role_role_arn: "arn:aws:iam::111122223333:role/ire-terraform-role"
+assume_role_aws_region: "us-east-2"
+assume_role_application_name: "ire-terraform"
+assume_role_expected_account_id: "111122223333"
+
+terraform_backend_bucket: "ire-terraform-state-example"
+terraform_backend_region: "us-east-2"
+
+terraform_persistent_contract_source: managed
+terraform_external_persistent_resources: {}
