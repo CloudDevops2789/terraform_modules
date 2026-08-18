@@ -13,30 +13,6 @@ variable "name_prefix" {
   }
 }
 
-variable "tags" {
-  description = "Enterprise tags applied to persistent IRE foundation resources."
-  type        = map(string)
-  nullable    = false
-
-  validation {
-    condition = alltrue([
-      for key in [
-        "fv:it_cost_center",
-        "fv:department",
-        "fv:cmdb_calculated_app",
-        "fv:business_criticality",
-        "fv:environment",
-        "fv:data_classification",
-        "fv:project_name",
-        "fv:managed_by"
-      ] :
-      contains(keys(var.tags), key) &&
-      length(trimspace(lookup(var.tags, key, ""))) > 0
-    ])
-
-    error_message = "tags must contain all mandatory Fairview fv:* tag keys with non-empty values."
-  }
-}
 
 variable "air_gapped_min_retention_days" {
   description = "Minimum retention period for the logically air-gapped vault."

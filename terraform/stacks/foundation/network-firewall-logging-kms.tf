@@ -55,7 +55,7 @@ module "network_firewall_logging_kms" {
   ]
 
   tags = merge(
-    var.tags,
+    local.org_tags,
     {
       "fv:service_name" = "network-firewall-logging"
     }

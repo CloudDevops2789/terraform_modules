@@ -12,7 +12,7 @@ module "backup_standard_vault" {
   # Retained recovery points must never be implicitly deleted by Terraform.
   force_destroy = false
 
-  tags = var.tags
+  tags = local.org_tags
 }
 
 module "backup_logically_air_gapped_vault" {
@@ -23,5 +23,5 @@ module "backup_logically_air_gapped_vault" {
   min_retention_days = var.air_gapped_min_retention_days
   max_retention_days = var.air_gapped_max_retention_days
 
-  tags = var.tags
+  tags = local.org_tags
 }

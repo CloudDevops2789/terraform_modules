@@ -1,7 +1,7 @@
 ##################################################################################################
 # Sandbox Common Organization Tags
 #
-# Shared by Platform, Identity, and Recovery stacks.
+# Shared by Foundation, Platform, Identity, and Recovery stacks.
 ##################################################################################################
 org_it_cost_center       = "999999999"
 org_department           = "cloud"
