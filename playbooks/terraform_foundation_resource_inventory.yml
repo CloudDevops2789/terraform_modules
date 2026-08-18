@@ -1,0 +1,84 @@
+---
+- name: Inventory Foundation AWS resources
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  pre_tasks:
+    - name: Validate Foundation inventory inputs
+      ansible.builtin.assert:
+        that:
+          - assume_role_role_arn | default('') | length > 0
+          - assume_role_aws_region | default('') | length > 0
+          - assume_role_application_name | default('') | length > 0
+          - >-
+            (assume_role_expected_account_id | default(''))
+            is match('^[0-9]{12}$')
+        fail_msg: >-
+          Supply the approved AssumeRole configuration and expected AWS
+          account ID through AAP.
+
+  roles:
+    - role: ire_platform.aws.assume_role
+
+  tasks:
+    - name: Read customer-managed KMS key inventory
+      amazon.aws.kms_key_info:
+        access_key: "{{ assume_role_aws_auth.access_key }}"
+        secret_key: "{{ assume_role_aws_auth.secret_key }}"
+        session_token: "{{ assume_role_aws_auth.session_token }}"
+        region: "{{ assume_role_aws_auth.region }}"
+      register: terraform_foundation_kms_inventory
+      no_log: true
+
+    - name: Read AWS Backup vault inventory
+      amazon.aws.backup_vault_info:
+        access_key: "{{ assume_role_aws_auth.access_key }}"
+        secret_key: "{{ assume_role_aws_auth.secret_key }}"
+        session_token: "{{ assume_role_aws_auth.session_token }}"
+        region: "{{ assume_role_aws_auth.region }}"
+      register: terraform_foundation_backup_inventory
+      no_log: true
+
+    - name: Report customer-managed KMS keys
+      ansible.builtin.debug:
+        msg:
+          - "Key ID: {{ foundation_kms_key.key_id }}"
+          - "Key ARN: {{ foundation_kms_key.key_arn }}"
+          - "Aliases: {{ foundation_kms_key.aliases | default([]) }}"
+          - "State: {{ foundation_kms_key.key_state }}"
+          - "Created: {{ foundation_kms_key.creation_date }}"
+          - "Description: {{ foundation_kms_key.description }}"
+          - "Tags: {{ foundation_kms_key.tags | default({}) }}"
+      loop: "{{ terraform_foundation_kms_inventory.kms_keys | default([]) }}"
+      loop_control:
+        loop_var: foundation_kms_key
+        label: "{{ foundation_kms_key.key_id }}"
+      when:
+        - >-
+          (foundation_kms_key.key_manager | default('')) == 'CUSTOMER'
+
+    - name: Report AWS Backup vaults
+      ansible.builtin.debug:
+        msg:
+          - "Vault name: {{ foundation_backup_vault.backup_vault_name }}"
+          - "Vault ARN: {{ foundation_backup_vault.backup_vault_arn }}"
+          - >-
+            Encryption key:
+            {{ foundation_backup_vault.encryption_key_arn }}
+          - "Locked: {{ foundation_backup_vault.locked | default(false) }}"
+          - >-
+            Recovery points:
+            {{ foundation_backup_vault.number_of_recovery_points }}
+          - >-
+            Minimum retention:
+            {{ foundation_backup_vault.min_retention_days | default('none') }}
+          - >-
+            Maximum retention:
+            {{ foundation_backup_vault.max_retention_days | default('none') }}
+          - "Created: {{ foundation_backup_vault.creation_date }}"
+      loop: >-
+        {{ terraform_foundation_backup_inventory.backup_vaults | default([]) }}
+      loop_control:
+        loop_var: foundation_backup_vault
+        label: "{{ foundation_backup_vault.backup_vault_name }}"
