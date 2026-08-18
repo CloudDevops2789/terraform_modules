@@ -1,0 +1,196 @@
+---
+- name: Unlock approved Terraform lifecycle state
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars_files:
+    - vars/terraform_stack_bindings.yml
+
+  vars:
+    terraform_environment: "sandbox"
+    terraform_stack: ""
+
+    terraform_backend_use_lockfile: true
+    terraform_backend_encrypt: true
+
+    # Unlocking is denied unless AAP explicitly supplies all three controls.
+    terraform_state_unlock_enabled: false
+    terraform_state_lock_id: ""
+    terraform_state_unlock_confirmation: ""
+
+  pre_tasks:
+    - name: Validate Terraform state unlock inputs
+      ansible.builtin.assert:
+        that:
+          - assume_role_role_arn | default('') | length > 0
+          - assume_role_aws_region | default('') | length > 0
+          - assume_role_application_name | default('') | length > 0
+          - >-
+            (assume_role_expected_account_id | default(''))
+            is match('^[0-9]{12}$')
+
+          - terraform_environment | default('') | length > 0
+          - terraform_environment in terraform_allowed_environments
+
+          - terraform_stack | default('') | length > 0
+          - terraform_stack in terraform_active_stacks
+
+          - terraform_backend_bucket | default('') | length > 2
+          - terraform_backend_region | default('') | length > 0
+
+          - terraform_state_unlock_enabled | bool
+          - >-
+            (terraform_state_lock_id | default(''))
+            is match(
+              '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+            )
+          - >-
+            terraform_state_unlock_confirmation
+            ==
+            'UNLOCK ' ~ terraform_environment ~ '/' ~ terraform_stack
+
+          - terraform_backend_key is not defined
+          - terraform_root is not defined
+
+        fail_msg: >-
+          Terraform state unlock inputs are missing or invalid. Unlocking
+          requires an approved environment and stack, the expected AWS account,
+          the exact Terraform lock ID, unlock enablement, and confirmation
+          UNLOCK <environment>/<stack>. Backend key and Terraform root are
+          derived internally and must not be supplied.
+
+    - name: Derive Terraform state unlock binding
+      ansible.builtin.set_fact:
+        terraform_effective_root: >-
+          {{ playbook_dir }}/../terraform/stacks/{{ terraform_stack }}
+        terraform_effective_backend_key: >-
+          ire/{{ terraform_environment }}/{{ terraform_stack }}/terraform.tfstate
+
+    - name: Check Terraform stack root
+      ansible.builtin.stat:
+        path: "{{ terraform_effective_root }}"
+      register: terraform_unlock_root_stat
+
+    - name: Validate Terraform stack root
+      ansible.builtin.assert:
+        that:
+          - terraform_unlock_root_stat.stat.exists
+          - terraform_unlock_root_stat.stat.isdir
+        fail_msg: >-
+          Terraform lifecycle stack root does not exist:
+          {{ terraform_effective_root }}
+
+    - name: Report controlled state unlock target
+      ansible.builtin.debug:
+        msg:
+          - "Environment: {{ terraform_environment }}"
+          - "Stack: {{ terraform_stack }}"
+          - "Backend key: {{ terraform_effective_backend_key }}"
+          - "Lock ID: {{ terraform_state_lock_id }}"
+
+  roles:
+    - role: ire_platform.aws.assume_role
+
+  tasks:
+    - name: Create temporary Terraform unlock workspace
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: ire-terraform-state-unlock-
+      register: terraform_unlock_temp_dir
+
+    - name: Execute controlled Terraform state unlock
+      block:
+        - name: Initialize locked Terraform backend
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - init
+              - -input=false
+              - -reconfigure
+              - "-backend-config=bucket={{ terraform_backend_bucket }}"
+              - "-backend-config=key={{ terraform_effective_backend_key }}"
+              - "-backend-config=region={{ terraform_backend_region }}"
+              - "-backend-config=encrypt={{ terraform_backend_encrypt | lower }}"
+              - >-
+                -backend-config=use_lockfile={{
+                terraform_backend_use_lockfile | lower
+                }}
+          args:
+            chdir: "{{ terraform_effective_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: "{{ terraform_unlock_temp_dir.path }}/tfdata"
+          changed_when: false
+          no_log: true
+
+        - name: Force-unlock exact Terraform state lock
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - force-unlock
+              - -force
+              - "{{ terraform_state_lock_id }}"
+          args:
+            chdir: "{{ terraform_effective_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: "{{ terraform_unlock_temp_dir.path }}/tfdata"
+          register: terraform_force_unlock
+          changed_when: true
+
+        - name: List Terraform state after unlock
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - state
+              - list
+          args:
+            chdir: "{{ terraform_effective_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: "{{ terraform_unlock_temp_dir.path }}/tfdata"
+          register: terraform_state_after_unlock
+          changed_when: false
+          failed_when:
+            - terraform_state_after_unlock.rc != 0
+            - >-
+              'No state file was found'
+              not in
+              (
+                terraform_state_after_unlock.stdout
+                ~ terraform_state_after_unlock.stderr
+              )
+
+        - name: Report Terraform state after unlock
+          ansible.builtin.debug:
+            msg:
+              - >-
+                Terraform lock {{ terraform_state_lock_id }} was removed from
+                {{ terraform_effective_backend_key }}.
+              - >-
+                State addresses:
+                {{ terraform_state_after_unlock.stdout_lines | default([]) }}
+
+      always:
+        - name: Remove temporary Terraform unlock workspace
+          ansible.builtin.file:
+            path: "{{ terraform_unlock_temp_dir.path }}"
+            state: absent
+          when:
+            - terraform_unlock_temp_dir.path is defined
