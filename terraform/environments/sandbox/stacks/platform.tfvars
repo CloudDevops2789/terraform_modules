@@ -593,8 +593,8 @@ client_vpn_security_group_rule_names = [
 #   Git controlled.
 ################################################################################
 
-client_vpn_enabled = false
-
+# client_vpn_enabled = false
+client_vpn_enabled = true
 
 ################################################################################
 # Client VPN Authentication Pattern
@@ -657,8 +657,8 @@ client_vpn_enabled = false
 # Do not expose authentication_type as an AAP survey/runtime architecture choice.
 ################################################################################
 
-authentication_type = "federated"
-
+#authentication_type = "federated"
+authentication_type = "certificate"
 
 ################################################################################
 # IAM SAML Provider Ownership
