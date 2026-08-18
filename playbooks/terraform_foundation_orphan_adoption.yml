@@ -230,6 +230,7 @@
         - name: Initialize Foundation adoption facts
           ansible.builtin.set_fact:
             terraform_foundation_adoption_backend_initialized: false
+            terraform_foundation_adoption_rollback_armed: false
             terraform_foundation_adoption_imports:
               - address: "{{ terraform_foundation_nfw_kms_address }}"
                 id: "{{ terraform_foundation_adoption_kms_key_id }}"
@@ -347,6 +348,10 @@
             fail_msg: >-
               Foundation state already owns one or more adoption targets. Stop
               and inspect state before retrying.
+
+        - name: Arm Foundation adoption rollback
+          ansible.builtin.set_fact:
+            terraform_foundation_adoption_rollback_armed: true
 
         - name: Import approved Foundation resources
           ansible.builtin.command:
@@ -561,6 +566,10 @@
               terraform_foundation_adoption_backend_initialized
               | default(false)
               | bool
+            - >-
+              terraform_foundation_adoption_rollback_armed
+              | default(false)
+              | bool
 
         - name: Select Foundation bindings for adoption rollback
           ansible.builtin.set_fact:
@@ -573,10 +582,18 @@
                     terraform_foundation_adoption_rollback_state.stdout_lines
                     | default([])
                   )
+                | difference(
+                    terraform_foundation_state_before_adoption.stdout_lines
+                    | default([])
+                  )
               }}
           when:
             - >-
               terraform_foundation_adoption_backend_initialized
+              | default(false)
+              | bool
+            - >-
+              terraform_foundation_adoption_rollback_armed
               | default(false)
               | bool
 
@@ -609,6 +626,10 @@
           when:
             - >-
               terraform_foundation_adoption_backend_initialized
+              | default(false)
+              | bool
+            - >-
+              terraform_foundation_adoption_rollback_armed
               | default(false)
               | bool
 
