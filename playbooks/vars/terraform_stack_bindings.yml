@@ -6,8 +6,9 @@
 terraform_allowed_environments:
   - sandbox
 
-# Foundation remains outside normal execution until controlled state migration.
+# All lifecycle stacks use the normal contract-brokered deployment workflow.
 terraform_active_stacks:
+  - foundation
   - platform
   - identity
   - recovery
@@ -17,6 +18,10 @@ terraform_active_stacks:
 ################################################################################
 
 terraform_stack_var_files:
+  foundation:
+    - common-tags.tfvars
+    - foundation.tfvars
+
   platform:
     - common-tags.tfvars
     - platform.tfvars
@@ -37,6 +42,9 @@ terraform_stack_var_files:
 # AAP resolves them internally from approved upstream Terraform outputs.
 
 terraform_sandbox_runtime_variable_allowlists:
+  foundation:
+    - kms_key_administrators
+
   platform:
     - server_certificate_arn
     - root_certificate_chain_arn
@@ -76,12 +84,9 @@ terraform_stack_dependency_outputs:
 ################################################################################
 # Dependency remote-state locations
 ################################################################################
-#
-# Foundation temporarily uses its existing legacy key.
-# Platform uses the new lifecycle-separated key.
-# Foundation will move to ire/<env>/foundation during its controlled cutover.
+# Each dependency resolves from its lifecycle-separated backend key.
 
 terraform_dependency_backend_keys:
   sandbox:
-    foundation: "foundation/terraform.tfstate"
+    foundation: "ire/sandbox/foundation/terraform.tfstate"
     platform: "ire/sandbox/platform/terraform.tfstate"
