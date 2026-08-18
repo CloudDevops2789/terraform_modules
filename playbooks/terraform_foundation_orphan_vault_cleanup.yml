@@ -1,13 +1,10 @@
 ---
-- name: Delete empty orphaned Foundation Backup vaults
+- name: Delete exact empty orphaned Foundation Backup vaults
   hosts: localhost
   connection: local
   gather_facts: false
 
   vars:
-    terraform_backend_use_lockfile: true
-    terraform_backend_encrypt: true
-
     foundation_orphan_cleanup_enabled: false
     foundation_orphan_cleanup_confirmation: ""
     foundation_orphan_cleanup_expected_confirmation: >-
@@ -18,18 +15,8 @@
     foundation_orphan_airgap_vault_name: >-
       ire-sandbox-foundation-airgap-backup-vault
 
-    foundation_orphan_legacy_backend_key: "foundation/terraform.tfstate"
-    foundation_orphan_final_backend_key: >-
-      ire/sandbox/foundation/terraform.tfstate
-
-    foundation_orphan_backend_bindings:
-      - name: legacy
-        key: "{{ foundation_orphan_legacy_backend_key }}"
-      - name: final
-        key: "{{ foundation_orphan_final_backend_key }}"
-
   pre_tasks:
-    - name: Validate Foundation orphan cleanup inputs
+    - name: Validate Foundation orphan-vault cleanup inputs
       ansible.builtin.assert:
         that:
           - assume_role_role_arn | default('') | length > 0
@@ -38,14 +25,6 @@
           - >-
             (assume_role_expected_account_id | default(''))
             is match('^[0-9]{12}$')
-          - terraform_backend_bucket | default('') | length > 2
-          - terraform_backend_region | default('') | length > 0
-          - >-
-            foundation_orphan_legacy_backend_key
-            == 'foundation/terraform.tfstate'
-          - >-
-            foundation_orphan_final_backend_key
-            == 'ire/sandbox/foundation/terraform.tfstate'
           - foundation_orphan_cleanup_enabled | bool
           - >-
             foundation_orphan_cleanup_confirmation
@@ -54,7 +33,7 @@
           Supply the approved AssumeRole configuration, explicitly enable the
           cleanup, and provide the exact cleanup confirmation through AAP.
 
-    - name: Report fixed Foundation orphan cleanup targets
+    - name: Report fixed Foundation orphan-vault cleanup targets
       ansible.builtin.debug:
         msg:
           - >-
@@ -64,121 +43,27 @@
             Air-gapped vault:
             {{ foundation_orphan_airgap_vault_name }}
           - >-
-            Customer-managed KMS keys are outside this cleanup and will not be
-            modified.
+            Terraform state and customer-managed KMS keys are outside this
+            cleanup and will not be read or modified.
 
   roles:
     - role: ire_platform.aws.assume_role
 
   tasks:
-    - name: Create temporary Foundation state-inspection workspace
-      ansible.builtin.tempfile:
-        state: directory
-        prefix: ire-foundation-orphan-cleanup-
-      register: foundation_orphan_cleanup_temp_dir
-
-    - name: Initialize known Foundation backends for ownership inspection
-      ansible.builtin.command:
-        argv:
-          - terraform
-          - init
-          - -input=false
-          - -reconfigure
-          - "-backend-config=bucket={{ terraform_backend_bucket }}"
-          - "-backend-config=key={{ foundation_backend_binding.key }}"
-          - "-backend-config=region={{ terraform_backend_region }}"
-          - "-backend-config=encrypt={{ terraform_backend_encrypt | lower }}"
-          - >-
-            -backend-config=use_lockfile={{ terraform_backend_use_lockfile | lower }}
-      args:
-        chdir: "{{ playbook_dir }}/../terraform/stacks/foundation"
-      environment:
-        AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
-        AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
-        AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
-        AWS_REGION: "{{ assume_role_aws_auth.region }}"
-        AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
-        TF_IN_AUTOMATION: "true"
-        TF_DATA_DIR: >-
-          {{ foundation_orphan_cleanup_temp_dir.path }}/{{ foundation_backend_binding.name }}-tfdata
-      loop: "{{ foundation_orphan_backend_bindings }}"
-      loop_control:
-        loop_var: foundation_backend_binding
-        label: "{{ foundation_backend_binding.name }}"
-      changed_when: false
-      no_log: true
-
-    - name: Pull known Foundation state snapshots
-      ansible.builtin.command:
-        argv:
-          - terraform
-          - state
-          - pull
-      args:
-        chdir: "{{ playbook_dir }}/../terraform/stacks/foundation"
-      environment:
-        AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
-        AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
-        AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
-        AWS_REGION: "{{ assume_role_aws_auth.region }}"
-        AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
-        TF_IN_AUTOMATION: "true"
-        TF_DATA_DIR: >-
-          {{ foundation_orphan_cleanup_temp_dir.path }}/{{ foundation_backend_binding.name }}-tfdata
-      loop: "{{ foundation_orphan_backend_bindings }}"
-      loop_control:
-        loop_var: foundation_backend_binding
-        label: "{{ foundation_backend_binding.name }}"
-      register: foundation_orphan_state_snapshots
-      changed_when: false
-      no_log: true
-
-    - name: Validate Foundation vaults are absent from known states
-      ansible.builtin.assert:
-        that:
-          - foundation_orphan_state_snapshots.results | length == 2
-          - >-
-            foundation_orphan_standard_vault_name
-            not in (
-              foundation_orphan_state_snapshots.results
-              | map(attribute='stdout')
-              | join('\n')
-            )
-          - >-
-            foundation_orphan_airgap_vault_name
-            not in (
-              foundation_orphan_state_snapshots.results
-              | map(attribute='stdout')
-              | join('\n')
-            )
-        fail_msg: >-
-          Cleanup stopped. At least one exact orphan-vault name is still present
-          in the legacy or final Foundation Terraform state. State ownership must
-          be reconciled before any AWS vault deletion.
-
-    - name: Report clear Foundation state ownership
-      ansible.builtin.debug:
-        msg:
-          - >-
-            Neither cleanup vault name is present in
-            foundation/terraform.tfstate.
-          - >-
-            Neither cleanup vault name is present in
-            ire/sandbox/foundation/terraform.tfstate.
-
-    - name: Read orphaned Foundation Backup vaults
+    - name: Read exact Foundation orphan Backup vaults
       amazon.aws.backup_vault_info:
         backup_vault_names:
           - "{{ foundation_orphan_standard_vault_name }}"
           - "{{ foundation_orphan_airgap_vault_name }}"
-        access_key: "{{ assume_role_aws_auth.access_key }}"
-        secret_key: "{{ assume_role_aws_auth.secret_key }}"
-        session_token: "{{ assume_role_aws_auth.session_token }}"
-        region: "{{ assume_role_aws_auth.region }}"
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+        AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+        AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+        AWS_REGION: "{{ assume_role_aws_auth.region }}"
+        AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
       register: foundation_orphan_vault_inventory
-      no_log: true
 
-    - name: Select orphaned Foundation Backup vault details
+    - name: Select exact Foundation orphan Backup vault details
       ansible.builtin.set_fact:
         foundation_orphan_standard_vault_matches: >-
           {{
@@ -204,17 +89,29 @@
           }}
       no_log: true
 
-    - name: Validate exact empty Foundation orphan vaults
+    - name: Validate exact empty Foundation orphan Backup vaults
       ansible.builtin.assert:
         that:
           - foundation_orphan_standard_vault_matches | length == 1
           - foundation_orphan_airgap_vault_matches | length == 1
           - >-
             foundation_orphan_standard_vault_matches[0].backup_vault_arn
-            is search(':' ~ assume_role_expected_account_id ~ ':')
+            is search(
+              ':backup:'
+              ~ assume_role_aws_auth.region
+              ~ ':'
+              ~ assume_role_expected_account_id
+              ~ ':'
+            )
           - >-
             foundation_orphan_airgap_vault_matches[0].backup_vault_arn
-            is search(':' ~ assume_role_expected_account_id ~ ':')
+            is search(
+              ':backup:'
+              ~ assume_role_aws_auth.region
+              ~ ':'
+              ~ assume_role_expected_account_id
+              ~ ':'
+            )
           - >-
             (
               foundation_orphan_standard_vault_matches[0].number_of_recovery_points
@@ -249,74 +146,81 @@
             ) == 365
         fail_msg: >-
           Cleanup stopped. Both exact Foundation orphan vaults must exist in the
-          expected account with zero recovery points. The standard vault must be
-          unlocked and the air-gapped vault must have the expected lock and
-          retention configuration.
+          expected account and Region with zero recovery points. The standard
+          vault must be unlocked, and the air-gapped vault must have the expected
+          lock and retention configuration.
 
-    - name: Delete empty Foundation orphan Backup vaults
+    - name: Report validated Foundation orphan Backup vaults
+      ansible.builtin.debug:
+        msg:
+          - >-
+            Validated empty standard vault:
+            {{ foundation_orphan_standard_vault_name }}
+          - >-
+            Validated empty air-gapped vault:
+            {{ foundation_orphan_airgap_vault_name }}
+          - >-
+            AWS account:
+            {{ assume_role_expected_account_id }}
+          - >-
+            AWS Region:
+            {{ assume_role_aws_auth.region }}
+
+    - name: Delete exact empty Foundation orphan Backup vaults
       amazon.aws.backup_vault:
         backup_vault_name: "{{ foundation_orphan_vault_name }}"
         state: absent
-        access_key: "{{ assume_role_aws_auth.access_key }}"
-        secret_key: "{{ assume_role_aws_auth.secret_key }}"
-        session_token: "{{ assume_role_aws_auth.session_token }}"
-        region: "{{ assume_role_aws_auth.region }}"
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+        AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+        AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+        AWS_REGION: "{{ assume_role_aws_auth.region }}"
+        AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
       loop:
-        - "{{ foundation_orphan_standard_vault_name }}"
         - "{{ foundation_orphan_airgap_vault_name }}"
+        - "{{ foundation_orphan_standard_vault_name }}"
       loop_control:
         loop_var: foundation_orphan_vault_name
         label: "{{ foundation_orphan_vault_name }}"
       register: foundation_orphan_vault_deletions
 
-    - name: Read Foundation Backup vaults after cleanup
-      amazon.aws.backup_vault_info:
-        backup_vault_names:
-          - "{{ foundation_orphan_standard_vault_name }}"
-          - "{{ foundation_orphan_airgap_vault_name }}"
-        access_key: "{{ assume_role_aws_auth.access_key }}"
-        secret_key: "{{ assume_role_aws_auth.secret_key }}"
-        session_token: "{{ assume_role_aws_auth.session_token }}"
-        region: "{{ assume_role_aws_auth.region }}"
+    - name: Verify Foundation orphan Backup vaults are absent
+      amazon.aws.backup_vault_info: {}
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+        AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+        AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+        AWS_REGION: "{{ assume_role_aws_auth.region }}"
+        AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
       register: foundation_orphan_vault_inventory_after_cleanup
-      no_log: true
+      until:
+        - >-
+          foundation_orphan_standard_vault_name
+          not in (
+            foundation_orphan_vault_inventory_after_cleanup.backup_vaults
+            | default([])
+            | map(attribute='backup_vault_name')
+            | list
+          )
+        - >-
+          foundation_orphan_airgap_vault_name
+          not in (
+            foundation_orphan_vault_inventory_after_cleanup.backup_vaults
+            | default([])
+            | map(attribute='backup_vault_name')
+            | list
+          )
+      retries: 12
+      delay: 5
 
-    - name: Verify Foundation orphan Backup vault cleanup
-      ansible.builtin.assert:
-        that:
-          - >-
-            foundation_orphan_standard_vault_name
-            not in (
-              foundation_orphan_vault_inventory_after_cleanup.backup_vaults
-              | default([])
-              | map(attribute='backup_vault_name')
-              | list
-            )
-          - >-
-            foundation_orphan_airgap_vault_name
-            not in (
-              foundation_orphan_vault_inventory_after_cleanup.backup_vaults
-              | default([])
-              | map(attribute='backup_vault_name')
-              | list
-            )
-        fail_msg: >-
-          One or more Foundation orphan Backup vaults still exist after cleanup.
-
-    - name: Report successful Foundation orphan vault cleanup
+    - name: Report successful Foundation orphan-vault cleanup
       ansible.builtin.debug:
         msg:
           - >-
             Deleted empty vault:
-            {{ foundation_orphan_standard_vault_name }}
-          - >-
-            Deleted empty vault:
             {{ foundation_orphan_airgap_vault_name }}
           - >-
-            Customer-managed KMS keys were not modified. Their deletion remains
-            subject to the organization SCP and Security approval.
-
-    - name: Remove temporary Foundation state-inspection workspace
-      ansible.builtin.file:
-        path: "{{ foundation_orphan_cleanup_temp_dir.path }}"
-        state: absent
+            Deleted empty vault:
+            {{ foundation_orphan_standard_vault_name }}
+          - >-
+            Terraform state and customer-managed KMS keys were not modified.
