@@ -1,27 +1,19 @@
 ---
-terraform_environment: "sandbox"
-terraform_stack: "platform"
-
-assume_role_role_arn: "<APPROVED_AAP_EXECUTION_ROLE_ARN>"
-assume_role_aws_region: "us-east-1"
-
-terraform_backend_bucket: "<APPROVED_STATE_BUCKET>"
-terraform_backend_region: "<BACKEND_BUCKET_REGION>"
-
-# Safe default: plan only.
+# Example fixed variables for a Persistent Resources plan JT.
+terraform_environment: sandbox
+terraform_stack: persistent
 terraform_apply_enabled: false
 
-# Initial persistent-platform bootstrap.
+assume_role_role_arn: "arn:aws:iam::111122223333:role/ire-terraform-role"
+assume_role_aws_region: "us-east-2"
+assume_role_application_name: "ire-terraform"
+assume_role_expected_account_id: "111122223333"
+
+terraform_backend_bucket: "ire-terraform-state-example"
+terraform_backend_region: "us-east-2"
+
+terraform_persistent_contract_source: managed
+terraform_external_persistent_resources: {}
+
+# Supply kms_key_administrators here only when Git enables managed KMS creation.
 terraform_variables: {}
-
-# Temporary recovery validation compute:
-#
-# terraform_variables:
-#   demo_ec2_enabled: true
-#   ami_id: "<APPROVED_AMI_IN_DEPLOYMENT_REGION>"
-
-# After Git enables federated Client VPN:
-#
-# terraform_variables:
-#   server_certificate_arn: "<ACM_SERVER_CERTIFICATE_ARN>"
-#   saml_provider_arn: "<ENTERPRISE_IAM_SAML_PROVIDER_ARN>"

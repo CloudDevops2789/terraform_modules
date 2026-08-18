@@ -1,7 +1,7 @@
 ##################################################################################################
 # Sandbox Common Organization Tags
 #
-# Shared by Foundation, Platform, Identity, and Recovery stacks.
+# Shared by Persistent Resources, Platform, Identity, and Recovery stacks.
 ##################################################################################################
 org_it_cost_center       = "10000-70100-8281"
 org_department           = "Cybersecurity_Resilience_and_Recovery"

@@ -1,21 +1,20 @@
 ---
-terraform_environment: "sandbox"
-terraform_stack: "recovery"
+# Safe Persistent Resources destroy-plan example. No resources are deleted.
+terraform_environment: sandbox
+terraform_stack: persistent
 
-assume_role_role_arn: "<APPROVED_AAP_EXECUTION_ROLE_ARN>"
-assume_role_aws_region: "us-east-1"
+assume_role_role_arn: "arn:aws:iam::111122223333:role/ire-terraform-role"
+assume_role_aws_region: "us-east-2"
+assume_role_application_name: "ire-terraform"
+assume_role_expected_account_id: "111122223333"
 
-terraform_backend_bucket: "<APPROVED_STATE_BUCKET>"
-terraform_backend_region: "<BACKEND_BUCKET_REGION>"
+terraform_backend_bucket: "ire-terraform-state-example"
+terraform_backend_region: "us-east-2"
 
-# Safe defaults.
-terraform_destroy_enabled: false
-terraform_destroy_confirmation: ""
-
-# Terraform Region is injected automatically from assume_role_aws_region.
+terraform_persistent_contract_source: managed
+terraform_external_persistent_resources: {}
 terraform_variables: {}
 
-# Approved Recovery stack destroy:
-#
-# terraform_destroy_enabled: true
-# terraform_destroy_confirmation: "DESTROY"
+terraform_destroy_enabled: false
+terraform_allow_persistent_destroy: false
+terraform_destroy_confirmation: ""

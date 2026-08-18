@@ -303,7 +303,7 @@ Git-controlled architecture includes:
 - SSM management architecture;
 - naming;
 - standard tagging;
-- Foundation integration enablement; and
+- Persistent Resources integration enablement; and
 - network security policy.
 
 The deployment Region is an AAP environment binding. The playbook derives
@@ -318,6 +318,33 @@ Non-sensitive desired-state environment configuration belongs in tracked
 
 Secrets, credentials, state, plans and sensitive runtime artifacts remain
 outside Git.
+
+## Lifecycle stacks and Persistent Resources
+
+Normal AAP execution is separated into four lifecycle stacks:
+
+| Stack | Ownership | Backend key |
+|---|---|---|
+| Persistent | Optional long-lived Backup vaults and logging KMS key | `ire/<environment>/persistent/terraform.tfstate` |
+| Platform | Network, security, access plane and shared platform services | `ire/<environment>/platform/terraform.tfstate` |
+| Identity | Directory and identity services | `ire/<environment>/identity/terraform.tfstate` |
+| Recovery | Temporary recovery workloads, plans and validation resources | `ire/<environment>/recovery/terraform.tfstate` |
+
+The Persistent stack name describes lifecycle, not an account/network foundation.
+Its existing AWS resource prefix remains `ire-sandbox-foundation` to avoid
+replacement during the Terraform root rename.
+
+AAP supports two Persistent contract sources:
+
+- `managed`: consume approved outputs from Persistent Terraform state;
+- `external`: consume approved existing AWS references without managing them.
+
+Backup vault and logging-KMS creation are independent, Git-controlled
+capabilities. Network Firewall logging does not require a customer-managed KMS
+key; when no ARN is supplied, CloudWatch Logs default encryption is used.
+
+See `terraform/stacks/persistent/README.md`, `docs/aap/variables.md`, and
+`docs/aap/job-templates.md` for exact managed/external and lifecycle usage.
 
 ## Client VPN authentication
 
