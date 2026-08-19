@@ -28,6 +28,8 @@ resource_name_overrides = {}
 # These logical selectors may change without changing Recovery Terraform code.
 recovery_workloads = {
   management = {
+    server_name = "A2NIREMGMT001"
+
     vpc_key      = "recovery_access"
     subnet_group = "admin-tools"
     subnet_index = 0
@@ -40,6 +42,8 @@ recovery_workloads = {
   }
 
   core = {
+    server_name = "A2NIRECORE001"
+
     vpc_key      = "core_recovery"
     subnet_group = "recovery-services"
     subnet_index = 0
@@ -52,6 +56,8 @@ recovery_workloads = {
   }
 
   protected = {
+    server_name = "A2NIREPROTDB001"
+
     vpc_key      = "protected_data"
     subnet_group = "protected-workloads"
     subnet_index = 0
