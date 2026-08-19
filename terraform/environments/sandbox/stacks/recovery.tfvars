@@ -42,22 +42,22 @@ resource_name_overrides = {}
 # }
 
 recovery_ssh_key_pairs = {
-   ire-lab-admin = {
-     source          = "managed"
-     public_key_path = "../../environments/sandbox/keys/ire-lab-admin.pub"
-   }
- }
+  ire-lab-admin = {
+    source          = "managed"
+    public_key_path = "../../environments/sandbox/keys/ire-lab-admin.pub"
+  }
+}
 
 # Representative Recovery workload placement.
 # These logical selectors may change without changing Recovery Terraform code.
 recovery_workloads = {
   management = {
-    server_name       = "A2NIREMGMT001"
-    ami_id            = "ami-0332d564d76dbd8d6" # Replace with an approved AMI before enabling Recovery compute.
-    access_method     = "ssh_key"
-    ssh_key_pair_key  = "ire-lab-admin"
+    server_name      = "A2NIREMGMT001"
+    ami_id           = "ami-0332d564d76dbd8d6" # Replace with an approved AMI before enabling Recovery compute.
+    access_method    = "ssh_key"
+    ssh_key_pair_key = "ire-lab-admin"
 
-    vpc_key       = "recovery_access"
+    vpc_key      = "recovery_access"
     subnet_group = "admin-tools"
     subnet_index = 0
 
@@ -69,9 +69,9 @@ recovery_workloads = {
   }
 
   core = {
-    server_name   = "A2NIRECORE001"
-    ami_id        = "ami-0332d564d76dbd8d6" # Replace with an approved AMI before enabling Recovery compute.
-    access_method = "ssh_key"
+    server_name      = "A2NIRECORE001"
+    ami_id           = "ami-0332d564d76dbd8d6" # Replace with an approved AMI before enabling Recovery compute.
+    access_method    = "ssh_key"
     ssh_key_pair_key = "ire-lab-admin"
 
     vpc_key      = "core_recovery"
@@ -86,9 +86,9 @@ recovery_workloads = {
   }
 
   protected = {
-    server_name   = "A2NIREPROTDB001"
-    ami_id        = "ami-0332d564d76dbd8d6" # Replace with an approved AMI before enabling Recovery compute.
-    access_method = "ssh_key"
+    server_name      = "A2NIREPROTDB001"
+    ami_id           = "ami-0332d564d76dbd8d6" # Replace with an approved AMI before enabling Recovery compute.
+    access_method    = "ssh_key"
     ssh_key_pair_key = "ire-lab-admin"
 
     vpc_key      = "protected_data"
