@@ -9,8 +9,9 @@ stable IRE architecture and capability enablement.
 |---|---|---|
 | Desired architecture | Git / Pull Request | topology, naming, tags, Client VPN mode, persistent capability flags |
 | Security policy | Git / Pull Request | security-group rules, Network Firewall rules, KMS policy scope |
-| Environment binding | AAP Template / Inventory / Credential | role, Regions, backend bucket, certificates, external resource references |
+| Environment binding | Git-controlled AAP inventory | role, Regions, backend bucket, target account, Persistent contract source |
 | Runtime intent | Fixed JT / approved survey | plan/apply, temporary workload enablement, approved AMI, destroy authorization |
+| External runtime binding | Fixed JT / approved survey | certificates, approved AMI, temporary exercise intent |
 | Secrets | AAP Credential / approved secret manager | bootstrap credentials, protected tokens and private material |
 
 ## Git-controlled stack configuration
@@ -32,21 +33,36 @@ network_firewall_logging_kms_enabled = false
 They can be enabled independently through a reviewed Git change. They are not
 launch-time AAP survey inputs.
 
-## Common AAP environment bindings
+## SCM inventory environment bindings
 
-Every normal deploy or destroy JT supplies these top-level Ansible variables:
+Every normal deploy or destroy JT selects an approved SCM-sourced AAP
+inventory. The inventory supplies these top-level Ansible variables:
 
 | Variable | Required | Purpose |
 |---|---:|---|
 | `terraform_environment` | Yes | Approved environment; currently `sandbox` |
-| `terraform_stack` | Yes | Fixed JT value: `persistent`, `platform`, `identity`, or `recovery` |
 | `assume_role_role_arn` | Yes | Approved Terraform execution role |
 | `assume_role_aws_region` | Yes | Deployment Region; source for Terraform `aws_region` |
 | `assume_role_application_name` | Yes | Auditable session prefix, normally `ire-terraform` |
 | `assume_role_expected_account_id` | Yes | Twelve-digit target account guard |
 | `terraform_backend_bucket` | Yes | Approved S3 state bucket |
 | `terraform_backend_region` | Yes | Region containing the state bucket |
+| `terraform_persistent_contract_source` | Yes | `managed` outputs or approved `external` references |
+| `terraform_external_persistent_resources` | Yes | Mapping; use `{}` when unused |
+
+The customer-neutral inventory structure is under `inventories/example/`.
+Real account, role, backend, and external-resource values belong only in the
+private deployment-configuration repository. Do not repeat inventory-owned
+values in individual JTs.
+
+Every JT supplies only:
+
+| Variable | Required | Purpose |
+|---|---:|---|
+| `terraform_stack` | Yes | Fixed JT value: `persistent`, `platform`, `identity`, or `recovery` |
+| Lifecycle flag | Yes | Fixed plan/apply or destroy intent |
 | `terraform_variables` | Yes | Stack-specific allowlisted runtime map; use `{}` when empty |
+| Destroy gate | Destroy only | Stack-specific allow Boolean and confirmation |
 
 The playbooks derive Terraform root and backend key internally. Never supply
 `terraform_root`, `terraform_backend_key`, `persistent_resources`, or
@@ -54,12 +70,13 @@ The playbooks derive Terraform root and backend key internally. Never supply
 
 ## Persistent contract selection
 
-These are top-level Ansible variables, not members of `terraform_variables`:
+These are top-level environment inventory variables, not members of
+`terraform_variables`:
 
-| Variable | Default | Purpose |
+| Variable | Source | Purpose |
 |---|---|---|
-| `terraform_persistent_contract_source` | `managed` | Selects managed Terraform outputs or external AWS references |
-| `terraform_external_persistent_resources` | `{}` | Approved external references used only in `external` mode |
+| `terraform_persistent_contract_source` | Required | Selects managed Terraform outputs or external AWS references |
+| `terraform_external_persistent_resources` | Required | Approved external references used only in `external` mode; otherwise `{}` |
 
 Managed mode:
 
@@ -153,10 +170,10 @@ Actual destroy authorization:
 
 | Stack | Additional variables |
 |---|---|
-| Recovery | `terraform_destroy_enabled: true`, `terraform_destroy_confirmation: "DESTROY"` |
-| Identity | Above plus `terraform_allow_identity_destroy: true`, confirmation `DESTROY IDENTITY` |
-| Platform | Above plus `terraform_allow_platform_destroy: true`, confirmation `DESTROY PLATFORM` |
-| Persistent | Above plus `terraform_allow_persistent_destroy: true`, confirmation `DESTROY PERSISTENT` |
+| Recovery | `terraform_destroy_enabled: true`, `terraform_allow_recovery_destroy: true`, confirmation `DESTROY RECOVERY` |
+| Identity | `terraform_destroy_enabled: true`, `terraform_allow_identity_destroy: true`, confirmation `DESTROY IDENTITY` |
+| Platform | `terraform_destroy_enabled: true`, `terraform_allow_platform_destroy: true`, confirmation `DESTROY PLATFORM` |
+| Persistent | `terraform_destroy_enabled: true`, `terraform_allow_persistent_destroy: true`, confirmation `DESTROY PERSISTENT` |
 
 Destroy must receive the same Git configuration, runtime Terraform variables,
 and contract source used to evaluate the deployed stack. External references
@@ -167,3 +184,8 @@ remain outside the Terraform destroy boundary.
 Never place credentials, passwords, private keys, access keys, or protected
 tokens in Git variable files or JT examples. Use AAP Credentials or the
 approved enterprise secret-management mechanism.
+
+AWS account IDs, role ARNs, Regions, backend bucket names, certificate ARNs,
+and external resource ARNs are identifiers rather than authentication secrets.
+Store real values only in the approved private configuration repository unless
+organizational classification policy requires stronger handling.

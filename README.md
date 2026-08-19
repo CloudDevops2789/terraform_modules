@@ -405,6 +405,12 @@ create a direct Recovery Access-to-Protected Data trust path.
 AAP orchestrates Terraform; it does not redefine the infrastructure
 architecture.
 
+Common account, role, Region, backend, and Persistent contract bindings are
+sourced once from a Git-controlled AAP inventory. Fixed JTs contain only stack
+selection, lifecycle intent, destroy gates, and allowlisted runtime bindings.
+The customer-neutral inventory structure is documented under `inventories/`;
+real values belong in the private deployment-configuration repository.
+
 ~~~text
 Git reviewed desired state
         |
@@ -641,11 +647,13 @@ terraform_destroy_enabled: false
 terraform_destroy_confirmation: ""
 ```
 
-Destruction requires both:
+Destruction requires the enable flag, the selected stack's elevated allow flag,
+and the exact stack-specific confirmation. For example, Recovery requires:
 
 ```yaml
 terraform_destroy_enabled: true
-terraform_destroy_confirmation: "DESTROY"
+terraform_allow_recovery_destroy: true
+terraform_destroy_confirmation: "DESTROY RECOVERY"
 ```
 
 The workflow:
@@ -729,6 +737,7 @@ Detailed implementation guidance is maintained in the following documents:
 |---|---|
 | [`docs/aap/README.md`](docs/aap/README.md) | AAP orchestration and execution model |
 | [`docs/aap/variables.md`](docs/aap/variables.md) | AAP runtime-input and credential contract |
+| [`inventories/README.md`](inventories/README.md) | SCM inventory ownership and private-environment usage |
 | [`docs/aap/examples/terraform-job-vars.example.yml`](docs/aap/examples/terraform-job-vars.example.yml) | Enterprise-safe example runtime configuration |
 | [`docs/terraform/configuration-reference.md`](docs/terraform/configuration-reference.md) | Terraform root-input reference and variable-to-resource intent |
 | [`docs/terraform/module-map.md`](docs/terraform/module-map.md) | Architecture-to-code and environment-to-module map |

@@ -11,11 +11,15 @@ Terraform remains responsible for AWS infrastructure desired state.
 Git
   -> reviewed architecture and security policy
 
-AAP Job Template / Inventory / Credential
-  -> execution role
-  -> deployment Region
+AAP SCM inventory
+  -> execution role and expected account
+  -> deployment and backend Regions
   -> backend binding
-  -> approved external AWS resource references
+  -> Persistent contract source
+
+AAP Job Template / Credential
+  -> fixed stack and lifecycle intent
+  -> allowlisted external runtime bindings
 
 AAP Survey / runtime
   -> plan or apply
@@ -29,8 +33,6 @@ Terraform
 
 ## Git-controlled desired state
 
-## Git-controlled desired state
-
 AAP explicitly supplies the Git-controlled variable files for the selected
 Terraform lifecycle stack.
 
@@ -39,6 +41,7 @@ For Sandbox, these files are stored under:
 ~~~text
 terraform/environments/sandbox/stacks/
   common-tags.tfvars
+  persistent.tfvars
   platform.tfvars
   platform-network-policy.tfvars
   identity.tfvars
@@ -51,6 +54,21 @@ Terraform.
 These contain stable non-sensitive architecture and security policy.
 
 AAP must not normally override them.
+
+## Git-controlled environment inventory
+
+Common execution bindings are sourced once from an approved SCM inventory
+instead of being copied into every JT. See `inventories/example/` for the
+customer-neutral structure.
+
+The private environment inventory owns the target environment, role ARN,
+expected account ID, deployment and backend Regions, backend bucket, and
+Persistent Resources contract source. JTs own only the fixed stack, lifecycle
+intent, destroy gates, and the allowlisted `terraform_variables` map.
+
+Do not place real organization values in the customer-neutral example
+inventory. Do not place environment bindings in an Execution Environment.
+
 ## Deployment Region
 
 `assume_role_aws_region` is the AAP deployment-Region binding.
@@ -109,3 +127,4 @@ See:
 - `variables.md`
 - `job-templates.md`
 - `examples/`
+- `../../inventories/README.md`
