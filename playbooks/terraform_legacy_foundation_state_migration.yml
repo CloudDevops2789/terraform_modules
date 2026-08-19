@@ -82,28 +82,28 @@
                | default('') | length > 0
           - >-
             not (terraform_state_migration_apply_enabled | bool)
-            or 'fv:it_cost_center' in (terraform_foundation_tags | default({}))
+            or 'org_it_cost_center' in (terraform_foundation_tags | default({}))
           - >-
             not (terraform_state_migration_apply_enabled | bool)
-            or 'fv:department' in (terraform_foundation_tags | default({}))
+            or 'org_department' in (terraform_foundation_tags | default({}))
           - >-
             not (terraform_state_migration_apply_enabled | bool)
-            or 'fv:cmdb_calculated_app' in (terraform_foundation_tags | default({}))
+            or 'org_cmdb_calculated_app' in (terraform_foundation_tags | default({}))
           - >-
             not (terraform_state_migration_apply_enabled | bool)
-            or 'fv:business_criticality' in (terraform_foundation_tags | default({}))
+            or 'org_business_criticality' in (terraform_foundation_tags | default({}))
           - >-
             not (terraform_state_migration_apply_enabled | bool)
-            or 'fv:environment' in (terraform_foundation_tags | default({}))
+            or 'org_environment' in (terraform_foundation_tags | default({}))
           - >-
             not (terraform_state_migration_apply_enabled | bool)
-            or 'fv:data_classification' in (terraform_foundation_tags | default({}))
+            or 'org_data_classification' in (terraform_foundation_tags | default({}))
           - >-
             not (terraform_state_migration_apply_enabled | bool)
-            or 'fv:project_name' in (terraform_foundation_tags | default({}))
+            or 'org_project_name' in (terraform_foundation_tags | default({}))
           - >-
             not (terraform_state_migration_apply_enabled | bool)
-            or 'fv:managed_by' in (terraform_foundation_tags | default({}))
+            or 'org_managed_by' in (terraform_foundation_tags | default({}))
         fail_msg: >-
           Write mode requires the complete approved Foundation configuration.
 

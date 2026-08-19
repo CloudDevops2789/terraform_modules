@@ -2,14 +2,14 @@ aws_region  = "us-east-1"
 name_prefix = "org-ire-sandbox-use1"
 
 tags = {
-  "fv:it_cost_center"       = "replace-with-approved-cost-center"
-  "fv:department"           = "replace-with-approved-department"
-  "fv:cmdb_calculated_app"  = "replace-with-approved-application"
-  "fv:business_criticality" = "replace-with-approved-criticality"
-  "fv:environment"          = "replace-with-approved-environment"
-  "fv:data_classification"  = "replace-with-approved-classification"
-  "fv:project_name"         = "AWS-IRE"
-  "fv:managed_by"           = "Terraform"
+  "org_it_cost_center"       = "replace-with-approved-cost-center"
+  "org_department"           = "replace-with-approved-department"
+  "org_cmdb_calculated_app"  = "replace-with-approved-application"
+  "org_business_criticality" = "replace-with-approved-criticality"
+  "org_environment"          = "replace-with-approved-environment"
+  "org_data_classification"  = "replace-with-approved-classification"
+  "org_project_name"         = "AWS-IRE"
+  "org_managed_by"           = "Terraform"
 }
 
 # Approved retention boundaries for the logically air-gapped vault.
