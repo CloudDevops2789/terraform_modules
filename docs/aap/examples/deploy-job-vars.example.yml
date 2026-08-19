@@ -1,19 +1,9 @@
 ---
-# Example fixed variables for a Persistent Resources plan JT.
-terraform_environment: sandbox
+# Minimal fixed variables for a Persistent Resources plan JT.
+# Environment, AssumeRole, backend, Region, and Persistent contract bindings
+# come from the selected SCM inventory.
 terraform_stack: persistent
 terraform_apply_enabled: false
-
-assume_role_role_arn: "arn:aws:iam::111122223333:role/ire-terraform-role"
-assume_role_aws_region: "us-east-2"
-assume_role_application_name: "ire-terraform"
-assume_role_expected_account_id: "111122223333"
-
-terraform_backend_bucket: "ire-terraform-state-example"
-terraform_backend_region: "us-east-2"
-
-terraform_persistent_contract_source: managed
-terraform_external_persistent_resources: {}
 
 # Supply kms_key_administrators here only when Git enables managed KMS creation.
 terraform_variables: {}

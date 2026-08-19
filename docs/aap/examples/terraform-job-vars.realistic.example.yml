@@ -1,24 +1,12 @@
 ---
 ################################################################################
-# Terraform AAP Environment Binding Example
+# Platform Apply JT With Certificate Authentication Runtime Bindings
 ################################################################################
-
-terraform_environment: "sandbox"
 terraform_stack: "platform"
+terraform_apply_enabled: true
 
-assume_role_role_arn: "<APPROVED_AAP_EXECUTION_ROLE_ARN>"
-assume_role_aws_region: "us-east-1"
-
-terraform_backend_bucket: "<APPROVED_STATE_BUCKET>"
-terraform_backend_region: "<BACKEND_BUCKET_REGION>"
-
-terraform_apply_enabled: false
-
-# AAP runtime/external bindings only.
-terraform_variables: {}
-
-# Example exercise:
-#
-# terraform_variables:
-#   demo_ec2_enabled: true
-#   ami_id: "<APPROVED_AMI_IN_DEPLOYMENT_REGION>"
+# Git controls client_vpn_enabled and authentication_type. The JT supplies only
+# the approved external certificate references required by that configuration.
+terraform_variables:
+  server_certificate_arn: "<APPROVED_SERVER_CERTIFICATE_ARN>"
+  root_certificate_chain_arn: "<APPROVED_ROOT_CA_CERTIFICATE_ARN>"

@@ -1,20 +1,9 @@
 ---
 # Safe Persistent Resources destroy-plan example. No resources are deleted.
-terraform_environment: sandbox
+# Environment, AssumeRole, backend, Region, and Persistent contract bindings
+# come from the selected SCM inventory.
 terraform_stack: persistent
-
-assume_role_role_arn: "arn:aws:iam::111122223333:role/ire-terraform-role"
-assume_role_aws_region: "us-east-2"
-assume_role_application_name: "ire-terraform"
-assume_role_expected_account_id: "111122223333"
-
-terraform_backend_bucket: "ire-terraform-state-example"
-terraform_backend_region: "us-east-2"
-
-terraform_persistent_contract_source: managed
-terraform_external_persistent_resources: {}
 terraform_variables: {}
 
 terraform_destroy_enabled: false
-terraform_allow_persistent_destroy: false
 terraform_destroy_confirmation: ""
