@@ -21,29 +21,6 @@ variable "platform_contract" {
 
   default  = null
   nullable = true
-
-  validation {
-    condition = (
-      !(
-        var.demo_ec2_enabled &&
-        anytrue([
-          for workload in values(var.recovery_workloads) :
-          contains(
-            ["ssm", "ssm_with_ssh_fallback"],
-            workload.access_method
-          )
-        ])
-      ) ||
-      try(
-        length(
-          trimspace(var.platform_contract.ssm_instance_profile_name)
-        ) > 0,
-        false
-      )
-    )
-
-    error_message = "The Platform contract must provide an SSM instance profile when Recovery workloads use SSM."
-  }
 }
 
 ##################################################################################################
@@ -77,6 +54,27 @@ variable "recovery_workloads" {
 
   default  = {}
   nullable = false
+
+  validation {
+    condition = (
+      !var.demo_ec2_enabled ||
+      !anytrue([
+        for workload in values(var.recovery_workloads) :
+        contains(
+          ["ssm", "ssm_with_ssh_fallback"],
+          workload.access_method
+        )
+      ]) ||
+      try(
+        length(
+          trimspace(var.platform_contract.ssm_instance_profile_name)
+        ) > 0,
+        false
+      )
+    )
+
+    error_message = "The Platform contract must provide an SSM instance profile when enabled Recovery workloads use SSM."
+  }
 
   validation {
     condition = alltrue([
