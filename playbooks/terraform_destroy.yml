@@ -19,6 +19,7 @@
     terraform_destroy_confirmation: ""
 
     # Elevated lifecycle-stack destruction controls.
+    terraform_allow_persistent_destroy: false
     terraform_allow_platform_destroy: false
     terraform_allow_identity_destroy: false
 
@@ -64,6 +65,12 @@
             )
             or
             (
+              terraform_stack == 'persistent'
+              and (terraform_allow_persistent_destroy | bool)
+              and terraform_destroy_confirmation == 'DESTROY PERSISTENT'
+            )
+            or
+            (
               terraform_stack == 'platform'
               and (terraform_allow_platform_destroy | bool)
               and terraform_destroy_confirmation == 'DESTROY PLATFORM'
@@ -76,11 +83,12 @@
             )
         fail_msg: >-
           Destruction was enabled without the authorization required for the
-          selected lifecycle stack. Recovery requires DESTROY. Platform
+          selected lifecycle stack. Persistent Resources requires
+          terraform_allow_persistent_destroy=true and DESTROY PERSISTENT. Recovery
+          requires DESTROY. Platform
           requires terraform_allow_platform_destroy=true and DESTROY PLATFORM.
           Identity requires terraform_allow_identity_destroy=true and
-          DESTROY IDENTITY. Foundation is not enabled in this workflow until
-          its existing state is migrated through the controlled cutover.
+          DESTROY IDENTITY.
 
     - name: Enforce Sandbox stack runtime variable allowlist
       ansible.builtin.assert:

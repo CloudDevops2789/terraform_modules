@@ -20,7 +20,7 @@
 #   - VPC and subnet CIDRs;
 #   - Client VPN enablement and authentication architecture;
 #   - SSM administration architecture;
-#   - Foundation integration enablement;
+#   - Persistent Resources integration enablement;
 #   - standard organization tags;
 #   - naming policy; and
 #   - approved resource-name overrides.
@@ -51,7 +51,7 @@
 #   root_certificate_chain_arn
 #   saml_provider_arn
 #   ssm_instance_profile_name
-#   foundation_resources
+#   persistent_resources
 #
 # Network topology, authentication mode, naming, tags, inspection mode, and SSM
 # architecture must not be supplied through AAP terraform_variables.
@@ -593,8 +593,8 @@ client_vpn_security_group_rule_names = [
 #   Git controlled.
 ################################################################################
 
-client_vpn_enabled = false
-
+# client_vpn_enabled = false
+client_vpn_enabled = true
 
 ################################################################################
 # Client VPN Authentication Pattern
@@ -657,8 +657,8 @@ client_vpn_enabled = false
 # Do not expose authentication_type as an AAP survey/runtime architecture choice.
 ################################################################################
 
-authentication_type = "federated"
-
+#authentication_type = "federated"
+authentication_type = "certificate"
 
 ################################################################################
 # IAM SAML Provider Ownership
@@ -828,21 +828,21 @@ ssm_instance_profile_mode = "terraform"
 
 
 ################################################################################
-# Optional Foundation Integrations
+# Optional Persistent Resources Integrations
 ################################################################################
 #
-# The Foundation environment has a separate Terraform state and ownership
+# The Persistent Resources environment has a separate Terraform state and ownership
 # boundary.
 #
 # Sandbox integrations are disabled until the corresponding persistent
-# Foundation resources are available.
+# Persistent resources are available.
 #
-# AAP may supply external Foundation references through:
+# AAP may supply external Persistent Resources references through:
 #
 #   terraform_variables:
-#     foundation_resources: {...}
+#     persistent_resources: {...}
 #
-# The exact Foundation references consumed depend on which integration is
+# The exact Persistent Resources references consumed depend on which integration is
 # enabled.
 ################################################################################
 
@@ -853,22 +853,22 @@ ssm_instance_profile_mode = "terraform"
 #
 # false
 #
-#   Sandbox does not compose the optional Foundation-backed AWS Backup
+#   Sandbox does not compose the optional Persistent Resources-backed AWS Backup
 #   integration.
 #
 # true
 #
-#   Sandbox consumes the approved Foundation backup resources required by the
+#   Sandbox consumes the approved Persistent Resources backup resources required by the
 #   recovery architecture.
 #
-#   AAP must provide the required external Foundation references through:
+#   AAP must provide the required external Persistent Resources references through:
 #
-#     foundation_resources
+#     persistent_resources
 #
 # Ownership:
 #
 #   Enablement is Git controlled.
-#   External Foundation resource identifiers are AAP environment bindings.
+#   External Persistent Resources resource identifiers are AAP environment bindings.
 ################################################################################
 
 
@@ -879,26 +879,26 @@ ssm_instance_profile_mode = "terraform"
 #
 # false
 #
-#   Foundation-backed Network Firewall logging integration is not enabled.
+#   Persistent Resources-backed Network Firewall logging integration is not enabled.
 #
 # true
 #
 #   Enables the configured Network Firewall logging integration and consumes the
-#   required persistent Foundation logging/encryption references.
+#   required persistent Persistent Resources logging/encryption references.
 #
-#   AAP must provide the required external Foundation references through:
+#   AAP must provide the required external Persistent Resources references through:
 #
-#     foundation_resources
+#     persistent_resources
 #
 # Operational expectation:
 #
 #   This should normally be enabled only as part of the approved firewall-mode
-#   architecture with the required Foundation logging/KMS resources available.
+#   architecture with the required Persistent Resources logging/KMS resources available.
 #
 # Ownership:
 #
 #   Enablement is Git controlled.
-#   External Foundation resource identifiers are AAP environment bindings.
+#   External Persistent Resources resource identifiers are AAP environment bindings.
 ################################################################################
 
 network_firewall_logging_enabled = false
@@ -1056,15 +1056,15 @@ resource_name_overrides = {}
 #       ssm_instance_profile_name: "<APPROVED_INSTANCE_PROFILE>"
 #
 #
-# 6. Optional Foundation integration
+# 6. Optional Persistent Resources integration
 #
 #   Git enables the required integration.
 #
 #   AAP supplies:
 #
 #     terraform_variables:
-#       foundation_resources:
-#         <approved external Foundation references>
+#       persistent_resources:
+#         <approved external Persistent Resources references>
 #
 #
 # Architecture values themselves must remain Git controlled.
