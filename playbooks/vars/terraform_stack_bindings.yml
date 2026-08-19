@@ -62,7 +62,6 @@ terraform_sandbox_runtime_variable_allowlists:
 
   recovery:
     - demo_ec2_enabled
-    - ami_id
 
 ################################################################################
 # Approved lifecycle dependencies and output contracts

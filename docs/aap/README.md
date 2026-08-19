@@ -24,7 +24,6 @@ AAP Job Template / Credential
 AAP Survey / runtime
   -> plan or apply
   -> demo workload lifecycle
-  -> approved regional AMI
   -> destroy authorization
 
 Terraform
@@ -54,6 +53,10 @@ Terraform.
 These contain stable non-sensitive architecture and security policy.
 
 AAP must not normally override them.
+
+Recovery workload AMIs, access methods, and SSH key-pair references are part of
+that reviewed Git configuration. AAP controls only whether the configured
+temporary workloads are enabled for the exercise.
 
 ## Git-controlled environment inventory
 
