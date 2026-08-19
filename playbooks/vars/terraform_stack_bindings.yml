@@ -6,11 +6,12 @@
 terraform_allowed_environments:
   - sandbox
 
-# Persistent contract source may be overridden by an approved AAP Job Template.
+# Persistent contract source is supplied by the approved environment inventory.
 # managed  -> read outputs from the persistent Terraform state.
 # external -> use the explicit external resource contract below.
-terraform_persistent_contract_source: managed
-terraform_external_persistent_resources: {}
+#
+# Do not define defaults here. vars_files have higher precedence than inventory
+# variables and would prevent the SCM inventory from selecting the contract.
 
 # All lifecycle stacks use the normal contract-brokered deployment workflow.
 terraform_active_stacks:

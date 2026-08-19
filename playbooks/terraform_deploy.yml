@@ -8,7 +8,6 @@
     - vars/terraform_stack_bindings.yml
 
   vars:
-    terraform_environment: "sandbox"
     terraform_stack: ""
 
     terraform_backend_use_lockfile: true
@@ -33,6 +32,13 @@
 
           - terraform_backend_bucket | default('') | length > 2
           - terraform_backend_region | default('') | length > 0
+
+          - >-
+            terraform_persistent_contract_source
+            | default('')
+            in ['managed', 'external']
+          - terraform_external_persistent_resources is defined
+          - terraform_external_persistent_resources is mapping
 
           - terraform_variables is defined
           - terraform_variables is mapping

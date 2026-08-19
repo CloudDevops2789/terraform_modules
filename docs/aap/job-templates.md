@@ -7,20 +7,23 @@ AAP uses two reusable lifecycle playbooks:
 | `playbooks/terraform_deploy.yml` | Terraform plan and approved apply |
 | `playbooks/terraform_destroy.yml` | Destroy plan and explicitly authorized destroy |
 
-Do not create a separate playbook per stack. Do not combine deploy and destroy
-into one playbook. Fixed stack-specific JTs provide clear RBAC, audit history,
-troubleshooting, and protection from selecting the wrong stack at launch.
+Keep the deploy and destroy playbooks separate. Fixed stack-specific Job
+Templates (JTs) provide clear RBAC, audit history, troubleshooting, and
+protection from selecting the wrong stack at launch.
 
-## Common fixed variables
+## Environment inventory
 
-Each JT fixes these values in Template or Inventory configuration:
+Create one Git-controlled, SCM-sourced AAP inventory for each deployment
+environment and contract profile. The customer-neutral structure is under
+`inventories/example/`.
+
+The selected inventory supplies:
 
 ~~~yaml
 terraform_environment: sandbox
-terraform_stack: "<persistent|platform|identity|recovery>"
 
 assume_role_role_arn: "<APPROVED_TERRAFORM_ROLE_ARN>"
-assume_role_aws_region: "us-east-2"
+assume_role_aws_region: "<DEPLOYMENT_REGION>"
 assume_role_application_name: "ire-terraform"
 assume_role_expected_account_id: "<12_DIGIT_ACCOUNT_ID>"
 
@@ -29,16 +32,30 @@ terraform_backend_region: "<BACKEND_BUCKET_REGION>"
 
 terraform_persistent_contract_source: managed
 terraform_external_persistent_resources: {}
-terraform_variables: {}
 ~~~
 
-`terraform_stack` must not be exposed as a free-form survey variable. Backend
-key and Terraform root are derived internally and must not be supplied.
+Store real environment values only in the private deployment-configuration
+repository. Do not duplicate these values in individual JTs.
+
+For an environment that consumes existing Persistent Resources, use a separate
+approved inventory profile:
+
+~~~yaml
+terraform_persistent_contract_source: external
+terraform_external_persistent_resources:
+  network_firewall_logging_kms_key_arn: "<EXISTING_KMS_KEY_ARN>"
+  standard_backup_vault_name: "<EXISTING_STANDARD_VAULT_NAME>"
+  air_gapped_backup_vault_arn: "<EXISTING_AIR_GAPPED_VAULT_ARN>"
+~~~
+
+Unused external references may be omitted. Never run the Persistent stack JTs
+with an external contract inventory because those resources are not managed by
+this Terraform state.
 
 ## Recommended fixed Job Templates
 
-Create four JTs per stack. This gives 16 predictable templates backed by only
-the two reusable playbooks.
+Create four JTs per stack. This gives 16 predictable templates backed by the
+two reusable playbooks and one shared environment inventory.
 
 | Stack | Plan | Apply | Destroy plan | Destroy |
 |---|---|---|---|---|
@@ -47,26 +64,31 @@ the two reusable playbooks.
 | Identity | `IRE-Identity-Plan` | `IRE-Identity-Apply` | `IRE-Identity-Destroy-Plan` | `IRE-Identity-Destroy` |
 | Recovery | `IRE-Recovery-Plan` | `IRE-Recovery-Apply` | `IRE-Recovery-Destroy-Plan` | `IRE-Recovery-Destroy` |
 
-Plan JTs fix `terraform_apply_enabled: false`. Apply JTs fix
-`terraform_apply_enabled: true`. Do not expose this Boolean through the normal
-plan template survey.
+Every JT selects the approved SCM inventory. Do not expose
+`terraform_environment`, `terraform_stack`, lifecycle enablement, backend
+configuration, account identity, or contract source as free-form survey
+variables.
 
-Destroy-plan JTs fix `terraform_destroy_enabled: false`. Actual destroy JTs fix
-the stack-specific confirmation and elevated allow flag shown below.
+## Deploy Job Template variables
 
-## Stack deploy variables
-
-### Persistent managed plan
+Persistent plan:
 
 ~~~yaml
 terraform_stack: persistent
 terraform_apply_enabled: false
-terraform_persistent_contract_source: managed
-terraform_external_persistent_resources: {}
 terraform_variables: {}
 ~~~
 
-If Git enables managed KMS creation:
+Persistent apply changes only the fixed lifecycle flag:
+
+~~~yaml
+terraform_stack: persistent
+terraform_apply_enabled: true
+terraform_variables: {}
+~~~
+
+When Git enables managed logging-KMS creation, both Persistent JTs supply the
+same approved administrator binding:
 
 ~~~yaml
 terraform_variables:
@@ -74,93 +96,84 @@ terraform_variables:
     - "arn:aws:iam::<ACCOUNT_ID>:role/<STABLE_KMS_ADMIN_ROLE>"
 ~~~
 
-Change only `terraform_apply_enabled` to `true` in the fixed Apply JT.
-
-### Platform managed contract
+Platform plan:
 
 ~~~yaml
 terraform_stack: platform
 terraform_apply_enabled: false
-terraform_persistent_contract_source: managed
-terraform_external_persistent_resources: {}
 terraform_variables: {}
 ~~~
 
-Client VPN or external SSM bindings are added to `terraform_variables` only
-when the corresponding Git-controlled capability requires them.
-
-### Platform external contract
+Platform apply:
 
 ~~~yaml
 terraform_stack: platform
-terraform_apply_enabled: false
-terraform_persistent_contract_source: external
-terraform_external_persistent_resources:
-  network_firewall_logging_kms_key_arn: "<EXISTING_KMS_KEY_ARN>"
+terraform_apply_enabled: true
 terraform_variables: {}
 ~~~
 
-Use an empty external map when CloudWatch Logs default encryption is intended.
+Git controls Client VPN enablement and authentication type. When required by
+that reviewed configuration, both Platform JTs receive the same approved
+external bindings under `terraform_variables`:
 
-### Identity
+~~~yaml
+terraform_variables:
+  server_certificate_arn: "<APPROVED_SERVER_CERTIFICATE_ARN>"
+  root_certificate_chain_arn: "<APPROVED_ROOT_CA_CERTIFICATE_ARN>"
+~~~
+
+Use `saml_provider_arn` instead of `root_certificate_chain_arn` when the
+Git-selected authentication type is federated.
+
+Identity plan and apply use:
 
 ~~~yaml
 terraform_stack: identity
-terraform_apply_enabled: false
+terraform_apply_enabled: false  # true only in the fixed Apply JT
 terraform_variables: {}
 ~~~
 
-Identity consumes the internally brokered Platform contract and has no
-Persistent Resources dependency.
-
-### Recovery managed contract
+Recovery plan and apply use:
 
 ~~~yaml
 terraform_stack: recovery
-terraform_apply_enabled: false
-terraform_persistent_contract_source: managed
-terraform_external_persistent_resources: {}
+terraform_apply_enabled: false  # true only in the fixed Apply JT
 terraform_variables:
   demo_ec2_enabled: true
   ami_id: "<APPROVED_AMI_ID>"
 ~~~
 
-### Recovery external contract
+Use an empty map when the temporary Recovery workload is disabled in Git.
+
+## Destroy Job Template variables
+
+Every destroy-plan JT uses:
 
 ~~~yaml
-terraform_stack: recovery
-terraform_apply_enabled: false
-terraform_persistent_contract_source: external
-terraform_external_persistent_resources:
-  standard_backup_vault_name: "<EXISTING_STANDARD_VAULT_NAME>"
-  air_gapped_backup_vault_arn: "<EXISTING_AIR_GAPPED_VAULT_ARN>"
-terraform_variables:
-  demo_ec2_enabled: true
-  ami_id: "<APPROVED_AMI_ID>"
-~~~
-
-Vault references are required only when Git enables Recovery backup
-integration. External resources are referenced, not imported or managed.
-
-## Destroy Job Templates
-
-Destroy plan for any stack:
-
-~~~yaml
+terraform_stack: "<fixed-stack>"
+terraform_variables: {}
 terraform_destroy_enabled: false
 terraform_destroy_confirmation: ""
 ~~~
 
+Supply the same allowlisted runtime bindings used by the matching deploy JTs so
+Terraform evaluates the same configuration.
+
 Actual Recovery destroy:
 
 ~~~yaml
+terraform_stack: recovery
+terraform_variables: {}
 terraform_destroy_enabled: true
-terraform_destroy_confirmation: "DESTROY"
+terraform_allow_recovery_destroy: true
+terraform_destroy_confirmation: "DESTROY RECOVERY"
 ~~~
 
 Actual Identity destroy:
 
 ~~~yaml
+terraform_stack: identity
+terraform_variables: {}
 terraform_destroy_enabled: true
 terraform_allow_identity_destroy: true
 terraform_destroy_confirmation: "DESTROY IDENTITY"
@@ -169,6 +182,8 @@ terraform_destroy_confirmation: "DESTROY IDENTITY"
 Actual Platform destroy:
 
 ~~~yaml
+terraform_stack: platform
+terraform_variables: {}
 terraform_destroy_enabled: true
 terraform_allow_platform_destroy: true
 terraform_destroy_confirmation: "DESTROY PLATFORM"
@@ -177,14 +192,15 @@ terraform_destroy_confirmation: "DESTROY PLATFORM"
 Actual Persistent destroy:
 
 ~~~yaml
-terraform_persistent_contract_source: managed
+terraform_stack: persistent
+terraform_variables: {}
 terraform_destroy_enabled: true
 terraform_allow_persistent_destroy: true
 terraform_destroy_confirmation: "DESTROY PERSISTENT"
 ~~~
 
-The Persistent destroy JT is break-glass. External contract mode never runs
-the Persistent stack and cannot delete externally owned KMS keys or vaults.
+Persistent destroy is break-glass. External contract mode never runs the
+Persistent stack and cannot delete externally owned KMS keys or vaults.
 
 ## Workflow order
 
@@ -210,7 +226,7 @@ Recovery -> Identity -> Platform -> Persistent
 
 Persistent destroy is omitted when resources are external or intentionally
 retained. Workflow approval nodes should precede Apply and every actual Destroy
-JT.
+JT. Keep the atomic JTs available for controlled troubleshooting.
 
 ## RBAC and surveys
 
@@ -220,10 +236,12 @@ JT.
 - Persistent destroy: most restricted break-glass role.
 - Surveys may expose approved AMI selection and temporary exercise intent.
 - Surveys must not expose topology, tags, naming, arbitrary Terraform maps,
-  stack selection, backend key, security policy, or capability flags.
+  stack selection, backend configuration, security policy, capability flags,
+  target account, or lifecycle enablement.
 
 ## Execution Environment
 
-The AAP Execution Environment must contain the repository-approved Terraform
-CLI, Ansible dependencies, AWS SDK dependencies, collection content, and
-enterprise trust configuration.
+The AAP Execution Environment contains the repository-approved Terraform CLI,
+Ansible dependencies, AWS SDK dependencies, collection content, and enterprise
+trust configuration. It must not contain environment-specific infrastructure
+bindings.
