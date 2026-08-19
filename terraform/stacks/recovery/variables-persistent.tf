@@ -1,9 +1,9 @@
 ##################################################################################################
-# Foundation Backup Integration
+# Persistent Resources Backup Integration
 ##################################################################################################
 
 variable "backup_integration_enabled" {
-  description = "Enable Recovery-stack AWS Backup plan, role, and configuration-driven workload selection using persistent Foundation vaults."
+  description = "Enable Recovery-stack AWS Backup plan, role, and configuration-driven workload selection using persistent vaults."
   type        = bool
   default     = false
 
@@ -23,8 +23,8 @@ variable "backup_integration_enabled" {
   }
 }
 
-variable "foundation_resources" {
-  description = "Persistent Foundation resources consumed by Recovery backup integration."
+variable "persistent_resources" {
+  description = "Persistent resources consumed by Recovery backup integration."
 
   type = object({
     standard_backup_vault_name  = optional(string)
@@ -41,7 +41,7 @@ variable "foundation_resources" {
         try(
           length(
             trimspace(
-              var.foundation_resources.standard_backup_vault_name
+              var.persistent_resources.standard_backup_vault_name
             )
           ) > 0,
           false
@@ -49,7 +49,7 @@ variable "foundation_resources" {
         can(regex(
           "^arn:[^:]+:backup:[^:]+:[0-9]{12}:backup-vault:",
           coalesce(
-            var.foundation_resources.air_gapped_backup_vault_arn,
+            var.persistent_resources.air_gapped_backup_vault_arn,
             ""
           )
         ))

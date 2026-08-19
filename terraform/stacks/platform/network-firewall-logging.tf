@@ -30,8 +30,8 @@ locals {
 ##################################################################################################
 # Persistent KMS Dependency
 ##################################################################################################
-# The customer-managed logging key is owned by the persistent IRE foundation
-# state. Sandbox consumes only the approved key ARN.
+# Customer-managed encryption is optional. When the contract supplies no KMS ARN,
+# CloudWatch Logs uses its default server-side encryption.
 
 ##################################################################################################
 # Encrypted CloudWatch Log Groups
@@ -46,7 +46,7 @@ resource "aws_cloudwatch_log_group" "network_firewall" {
 
   name              = each.value.name
   retention_in_days = local.network_firewall_logging.retention_in_days
-  kms_key_id        = var.foundation_resources.network_firewall_logging_kms_key_arn
+  kms_key_id        = try(var.persistent_resources.network_firewall_logging_kms_key_arn, null)
 
   tags = merge(
     local.org_tags,
@@ -100,10 +100,10 @@ output "network_firewall_log_group_names" {
 }
 
 output "network_firewall_logging_kms_key_arn" {
-  description = "ARN of the customer-managed KMS key used for Network Firewall log encryption when logging is enabled."
+  description = "Customer-managed KMS key ARN used for Network Firewall log encryption, or null when default CloudWatch Logs encryption is used."
   value = (
     local.network_firewall_enabled && var.network_firewall_logging_enabled
-    ? var.foundation_resources.network_firewall_logging_kms_key_arn
+    ? try(var.persistent_resources.network_firewall_logging_kms_key_arn, null)
     : null
   )
 }
