@@ -27,6 +27,7 @@ module "ec2" {
     ? {
       for workload_key, workload in var.recovery_workloads :
       workload_key => {
+        name          = workload.server_name
         ami           = local.ec2.ami
         instance_type = workload.instance_type
 

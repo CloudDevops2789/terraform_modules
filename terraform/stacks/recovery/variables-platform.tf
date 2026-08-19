@@ -45,7 +45,8 @@ variable "recovery_workloads" {
   description = "Arbitrary Recovery workloads with configuration-driven Platform placement."
 
   type = map(object({
-    vpc_key = string
+    server_name = optional(string)
+    vpc_key     = string
 
     # Select either one exact subnet or a logical subnet group.
     subnet_key   = optional(string)
@@ -62,6 +63,24 @@ variable "recovery_workloads" {
 
   default  = {}
   nullable = false
+
+  validation {
+    condition = alltrue([
+      for workload in values(var.recovery_workloads) :
+      workload.server_name == null ? true : length(trimspace(workload.server_name)) > 0
+    ])
+
+    error_message = "Recovery workload server names must be null or non-empty strings."
+  }
+
+  validation {
+    condition = length(distinct([
+      for workload_key, workload in var.recovery_workloads :
+      lower(coalesce(workload.server_name, workload_key))
+    ])) == length(var.recovery_workloads)
+
+    error_message = "Effective Recovery workload server names must be unique, ignoring case."
+  }
 
   validation {
     condition = alltrue([
