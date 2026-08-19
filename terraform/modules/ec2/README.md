@@ -33,6 +33,7 @@ module "ec2" {
     # Public instance: reachable from the internet, so it needs a
     # public IP and must sit in a subnet with an Internet Gateway route.
     management = {
+      name          = "EXAMPLEMGMT001"
       ami           = data.aws_ami.amazon_linux.id
       instance_type = "t3.micro"
 
@@ -91,13 +92,14 @@ output "core_private_ip" {
 
 | Name | Type | Default | Required | Description |
 |---|---|---|:---:|---|
-| `instances` | `map(object)` | `{}` | no | Instances to create. The map key becomes the `Name` tag. |
+| `instances` | `map(object)` | `{}` | no | Instances to create. The map key is the stable Terraform identity and is the default `Name` tag. |
 | `tags` | `map(string)` | `{}` | no | Tags applied to every instance, before per-instance overrides. |
 
 ### `instances` object
 
 | Attribute | Type | Default | Description |
 |---|---|---|---|
+| `name` | `string` | `null` | Optional EC2 `Name` tag. When omitted, the stable instance map key is used. |
 | `ami` | `string` | required | AMI ID. Usually from an `aws_ami` data source rather than hardcoded. |
 | `instance_type` | `string` | required | Instance type, e.g. `t3.micro`. |
 | `subnet_id` | `string` | required | Subnet to launch into. Determines the AZ and the effective route table. |
@@ -130,13 +132,13 @@ output "core_private_ip" {
 | `private_ips` | `map(string)` | Instance name → private IP. |
 | `public_ips` | `map(string)` | Instance name → public IP. Empty string for instances without one. |
 
-Every output is keyed by the same name used in the `instances` input, so callers index by name rather than position.
+Every output is keyed by the stable map key used in the `instances` input, so callers index by logical identity rather than display name or position.
 
 ---
 
 ## Design notes
 
-**The map key is the identity.** It becomes the `Name` tag, the Terraform resource address, and the output key. Renaming a key replaces the instance, so treat keys as stable identifiers.
+**The map key is the identity.** It becomes the Terraform resource address and output key, so renaming it replaces the instance. Treat keys as stable identifiers. The optional `name` attribute controls only the EC2 `Name` tag; when omitted, it falls back to the map key for backward compatibility.
 
 **Root-volume encryption is on by default.** The module always emits a root block device configuration and defaults `encrypted` to `true`. Callers can omit `volume_size` to retain the AMI/provider default size.
 

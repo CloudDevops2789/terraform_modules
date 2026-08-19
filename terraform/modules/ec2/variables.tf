@@ -29,6 +29,7 @@ variable "instances" {
   description = "EC2 instances to create."
 
   type = map(object({
+    name          = optional(string)
     ami           = string
     instance_type = string
     subnet_id     = string
@@ -60,6 +61,24 @@ variable "instances" {
   }))
 
   default = {}
+
+  validation {
+    condition = alltrue([
+      for instance in values(var.instances) :
+      instance.name == null ? true : length(trimspace(instance.name)) > 0
+    ])
+
+    error_message = "EC2 instance names must be null or non-empty strings."
+  }
+
+  validation {
+    condition = length(distinct([
+      for instance_key, instance in var.instances :
+      lower(coalesce(instance.name, instance_key))
+    ])) == length(var.instances)
+
+    error_message = "Effective EC2 instance names must be unique, ignoring case."
+  }
 
   validation {
     condition = alltrue([
