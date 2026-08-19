@@ -1,5 +1,5 @@
 ##################################################################################################
-# Persistent Network Firewall Logging KMS Key
+# Optional Persistent Network Firewall Logging KMS Key
 ##################################################################################################
 
 data "aws_partition" "current" {}
@@ -7,6 +7,8 @@ data "aws_partition" "current" {}
 data "aws_caller_identity" "current" {}
 
 data "aws_iam_policy_document" "network_firewall_logging_kms" {
+  count = var.network_firewall_logging_kms_enabled ? 1 : 0
+
   statement {
     sid    = "AllowCloudWatchLogsEncryption"
     effect = "Allow"
@@ -41,6 +43,8 @@ data "aws_iam_policy_document" "network_firewall_logging_kms" {
 }
 
 module "network_firewall_logging_kms" {
+  count = var.network_firewall_logging_kms_enabled ? 1 : 0
+
   source = "../../modules/kms"
 
   description = local.network_firewall_logging_kms_description
@@ -51,13 +55,13 @@ module "network_firewall_logging_kms" {
   key_administrators       = var.kms_key_administrators
 
   additional_policy_documents = [
-    data.aws_iam_policy_document.network_firewall_logging_kms.json
+    data.aws_iam_policy_document.network_firewall_logging_kms[0].json
   ]
 
   tags = merge(
-    var.tags,
+    local.org_tags,
     {
-      org_service_name = "network-firewall-logging"
+      "org_service_name" = "network-firewall-logging"
     }
   )
 }

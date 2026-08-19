@@ -1,7 +1,6 @@
 ---
-# Safe Persistent Resources destroy-plan example. No resources are deleted.
+# Copy outside Git and replace placeholders before running the local matrix.
 terraform_environment: sandbox
-terraform_stack: persistent
 
 assume_role_role_arn: "arn:aws:iam::111122223333:role/ire-terraform-role"
 assume_role_aws_region: "us-east-2"
@@ -13,8 +12,3 @@ terraform_backend_region: "us-east-2"
 
 terraform_persistent_contract_source: managed
 terraform_external_persistent_resources: {}
-terraform_variables: {}
-
-terraform_destroy_enabled: false
-terraform_allow_persistent_destroy: false
-terraform_destroy_confirmation: ""

@@ -2,11 +2,9 @@
 ################################################################################
 # Terraform Lifecycle Contract Broker
 ################################################################################
-#
-# AAP reads only explicitly approved outputs from upstream lifecycle states.
-# Downstream Terraform receives narrow variable contracts.
-#
-# AAP does not interpret Platform topology.
+# Managed persistent contracts come from Terraform outputs. External contracts
+# come from approved AAP/environment bindings. Downstream Terraform receives the
+# same narrow persistent_resources object in both modes.
 ################################################################################
 
 - name: Initialize Terraform lifecycle contracts
@@ -15,34 +13,77 @@
     terraform_contract_variables: {}
   no_log: true
 
+- name: Validate Persistent Resources contract source
+  ansible.builtin.assert:
+    that:
+      - terraform_persistent_contract_source in ['managed', 'external']
+      - terraform_external_persistent_resources is mapping
+      - >-
+        terraform_stack != 'persistent'
+        or terraform_persistent_contract_source == 'managed'
+    fail_msg: >-
+      terraform_persistent_contract_source must be managed or external.
+      The persistent stack itself may run only in managed mode; external mode
+      is a consumer contract and never manages external AWS resources.
+
+- name: Select managed lifecycle dependencies
+  ansible.builtin.set_fact:
+    terraform_managed_dependency_bindings: >-
+      {{
+        (
+          terraform_stack_dependency_outputs[terraform_stack]
+          | default({})
+          | dict2items
+        )
+        if terraform_persistent_contract_source == 'managed'
+        else
+        (
+          terraform_stack_dependency_outputs[terraform_stack]
+          | default({})
+          | dict2items
+          | rejectattr('key', 'equalto', 'persistent')
+          | list
+        )
+      }}
+
 - name: Read approved upstream lifecycle outputs
   ansible.builtin.include_tasks:
     file: terraform_read_dependency.yml
-  loop: >-
-    {{
-      terraform_stack_dependency_outputs[terraform_stack]
-      | default({})
-      | dict2items
-    }}
+  loop: "{{ terraform_managed_dependency_bindings }}"
   loop_control:
     loop_var: terraform_dependency_binding
     label: "{{ terraform_dependency_binding.key }}"
   vars:
+    terraform_dependency_outputs_optional: >-
+      {{ terraform_dependency_binding.key == 'persistent' }}
     terraform_dependency_stack: "{{ terraform_dependency_binding.key }}"
     terraform_dependency_output_names: "{{ terraform_dependency_binding.value }}"
 
+- name: Select effective Persistent Resources contract
+  ansible.builtin.set_fact:
+    terraform_effective_persistent_resources: >-
+      {{
+        terraform_dependency_outputs.persistent
+        if terraform_persistent_contract_source == 'managed'
+        else terraform_external_persistent_resources
+      }}
+  when:
+    - terraform_stack in ['platform', 'recovery']
+  no_log: true
+
 ################################################################################
-# Foundation -> Platform
+# Persistent Resources -> Platform
 ################################################################################
 
-- name: Build Platform Foundation contract
+- name: Build Platform Persistent Resources contract
   ansible.builtin.set_fact:
     terraform_contract_variables: >-
       {{
         {
-          'foundation_resources': {
+          'persistent_resources': {
             'network_firewall_logging_kms_key_arn':
-              terraform_dependency_outputs.foundation.network_firewall_logging_kms_key_arn
+              terraform_effective_persistent_resources.network_firewall_logging_kms_key_arn
+              | default(none, true)
           }
         }
       }}
@@ -68,7 +109,7 @@
   no_log: true
 
 ################################################################################
-# Foundation + Platform -> Recovery
+# Persistent Resources + Platform -> Recovery
 ################################################################################
 
 - name: Build Recovery lifecycle contracts
@@ -79,12 +120,14 @@
           'platform_contract':
             terraform_dependency_outputs.platform.platform_contract,
 
-          'foundation_resources': {
+          'persistent_resources': {
             'standard_backup_vault_name':
-              terraform_dependency_outputs.foundation.standard_backup_vault_name,
+              terraform_effective_persistent_resources.standard_backup_vault_name
+              | default(none, true),
 
             'air_gapped_backup_vault_arn':
-              terraform_dependency_outputs.foundation.air_gapped_backup_vault_arn
+              terraform_effective_persistent_resources.air_gapped_backup_vault_arn
+              | default(none, true)
           }
         }
       }}
@@ -110,12 +153,11 @@
   ansible.builtin.debug:
     msg:
       - "Stack: {{ terraform_stack }}"
+      - "Persistent contract source: {{ terraform_persistent_contract_source }}"
       - >-
-        Dependencies:
+        Managed dependencies:
         {{
-          terraform_stack_dependency_outputs[terraform_stack]
-          | default({})
-          | dict2items
+          terraform_managed_dependency_bindings
           | map(attribute='key')
           | list
         }}
