@@ -1,0 +1,18 @@
+---
+################################################################################
+# Sandbox AAP environment inventory
+################################################################################
+
+terraform_environment: sandbox
+
+assume_role_role_arn: >-
+  arn:aws:iam::781436988948:role/fhs-main-test-ire-redhataap-role
+assume_role_aws_region: us-east-1
+assume_role_application_name: ire-terraform
+assume_role_expected_account_id: "781436988948"
+
+terraform_backend_bucket: yoganand-terraform-state-781436988948
+terraform_backend_region: us-east-1
+
+terraform_persistent_contract_source: managed
+terraform_external_persistent_resources: {}
