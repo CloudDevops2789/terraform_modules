@@ -140,10 +140,11 @@ terraform_stack: recovery
 terraform_apply_enabled: false  # true only in the fixed Apply JT
 terraform_variables:
   demo_ec2_enabled: true
-  ami_id: "<APPROVED_AMI_ID>"
 ~~~
 
-Use an empty map when the temporary Recovery workload is disabled in Git.
+The reviewed `recovery.tfvars` file owns each workload's AMI, access method,
+placement, security groups, backup intent, and optional SSH key-pair reference.
+Use an empty runtime map when temporary Recovery compute is not required.
 
 ## Destroy Job Template variables
 
@@ -234,7 +235,7 @@ JT. Keep the atomic JTs available for controlled troubleshooting.
 - Apply: restricted deployment role plus approval.
 - Destroy: privileged operational role plus approval.
 - Persistent destroy: most restricted break-glass role.
-- Surveys may expose approved AMI selection and temporary exercise intent.
+- Surveys may expose temporary exercise lifecycle intent.
 - Surveys must not expose topology, tags, naming, arbitrary Terraform maps,
   stack selection, backend configuration, security policy, capability flags,
   target account, or lifecycle enablement.

@@ -285,7 +285,7 @@ The repository uses a three-layer configuration model.
 |---|---|---|
 | Architecture | Git | Stable non-sensitive desired state |
 | Environment binding | AAP | Region, execution role, backend and external resource references |
-| Runtime intent | AAP | Plan/apply, temporary workload lifecycle and approved AMI |
+| Runtime intent | AAP | Plan/apply and temporary workload lifecycle |
 
 The integrated Sandbox automatically loads:
 
@@ -303,6 +303,7 @@ Git-controlled architecture includes:
 - SSM management architecture;
 - naming;
 - standard tagging;
+- Recovery workload AMIs, placement, access methods and SSH exception registry;
 - Persistent Resources integration enablement; and
 - network security policy.
 
@@ -460,8 +461,11 @@ A recovery exercise needs only:
 ~~~yaml
 terraform_variables:
   demo_ec2_enabled: true
-  ami_id: "<APPROVED_AMI>"
 ~~~
+
+The reviewed Recovery stack configuration owns each workload's AMI, access
+method, placement, backup intent, and optional SSH key-pair reference. AAP
+cannot replace these through the normal Sandbox runtime map.
 
 When Git later enables enterprise federated Client VPN, AAP supplies the
 existing external certificate and SAML-provider ARNs.
@@ -612,13 +616,12 @@ The workflow performs:
 1. input validation;
 2. AWS IAM role assumption;
 3. temporary workspace creation;
-4. runtime public-key materialization where required by the environment interface;
-5. runtime Terraform variable-file generation;
-6. Terraform backend initialization;
-7. `terraform validate`;
-8. saved Terraform plan generation;
-9. plan-summary reporting; and
-10. application of the saved plan only when explicitly enabled.
+4. runtime Terraform variable-file generation;
+5. Terraform backend initialization;
+6. `terraform validate`;
+7. saved Terraform plan generation;
+8. plan-summary reporting; and
+9. application of the saved plan only when explicitly enabled.
 
 The safe default is:
 

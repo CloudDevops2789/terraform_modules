@@ -76,6 +76,12 @@ module "ec2" {
 }
 ```
 
+At the Recovery-stack composition layer, an approved key may instead be marked
+`existing`. That path performs a read-only `aws_key_pair` lookup and bypasses
+this module. For `managed` Recovery keys, the public-key path must resolve
+inside the AAP project or execution workspace; a path that exists only on an
+operator laptop cannot be read by AAP.
+
 ---
 
 ## Inputs
