@@ -1,7 +1,7 @@
 ##################################################################################################
 # Recovery Backup Policy
 ##################################################################################################
-# Backup vaults are persistent IRE foundation resources and are intentionally
+# Backup vaults are persistent IRE persistent resources and are intentionally
 # owned by a separate Terraform state. This disposable recovery environment
 # owns only the backup policy, execution role, and workload selection.
 #
@@ -30,7 +30,7 @@ module "backup_plan" {
 
   name = local.backup.plan_name
 
-  backup_vault_name = var.foundation_resources.standard_backup_vault_name
+  backup_vault_name = var.persistent_resources.standard_backup_vault_name
 
   rules = {
 
@@ -54,7 +54,7 @@ module "backup_plan" {
 
         cyber_recovery = {
 
-          destination_vault_arn = var.foundation_resources.air_gapped_backup_vault_arn
+          destination_vault_arn = var.persistent_resources.air_gapped_backup_vault_arn
 
           lifecycle = {
 

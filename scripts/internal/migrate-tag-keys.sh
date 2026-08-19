@@ -16,7 +16,7 @@ TO_PREFIX=""
 #bash /path/to/migrate-tag-keys.sh \
 #  --root . \
 #  --from-prefix org_ \
-#  --to-prefix 'fv:' \
+#  --to-prefix 'company:' \
 #  --apply
 
 TAG_SUFFIXES=(
