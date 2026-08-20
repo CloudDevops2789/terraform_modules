@@ -470,6 +470,13 @@ cannot replace these through the normal Sandbox runtime map.
 When Git later enables enterprise federated Client VPN, AAP supplies the
 existing external certificate and SAML-provider ARNs.
 
+Identity secrets are separated from ordinary runtime variables. When Git enables
+Managed AD, an approved AAP custom credential injects the bootstrap password as
+`IRE_TERRAFORM_MANAGED_AD_PASSWORD`. The playbooks reserve
+`managed_ad_password`, reject operator override, and resolve the credential
+internally under `no_log`. With Managed AD disabled, Identity continues to use
+`terraform_variables: {}` without requiring the credential.
+
 The deploy workflow defaults to plan-only execution. Destroy remains separately
 guarded by explicit enablement and confirmation controls.
 

@@ -8,8 +8,24 @@ variable "domain_name" {
 }
 
 variable "password" {
-  type      = string
-  sensitive = true
+  description = "Initial Admin password. Terraform state retains this sensitive value; rotate it operationally after directory creation."
+  type        = string
+  sensitive   = true
+
+  validation {
+    condition = nonsensitive(
+      length(var.password) >= 8 &&
+      length(var.password) <= 64 &&
+      !strcontains(lower(var.password), "admin") &&
+      sum([
+        length(regexall("[A-Z]", var.password)) > 0 ? 1 : 0,
+        length(regexall("[a-z]", var.password)) > 0 ? 1 : 0,
+        length(regexall("[0-9]", var.password)) > 0 ? 1 : 0,
+        length(regexall("[^A-Za-z0-9]", var.password)) > 0 ? 1 : 0
+      ]) >= 3
+    )
+    error_message = "Password must be 8-64 characters, must not contain admin, and must include at least three of: uppercase, lowercase, number, or special character."
+  }
 }
 
 variable "edition" {
