@@ -76,7 +76,7 @@
         terraform_effective_root: >-
           {{ playbook_dir }}/../terraform/stacks/{{ terraform_stack }}
         terraform_effective_environment_config_root: >-
-          {{ playbook_dir }}/../terraform/environments/{{ terraform_environment }}/stacks
+          {{ playbook_dir }}/../terraform/environments/{{ terraform_environment }}/config
         terraform_effective_backend_key: >-
           ire/{{ terraform_environment }}/{{ terraform_stack }}/terraform.tfstate
 

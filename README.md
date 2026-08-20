@@ -7,6 +7,20 @@ The repository combines reusable Terraform modules with Ansible Automation Platf
 > [!IMPORTANT]
 > Terraform is the infrastructure provisioning engine. Ansible Automation Platform (AAP) is the orchestration, authentication, approval, and execution-control layer.
 
+## Start here
+
+- New maintainers: read [`MAINTAINERS.md`](MAINTAINERS.md).
+- Troubleshooting and maintenance: use
+  [`docs/operations/troubleshooting.md`](docs/operations/troubleshooting.md).
+- Governed IRE deployments: use the four roots under `terraform/stacks` through
+  the approved AAP workflow.
+- Reusable module validation: use the consumer roots under
+  `terraform/environments/module-tests`.
+
+Environment configuration lives under `terraform/environments`; it is not a
+Terraform deployment root. Do not infer state ownership from directory names;
+use the lifecycle bindings and backend keys documented in `MAINTAINERS.md`.
+
 ---
 
 ## Contents
@@ -208,9 +222,14 @@ The following matrix distinguishes reusable implementation, environment integrat
 ├── scripts/
 │   └── ci/
 ├── terraform/
-│   ├── bootstrap/
+│   ├── stacks/
+│   │   ├── persistent/
+│   │   ├── platform/
+│   │   ├── identity/
+│   │   └── recovery/
 │   ├── environments/
 │   │   ├── sandbox/
+│   │   │   └── config/
 │   │   ├── module-tests/
 │   │   └── vpn-test/
 │   └── modules/
@@ -235,7 +254,11 @@ The following matrix distinguishes reusable implementation, environment integrat
 └── requirements.yml
 ```
 
-The `sandbox` directory is the current integrated environment root. Reusable module logic remains under `terraform/modules` and is validated independently through module-test roots.
+The four directories under `terraform/stacks` are the active lifecycle roots.
+Sandbox desired-state files consumed by AAP are under
+`terraform/environments/sandbox/config`. Reusable module logic remains under
+`terraform/modules` and is validated independently through module-validation
+roots under `terraform/environments/module-tests`.
 
 ---
 
@@ -287,11 +310,13 @@ The repository uses a three-layer configuration model.
 | Environment binding | AAP | Region, execution role, backend and external resource references |
 | Runtime intent | AAP | Plan/apply and temporary workload lifecycle |
 
-The integrated Sandbox automatically loads:
+AAP passes the following Git-controlled Sandbox files explicitly to the active
+Platform root:
 
 ~~~text
-terraform/environments/sandbox/platform.auto.tfvars
-terraform/environments/sandbox/network-policy.auto.tfvars
+terraform/environments/sandbox/config/common-tags.tfvars
+terraform/environments/sandbox/config/platform.tfvars
+terraform/environments/sandbox/config/platform-network-policy.tfvars
 ~~~
 
 Git-controlled architecture includes:
@@ -314,8 +339,9 @@ The backend Region remains independently configured because the state bucket
 may reside in a different AWS Region.
 
 `terraform.tfvars` remains ignored and is used only for local/runtime bindings.
-Non-sensitive desired-state environment configuration belongs in tracked
-`.auto.tfvars` files rather than being re-entered by operators on every run.
+Non-sensitive desired-state environment configuration belongs in the tracked
+stack-specific `.tfvars` files selected by AAP rather than being re-entered by
+operators on every run.
 
 Secrets, credentials, state, plans and sensitive runtime artifacts remain
 outside Git.

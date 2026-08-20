@@ -15,17 +15,18 @@
 #
 # OWNERSHIP MODEL
 #
-# Git / platform.auto.tfvars owns:
+# Git / config/platform.tfvars owns:
 #   - network inspection mode;
 #   - VPC and subnet CIDRs;
 #   - Client VPN enablement and authentication architecture;
 #   - SSM administration architecture;
 #   - Persistent Resources integration enablement;
-#   - standard organization tags;
 #   - naming policy; and
 #   - approved resource-name overrides.
 #
-# Git / network-policy.auto.tfvars owns:
+# Git / config/common-tags.tfvars owns standard organization tags.
+#
+# Git / config/platform-network-policy.tfvars owns:
 #   - security-group policy; and
 #   - Network Firewall policy.
 #
@@ -42,16 +43,16 @@
 # terraform_backend_region remains independent because the Terraform state
 # bucket may reside in a different AWS Region.
 #
-# AAP terraform_variables is intentionally restricted to approved runtime or
-# externally managed resource bindings, currently including:
+# AAP terraform_variables is intentionally restricted to approved Platform
+# runtime bindings, currently including:
 #
-#   demo_ec2_enabled
-#   ami_id
 #   server_certificate_arn
 #   root_certificate_chain_arn
 #   saml_provider_arn
 #   ssm_instance_profile_name
-#   persistent_resources
+#
+# Cross-stack persistent_resources is resolved internally by AAP and is not an
+# operator-supplied runtime variable.
 #
 # Network topology, authentication mode, naming, tags, inspection mode, and SSM
 # architecture must not be supplied through AAP terraform_variables.

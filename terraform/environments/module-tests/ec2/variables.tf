@@ -7,8 +7,7 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-# Named to match the same variable in sandbox (terraform/environments/sandbox)
-# so anyone familiar with sandbox recognizes it immediately here.
+# Named to match the Recovery stack variable for direct contract tracing.
 #
 # Required, not optional - unlike client-vpn's certificates, there is no
 # safe way to auto-generate a real SSH key pair's public half as a static

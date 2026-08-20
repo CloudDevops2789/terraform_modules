@@ -167,7 +167,7 @@ password and Terraform-state limitation.
 
 ## Recovery workload compute contract
 
-`terraform/environments/sandbox/stacks/recovery.tfvars` owns every workload's
+`terraform/environments/sandbox/config/recovery.tfvars` owns every workload's
 AMI and administrative access configuration. AAP cannot replace those values
 through the normal Sandbox runtime map.
 
