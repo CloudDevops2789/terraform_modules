@@ -2,33 +2,43 @@
 # Compute Variables
 ##################################################################################################
 
-variable "public_key_path" {
-  description = "Path to an SSH public key. Required only when demo EC2 is enabled with ssh_key access."
-  type        = string
-  default     = null
-  nullable    = true
+variable "recovery_ssh_key_pairs" {
+  description = "Approved SSH key-pair registry. Map keys are the effective AWS EC2 key-pair names."
+
+  type = map(object({
+    source          = string
+    public_key_path = optional(string)
+  }))
+
+  default  = {}
+  nullable = false
 
   validation {
-    condition = (
-      !(var.demo_ec2_enabled && var.demo_ec2_access_method == "ssh_key") ||
-      (var.public_key_path != null && length(trimspace(var.public_key_path)) > 0)
-    )
-    error_message = "public_key_path is required when demo_ec2_enabled=true and demo_ec2_access_method=ssh_key."
+    condition = alltrue([
+      for key_name, config in var.recovery_ssh_key_pairs :
+      (
+        length(trimspace(key_name)) > 0 &&
+        contains(["existing", "managed"], config.source)
+      )
+    ])
+
+    error_message = "Recovery SSH key-pair names must be non-empty and source must be existing or managed."
   }
-}
-
-variable "ami_id" {
-  description = "Approved EC2 AMI ID used by demonstration instances."
-  type        = string
-  default     = null
-  nullable    = true
 
   validation {
-    condition = (
-      !var.demo_ec2_enabled ||
-      (var.ami_id != null && can(regex("^ami-[0-9a-fA-F]+$", var.ami_id)))
-    )
-    error_message = "ami_id must be supplied when demo_ec2_enabled=true."
+    condition = alltrue([
+      for config in values(var.recovery_ssh_key_pairs) :
+      (
+        config.source == "managed"
+        ? (
+          config.public_key_path != null &&
+          length(trimspace(config.public_key_path)) > 0
+        )
+        : config.public_key_path == null
+      )
+    ])
+
+    error_message = "Managed SSH key pairs require public_key_path; existing key pairs must not set it."
   }
 }
 

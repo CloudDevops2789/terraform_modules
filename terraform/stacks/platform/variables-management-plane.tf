@@ -51,4 +51,16 @@ variable "ssh_key_access_rule_names" {
   description = "Security-group rule names that require the explicit Platform ssh_key_access_enabled control."
   type        = set(string)
   default     = []
+
+  validation {
+    condition = alltrue([
+      for rule_name in var.ssh_key_access_rule_names :
+      contains(
+        [for rule in var.security_group_rules : rule.name],
+        rule_name
+      )
+    ])
+
+    error_message = "Every ssh_key_access_rule_names entry must reference an existing security_group_rules name."
+  }
 }
