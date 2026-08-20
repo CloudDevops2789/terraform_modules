@@ -10,8 +10,8 @@ stable IRE architecture and capability enablement.
 | Desired architecture | Git / Pull Request | topology, naming, tags, Client VPN mode, persistent capability flags |
 | Security policy | Git / Pull Request | security-group rules, Network Firewall rules, KMS policy scope |
 | Environment binding | Git-controlled AAP inventory | role, Regions, backend bucket, target account, Persistent contract source |
-| Runtime intent | Fixed JT / approved survey | plan/apply, temporary workload enablement, approved AMI, destroy authorization |
-| External runtime binding | Fixed JT / approved survey | certificates, approved AMI, temporary exercise intent |
+| Runtime intent | Fixed JT / approved survey | plan/apply, temporary workload enablement, destroy authorization |
+| External runtime binding | Fixed JT / approved survey | certificates and externally owned platform references |
 | Secrets | AAP Credential / approved secret manager | bootstrap credentials, protected tokens and private material |
 
 ## Git-controlled stack configuration
@@ -118,7 +118,7 @@ is a consumer binding and never manages external resources.
 | Persistent | `kms_key_administrators` | Required only when managed logging KMS creation is enabled |
 | Platform | `server_certificate_arn`, `root_certificate_chain_arn`, `saml_provider_arn`, `ssm_instance_profile_name` | Depends on Git-selected Client VPN and SSM modes |
 | Identity | None | Supply `{}` |
-| Recovery | `demo_ec2_enabled`, `ami_id` | AMI required when temporary compute is enabled |
+| Recovery | `demo_ec2_enabled` | Enables only the workloads already reviewed in Git |
 
 Examples:
 
@@ -134,8 +134,61 @@ terraform_variables:
 # Recovery exercise
 terraform_variables:
   demo_ec2_enabled: true
-  ami_id: "ami-00000000000000000"
 ~~~
+
+## Recovery workload compute contract
+
+`terraform/environments/sandbox/stacks/recovery.tfvars` owns every workload's
+AMI and administrative access configuration. AAP cannot replace those values
+through the normal Sandbox runtime map.
+
+~~~hcl
+recovery_workloads = {
+  core_01 = {
+    server_name   = "A2NIRECORE001"
+    ami_id        = "ami-00000000000000000"
+    access_method = "ssm"
+
+    vpc_key   = "core_recovery"
+    subnet_key = "recovery_services_a"
+
+    security_group_keys = ["core"]
+    backup_enabled      = true
+  }
+}
+~~~
+
+Supported access methods are:
+
+| Value | Instance profile | EC2 key pair | Purpose |
+|---|---:|---:|---|
+| `none` | No | No | No interactive administrative path configured by Recovery |
+| `ssm` | Yes | No | Standard auditable administration path |
+| `ssh_key` | No | Yes | Controlled SSH-only exception |
+| `ssm_with_ssh_fallback` | Yes | Yes | SSM primary with an explicitly approved dormant SSH fallback |
+
+SSH workloads reference `recovery_ssh_key_pairs` by key-pair name. An
+`existing` entry performs a read-only AWS lookup. A `managed` entry imports a
+public key file available inside the AAP project. Terraform never receives the
+matching private key.
+
+~~~hcl
+recovery_ssh_key_pairs = {
+  existing-ire-admin = {
+    source = "existing"
+  }
+
+  ire-lab-admin = {
+    source          = "managed"
+    public_key_path = "../../environments/sandbox/keys/ire-lab-admin.pub"
+  }
+}
+~~~
+
+SSM requires a suitable instance profile, SSM Agent in the selected AMI, DNS,
+and outbound connectivity through the required interface endpoints or another
+approved path. SSH additionally requires an approved network route and
+security-group rule; attaching a key pair does not open TCP/22.
 
 ## Capability behavior matrix
 

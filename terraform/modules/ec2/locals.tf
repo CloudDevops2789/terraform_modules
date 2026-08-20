@@ -6,7 +6,7 @@
 #
 # merge() combines maps left to right and later keys win, giving a clear
 # precedence order: module-wide defaults, then per-instance overrides,
-# then a Name derived from the map key (always authoritative).
+# then the optional display name (or the stable map key as a fallback).
 locals {
 
   tags = {
@@ -15,7 +15,7 @@ locals {
       var.tags,
       instance.tags,
       {
-        Name = instance_name
+        Name = coalesce(instance.name, instance_name)
       }
     )
   }
