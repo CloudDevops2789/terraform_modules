@@ -67,6 +67,21 @@ Subnet groups:
 
 Core Recovery hosts recovery tooling and the administrative control plane.
 
+The Identity stack selects AWS Managed Microsoft AD placement through the
+Platform contract. The current Sandbox selects the `directory-services` subnet
+group in Core Recovery, but the reusable module does not hardcode that VPC,
+subnet group, CIDR, Availability Zone, or Region.
+
+The existing two `/28` directory-service subnets satisfy the Managed AD
+two-subnet placement requirement. Managed AD remains disabled by default, so
+this configuration introduces no directory cost until Git explicitly enables
+it and the approved Identity Apply workflow is authorized.
+
+Managed AD is the clean administrative control-plane directory and the intended
+user-based authentication source for Client VPN. Recovered applications use
+their separately restored and validated production-derived forest, with no
+trust or synchronization between the two directories.
+
 ### Protected Data
 
 Subnet groups:

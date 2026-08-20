@@ -136,6 +136,35 @@ terraform_variables:
   demo_ec2_enabled: true
 ~~~
 
+## Identity sensitive credential
+
+Identity accepts no ordinary Sandbox runtime-variable overrides. Keep:
+
+~~~yaml
+terraform_variables: {}
+~~~
+
+When Git enables Managed AD, attach an approved AAP custom credential to the
+Identity Plan, Apply, and Destroy Job Templates. The credential injects the
+bootstrap password through the protected
+`IRE_TERRAFORM_MANAGED_AD_PASSWORD` environment variable.
+
+The playbooks:
+
+- reject `managed_ad_password` if an operator supplies it through
+  `terraform_variables`;
+- read the credential environment under `no_log`;
+- add the password only to the internal Terraform variable document;
+- write that document with mode `0600`; and
+- remove the temporary variable and plan files in an `always` block.
+
+When Managed AD is disabled, the Identity stack remains valid without this
+credential. Never store the password in inventory, SCM, Job Template YAML, or
+ordinary extra variables.
+
+See ADR-002 and the Managed Microsoft AD module README for the bootstrap
+password and Terraform-state limitation.
+
 ## Recovery workload compute contract
 
 `terraform/environments/sandbox/stacks/recovery.tfvars` owns every workload's

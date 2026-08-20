@@ -2,7 +2,7 @@
 # AWS Managed Microsoft AD
 #
 # Provisions an AWS Managed Microsoft Active Directory
-# within an existing Core Recovery VPC.
+# within a caller-selected VPC and two private subnets.
 #
 # AWS manages the underlying Domain Controllers,
 # replication, patching, and high availability.
@@ -24,6 +24,12 @@ resource "aws_directory_service_directory" "this" {
   vpc_settings {
     vpc_id     = var.vpc_id
     subnet_ids = var.subnet_ids
+  }
+
+  # Directory password rotation is operationally owned outside Terraform.
+  # Ignoring password drift prevents credential rotation from replacing the directory.
+  lifecycle {
+    ignore_changes = [password]
   }
 
   tags = var.tags

@@ -133,6 +133,36 @@ terraform_apply_enabled: false  # true only in the fixed Apply JT
 terraform_variables: {}
 ~~~
 
+When `managed_ad_enabled = false`, the example above is complete and no Managed
+AD credential is required.
+
+Before Git enables Managed AD, create an approved custom credential type with a
+secret input field:
+
+~~~yaml
+fields:
+  - id: managed_ad_password
+    type: string
+    label: Managed AD bootstrap password
+    secret: true
+required:
+  - managed_ad_password
+~~~
+
+Use this injector configuration:
+
+~~~yaml
+env:
+  IRE_TERRAFORM_MANAGED_AD_PASSWORD: "{{ managed_ad_password }}"
+~~~
+
+Attach an instance of this credential type to the fixed Identity Plan, Apply,
+and Destroy Job Templates. Keep `terraform_variables: {}` in those templates;
+the password is resolved separately by the playbooks under `no_log`.
+
+Do not place the password or the injected environment variable value in Job
+Template YAML, surveys, inventory, SCM, or shell commands.
+
 Recovery plan and apply use:
 
 ~~~yaml

@@ -216,6 +216,10 @@
           ansible.builtin.include_tasks:
             file: tasks/terraform_resolve_contracts.yml
 
+        - name: Resolve approved Terraform sensitive variables
+          ansible.builtin.include_tasks:
+            file: tasks/terraform_resolve_sensitive_variables.yml
+
         - name: Build effective Terraform runtime variables
           ansible.builtin.set_fact:
             terraform_effective_variables: >-
@@ -223,6 +227,10 @@
                 terraform_variables
                 | combine(
                     terraform_contract_variables | default({}),
+                    recursive=true
+                  )
+                | combine(
+                    terraform_sensitive_variables | default({}),
                     recursive=true
                   )
                 | combine(
