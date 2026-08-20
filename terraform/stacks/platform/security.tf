@@ -2,18 +2,29 @@
 # Generic Security Groups
 ##################################################################################################
 
+locals {
+  configured_security_group_definitions = {
+    for security_group_key, security_group in var.security_groups :
+    security_group_key => {
+      name = coalesce(
+        security_group.name,
+        var.security_group_naming_mode == "standard"
+        ? "${local.name_prefix}-${replace(security_group_key, "_", "-")}-sg"
+        : security_group_key
+      )
+
+      description = security_group.description
+      vpc_id      = module.vpc[security_group.vpc_key].vpc_id
+      tags        = security_group.tags
+    }
+  }
+}
+
 module "security_group" {
   source = "../../modules/security-group"
 
   security_groups = merge(
-    {
-      for security_group_key, security_group in var.security_groups :
-      security_group_key => {
-        description = security_group.description
-        vpc_id      = module.vpc[security_group.vpc_key].vpc_id
-        tags        = security_group.tags
-      }
-    },
+    local.configured_security_group_definitions,
     local.ssm_endpoint_security_group_definitions
   )
 

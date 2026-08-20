@@ -525,6 +525,35 @@ The current design includes the following controls:
 - explicit confirmation before destructive execution; and
 - cleanup of temporary Terraform plan and variable artifacts.
 
+### Security-group composition and naming
+
+Platform security groups are role based rather than one-per-VPC. Workload
+groups such as `management`, `core`, and `protected` remain separate from the
+private Systems Manager endpoint groups. A resource may attach more than one
+logical group when it needs both a baseline policy and a workload-specific
+policy. Rules remain standalone resources and are supplied through the
+configuration-driven `security_group_rules` collection, so additional rules do
+not require changes to the reusable security-group modules.
+
+Security-group map keys are stable Terraform identities. They are also the
+keys used by workload placement, endpoint bindings, Client VPN bindings, rules,
+and outputs. AWS-visible names are deliberately separate from those identities:
+
+- `security_group_naming_mode = "logical"` is the compatibility default and
+  preserves the historical AWS names;
+- `security_group_naming_mode = "standard"` derives names from the Platform
+  `naming` object and the logical purpose; and
+- an optional `name` on a security-group definition, or
+  `security_group_name` on an SSM endpoint binding, provides an approved exact
+  AWS name when a derived name is not suitable.
+
+Changing the effective AWS name of an existing security group requires
+replacement. Environments must therefore keep `logical` mode until an explicit
+migration plan introduces replacement groups, moves attachments and rules, and
+retires the legacy groups. Changing `naming.organization` from a neutral value
+such as `org` to an organization code such as `fv` is similarly an environment
+configuration decision and must not be introduced as an AAP runtime override.
+
 ---
 
 ## Validation and CI
