@@ -1076,4 +1076,4 @@ resource_name_overrides = {}
 
 # SSH security-group authorization requires an explicit Git-controlled change.
 # Recovery runtime choices cannot enable Platform SSH rules.
-ssh_key_access_enabled = false
+ssh_key_access_enabled = true
