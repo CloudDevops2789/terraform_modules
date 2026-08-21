@@ -42,6 +42,12 @@ declare -A MODULE_HAS_CONSUMER=()
 for module in "${CHANGED_MODULES[@]}"; do
   MODULE_HAS_CONSUMER["$module"]=false
 
+  if [ ! -d "terraform/modules/$module" ]; then
+    echo
+    echo "Skipping retired module: $module"
+    continue
+  fi
+
   echo
   echo "Discovering validation consumers for module: $module"
 
