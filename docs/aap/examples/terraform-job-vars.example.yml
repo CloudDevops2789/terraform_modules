@@ -16,4 +16,4 @@ terraform_variables: {}
 #   demo_ec2_enabled: true
 #
 # Recovery AMIs, access methods, and optional SSH key-pair references are
-# reviewed in terraform/environments/sandbox/stacks/recovery.tfvars.
+# reviewed in terraform/environments/sandbox/config/recovery.tfvars.

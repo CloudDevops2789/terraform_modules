@@ -8,8 +8,8 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-# Named to match the same variable in sandbox (terraform/environments/sandbox)
-# so anyone familiar with sandbox recognizes it immediately here. The
+# Named to match the Identity stack variable so maintainers can trace the
+# validation input to its governed consumer contract. The
 # directory password cannot be a static value in locals.tf - it is a secret,
 # and secrets never belong in version control. It is declared here with no
 # default, so Terraform refuses to apply without an operator supplying one

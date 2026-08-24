@@ -7,9 +7,9 @@ A module test answers a narrow question: does the documented module interface
 format, initialize, validate, plan, apply when approved, become idempotent, and
 destroy cleanly with the minimum required supporting resources?
 
-## Relationship to Sandbox
+## Relationship to lifecycle stacks
 
-`terraform/environments/sandbox` is an integration root. It currently composes:
+The roots under `terraform/stacks` compose the governed IRE lifecycle:
 
 - Recovery Access VPC;
 - Core Recovery VPC;
@@ -22,8 +22,10 @@ destroy cleanly with the minimum required supporting resources?
 - security groups and EC2;
 - KMS and AWS Backup.
 
-Module tests do not reproduce that architecture. They isolate individual module
-contracts and lifecycle behavior.
+Module-validation roots do not reproduce that architecture. They isolate
+individual module contracts and lifecycle behavior. Sandbox desired-state
+configuration is stored separately under
+`terraform/environments/sandbox/config`.
 
 ## Available test roots
 
