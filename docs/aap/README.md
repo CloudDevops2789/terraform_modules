@@ -38,7 +38,7 @@ Terraform lifecycle stack.
 For Sandbox, these files are stored under:
 
 ~~~text
-terraform/environments/sandbox/stacks/
+terraform/environments/sandbox/config/
   common-tags.tfvars
   persistent.tfvars
   platform.tfvars
