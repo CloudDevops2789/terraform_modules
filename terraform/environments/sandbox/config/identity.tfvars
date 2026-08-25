@@ -17,7 +17,11 @@ identity_placement = {
 # Only routed administrative networks may reach the managed directory.
 managed_ad_client_vpc_keys = ["recovery_access"]
 
-managed_ad_enabled = false
+managed_ad_enabled = true
 
 # Define the approved domain and edition before enabling the directory.
-managed_ad_configuration = null
+managed_ad_configuration = {
+  domain_name = "ad.fairview-ire.org"
+  short_name  = "FVIRE"
+  edition     = "Standard"
+}

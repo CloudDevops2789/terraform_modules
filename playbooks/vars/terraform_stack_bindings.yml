@@ -63,8 +63,7 @@ terraform_environment_variable_allowlists:
 
   persistent: []
 
-  platform:
-    - security_group_naming_mode
+  platform: []
 
   identity:
     - managed_ad_enabled
