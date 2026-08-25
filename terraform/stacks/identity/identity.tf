@@ -19,5 +19,14 @@ module "managed_microsoft_ad" {
   vpc_id     = try(local.identity_platform_placement.vpc_id, "")
   subnet_ids = try(local.identity_platform_placement.subnet_ids, [])
 
+  client_cidr_blocks = (
+    var.platform_contract == null
+    ? []
+    : [
+      for vpc_key in sort(tolist(var.managed_ad_client_vpc_keys)) :
+      var.platform_contract.vpc_cidrs[vpc_key]
+    ]
+  )
+
   tags = local.org_tags
 }
