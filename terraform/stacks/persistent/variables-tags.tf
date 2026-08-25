@@ -2,6 +2,23 @@
 # Organization Tagging Variables
 ##################################################################################################
 
+variable "organization_tag_key_prefix" {
+  description = "Prefix applied to mandatory organization tag keys. Reusable environments default to org_; private organization configuration may select an approved alternative."
+  type        = string
+  default     = "org_"
+  nullable    = false
+
+  validation {
+    condition = (
+      trimspace(var.organization_tag_key_prefix) == var.organization_tag_key_prefix &&
+      length(var.organization_tag_key_prefix) > 0 &&
+      length(var.organization_tag_key_prefix) <= 64 &&
+      !startswith(lower(var.organization_tag_key_prefix), "aws:")
+    )
+    error_message = "organization_tag_key_prefix must be 1-64 characters, contain no surrounding whitespace, and must not use the reserved aws: prefix."
+  }
+}
+
 variable "org_it_cost_center" {
   description = "Organization-approved IT cost center associated with the deployed resources."
   type        = string
@@ -100,21 +117,21 @@ variable "org_additional_tags" {
     condition = length(setintersection(
       toset(keys(var.org_additional_tags)),
       toset([
-        "org_it_cost_center",
-        "org_department",
-        "org_cmdb_calculated_app",
-        "org_business_criticality",
-        "org_environment",
-        "org_data_classification",
-        "org_project_name",
-        "org_managed_by",
+        "${var.organization_tag_key_prefix}it_cost_center",
+        "${var.organization_tag_key_prefix}department",
+        "${var.organization_tag_key_prefix}cmdb_calculated_app",
+        "${var.organization_tag_key_prefix}business_criticality",
+        "${var.organization_tag_key_prefix}environment",
+        "${var.organization_tag_key_prefix}data_classification",
+        "${var.organization_tag_key_prefix}project_name",
+        "${var.organization_tag_key_prefix}managed_by",
       ])
     )) == 0
     error_message = "org_additional_tags must not redefine mandatory organization tag keys."
   }
 
   validation {
-    condition     = alltrue([for key in keys(var.org_additional_tags) : startswith(key, "org_")])
-    error_message = "Every org_additional_tags key must start with org_."
+    condition     = alltrue([for key in keys(var.org_additional_tags) : startswith(key, var.organization_tag_key_prefix)])
+    error_message = "Every org_additional_tags key must start with organization_tag_key_prefix."
   }
 }
