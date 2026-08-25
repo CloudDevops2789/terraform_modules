@@ -231,7 +231,6 @@ The following matrix distinguishes reusable implementation, environment integrat
 │   │   ├── sandbox/
 │   │   │   └── config/
 │   │   ├── module-tests/
-│   │   └── vpn-test/
 │   └── modules/
 │       ├── backup-*/
 │       ├── client-vpn/
