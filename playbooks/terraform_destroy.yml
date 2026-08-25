@@ -122,7 +122,7 @@
         terraform_effective_root: >-
           {{ playbook_dir }}/../terraform/stacks/{{ terraform_stack }}
         terraform_effective_environment_config_root: >-
-          {{ playbook_dir }}/../terraform/environments/{{ terraform_environment }}/stacks
+          {{ playbook_dir }}/../terraform/environments/{{ terraform_environment }}/config
         terraform_effective_backend_key: >-
           ire/{{ terraform_environment }}/{{ terraform_stack }}/terraform.tfstate
 
@@ -216,6 +216,10 @@
           ansible.builtin.include_tasks:
             file: tasks/terraform_resolve_contracts.yml
 
+        - name: Resolve approved Terraform sensitive variables
+          ansible.builtin.include_tasks:
+            file: tasks/terraform_resolve_sensitive_variables.yml
+
         - name: Build effective Terraform runtime variables
           ansible.builtin.set_fact:
             terraform_effective_variables: >-
@@ -223,6 +227,10 @@
                 terraform_variables
                 | combine(
                     terraform_contract_variables | default({}),
+                    recursive=true
+                  )
+                | combine(
+                    terraform_sensitive_variables | default({}),
                     recursive=true
                   )
                 | combine(

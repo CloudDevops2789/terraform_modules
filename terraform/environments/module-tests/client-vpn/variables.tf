@@ -33,8 +33,7 @@ variable "saml_provider_arn" {
   nullable    = true
 }
 
-# Named to match the same variable in sandbox (terraform/environments/sandbox)
-# so anyone familiar with sandbox recognizes it immediately here.
+# Named to match the Platform stack variable for direct contract tracing.
 #
 # Optional. Left unset (the default), this environment generates a
 # throwaway self-signed server certificate and imports it into ACM itself
@@ -54,8 +53,7 @@ variable "server_certificate_arn" {
   default     = null
 }
 
-# Named to match the same variable in sandbox (terraform/environments/sandbox)
-# so anyone familiar with sandbox recognizes it immediately here.
+# Named to match the Platform stack variable for direct contract tracing.
 #
 # Optional. Left unset (the default), this environment generates a
 # throwaway self-signed root CA and imports it into ACM itself (see
