@@ -212,6 +212,10 @@
 
     - name: Execute Terraform destroy workflow
       block:
+        - name: Resolve approved private environment variables
+          ansible.builtin.include_tasks:
+            file: tasks/terraform_resolve_environment_variables.yml
+
         - name: Resolve approved Terraform lifecycle contracts
           ansible.builtin.include_tasks:
             file: tasks/terraform_resolve_contracts.yml
@@ -224,7 +228,8 @@
           ansible.builtin.set_fact:
             terraform_effective_variables: >-
               {{
-                terraform_variables
+                terraform_environment_variables
+                | combine(terraform_variables, recursive=true)
                 | combine(
                     terraform_contract_variables | default({}),
                     recursive=true
