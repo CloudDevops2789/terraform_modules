@@ -9,7 +9,7 @@ name_prefix = "fv-ire-sandbox-persistent"
 
 # Safe home-lab defaults. Enable independently to exercise managed resources.
 backup_vaults_enabled                = false
-network_firewall_logging_kms_enabled = true
+network_firewall_logging_kms_enabled = false
 
 air_gapped_min_retention_days = 30
 air_gapped_max_retention_days = 365
