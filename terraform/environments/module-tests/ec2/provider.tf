@@ -7,7 +7,7 @@ provider "aws" {
 
   # default_tags are applied by the PROVIDER to every taggable resource it
   # creates. Environment = "ModuleTest" keeps these throwaway resources
-  # visually distinct from sandbox/vpn-test in the AWS console and in cost
+  # visually distinct from Sandbox deployments in the AWS console and in cost
   # reports, since nothing here is meant to be long-lived.
   default_tags {
     tags = local.org_tags
