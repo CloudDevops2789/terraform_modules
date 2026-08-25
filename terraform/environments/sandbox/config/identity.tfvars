@@ -14,6 +14,9 @@ identity_placement = {
 }
 
 # Managed AD remains cost-free until explicitly enabled through Git-controlled configuration.
+# Only routed administrative networks may reach the managed directory.
+managed_ad_client_vpc_keys = ["recovery_access"]
+
 managed_ad_enabled = false
 
 # Define the approved domain and edition before enabling the directory.
