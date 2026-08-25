@@ -2,19 +2,21 @@
 # Recovery Compute
 ##################################################################################################
 
+data "aws_key_pair" "recovery_existing" {
+  for_each = local.recovery_existing_ssh_key_pairs
+
+  key_name = each.key
+}
+
 module "key_pair" {
   source = "../../modules/key-pair"
 
-  key_pairs = (
-    var.demo_ec2_enabled &&
-    var.demo_ec2_access_method == "ssh_key"
-    ? {
-      recovery = {
-        public_key = file(var.public_key_path)
-      }
+  key_pairs = {
+    for key_name, config in local.recovery_managed_ssh_key_pairs :
+    key_name => {
+      public_key = file(config.public_key_path)
     }
-    : {}
-  )
+  }
 
   tags = local.org_tags
 }
@@ -28,7 +30,7 @@ module "ec2" {
       for workload_key, workload in var.recovery_workloads :
       workload_key => {
         name          = workload.server_name
-        ami           = local.ec2.ami
+        ami           = workload.ami_id
         instance_type = workload.instance_type
 
         subnet_id = (
@@ -52,13 +54,19 @@ module "ec2" {
         )
 
         key_name = (
-          var.demo_ec2_access_method == "ssh_key"
-          ? module.key_pair.key_names["recovery"]
+          contains(
+            ["ssh_key", "ssm_with_ssh_fallback"],
+            workload.access_method
+          )
+          ? local.recovery_ssh_key_names[workload.ssh_key_pair_key]
           : null
         )
 
         iam_instance_profile = (
-          var.demo_ec2_access_method == "ssm"
+          contains(
+            ["ssm", "ssm_with_ssh_fallback"],
+            workload.access_method
+          )
           ? try(
             var.platform_contract.ssm_instance_profile_name,
             null

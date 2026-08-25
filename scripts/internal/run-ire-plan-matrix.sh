@@ -92,7 +92,7 @@ case "$plan_contract_source" in
     ;;
 esac
 
-output_root="${IRE_PLAN_OUTPUT_ROOT:-/mnt/c/Users/Yoganand/Downloads}"
+output_root="${IRE_PLAN_OUTPUT_ROOT:-${TMPDIR:-/tmp}}"
 test -d "$output_root" || {
   printf 'ERROR: output root does not exist: %s\n' "$output_root" >&2
   exit 2

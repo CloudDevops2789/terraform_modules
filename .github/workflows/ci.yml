@@ -1,14 +1,14 @@
 ---
-# GitHub Actions pipeline for the feature -> development -> main workflow.
+# GitHub Actions pipeline for the feature -> test -> development -> main workflow.
 #
-# development:
+# test and development:
 #   - formatting
-#   - Sandbox validation
+#   - active lifecycle-stack validation
 #   - validation of module-test consumers for changed reusable modules
 #
 # main:
 #   - formatting
-#   - Sandbox validation
+#   - active lifecycle-stack validation
 #   - validation of every Terraform module-test root
 #
 # Ansible/YAML validation is blocking on both branches.
@@ -21,9 +21,11 @@ name: CI
     branches:
       - main
       - development
+      - test
 
   pull_request:
     branches:
+      - test
       - development
       - main
 
@@ -106,27 +108,15 @@ jobs:
           mkdir -p /tmp/terraform-plugin-cache
           echo "TF_PLUGIN_CACHE_DIR=/tmp/terraform-plugin-cache" >> "$GITHUB_ENV"
 
-      - name: Prepare Sandbox validation inputs
-        run: |
-          echo \
-            "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCtest GitHubActions" \
-            > /tmp/dummy.pub
-
-          cat > terraform/environments/sandbox/terraform.tfvars <<'TFVARS'
-          public_key_path = "/tmp/dummy.pub"
-          TFVARS
-
-      - name: Validate Sandbox
-        run: |
-          bash scripts/ci/terraform-validate-root.sh \
-            terraform/environments/sandbox
+      - name: Validate active Terraform lifecycle stacks
+        run: bash scripts/ci/terraform-validate-stacks.sh
 
       - name: Validate changed Terraform modules
         if: >-
           (github.event_name == 'pull_request' &&
-           github.base_ref == 'development') ||
+           (github.base_ref == 'test' || github.base_ref == 'development')) ||
           (github.event_name == 'push' &&
-           github.ref == 'refs/heads/development')
+           (github.ref == 'refs/heads/test' || github.ref == 'refs/heads/development'))
         env:
           EVENT_NAME: ${{ github.event_name }}
           PUSH_BASE: ${{ github.event.before }}

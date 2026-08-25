@@ -4,28 +4,20 @@
 
 variable "security_group_rules" {
   description = <<-EOT
-    Security group policy for the Sandbox trust tiers.
+    Configuration-driven security group policy for Platform resources.
 
     Rules use logical security-group and network-zone names rather than
     hard-coded AWS security group IDs or VPC CIDRs.
 
-    Supported security groups:
-      - management
-      - core
-      - protected
+    security_group and security_group peers reference keys from the
+    security_groups map. VPC peers reference keys from network_config.vpcs.
+    This allows new workload roles and service security groups to be added
+    through environment configuration without changing reusable Platform code.
 
     Supported peer types:
       - security_group
       - vpc
       - cidr
-
-    Supported VPC peers:
-      - recovery_access
-      - core_recovery
-      - protected_data
-
-    For security_group peers, peer must reference one of the supported
-    logical security-group names.
 
     CIDR peers should be used only when a logical VPC or security-group
     reference cannot represent the required access path.
@@ -51,12 +43,12 @@ variable "security_group_rules" {
     condition = alltrue([
       for rule in var.security_group_rules :
       contains(
-        ["management", "core", "protected"],
+        keys(var.security_groups),
         rule.security_group
       )
     ])
 
-    error_message = "security_group must be management, core, or protected."
+    error_message = "Every security_group must reference an existing security_groups key."
   }
 
   validation {
@@ -95,12 +87,12 @@ variable "security_group_rules" {
       for rule in var.security_group_rules :
       rule.peer_type != "security_group" ||
       contains(
-        ["management", "core", "protected"],
+        keys(var.security_groups),
         rule.peer
       )
     ])
 
-    error_message = "security_group peers must be management, core, or protected."
+    error_message = "Every security_group peer must reference an existing security_groups key."
   }
 
   validation {
@@ -108,12 +100,12 @@ variable "security_group_rules" {
       for rule in var.security_group_rules :
       rule.peer_type != "vpc" ||
       contains(
-        ["recovery_access", "core_recovery", "protected_data"],
+        keys(var.network_config.vpcs),
         rule.peer
       )
     ])
 
-    error_message = "VPC peers must be recovery_access, core_recovery, or protected_data."
+    error_message = "Every VPC peer must reference an existing network_config.vpcs key."
   }
 }
 

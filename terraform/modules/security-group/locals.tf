@@ -8,7 +8,7 @@ locals {
       var.tags,
       sg.tags,
       {
-        Name = sg_name
+        Name = coalesce(sg.name, sg_name)
       }
     )
   }

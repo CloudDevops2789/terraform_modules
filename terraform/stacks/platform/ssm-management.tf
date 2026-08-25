@@ -30,6 +30,13 @@ locals {
     ? {
       for vpc_key, binding in var.ssm_endpoint_bindings :
       "ssm_${vpc_key}" => {
+        name = coalesce(
+          binding.security_group_name,
+          var.security_group_naming_mode == "standard"
+          ? "${local.name_prefix}-${replace(vpc_key, "_", "-")}-ssm-endpoints-sg"
+          : "ssm_${vpc_key}"
+        )
+
         description = "Private Systems Manager endpoints for ${vpc_key}"
         vpc_id      = module.vpc[vpc_key].vpc_id
         tags        = {}

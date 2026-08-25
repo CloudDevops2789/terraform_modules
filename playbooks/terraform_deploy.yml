@@ -76,7 +76,7 @@
         terraform_effective_root: >-
           {{ playbook_dir }}/../terraform/stacks/{{ terraform_stack }}
         terraform_effective_environment_config_root: >-
-          {{ playbook_dir }}/../terraform/environments/{{ terraform_environment }}/stacks
+          {{ playbook_dir }}/../terraform/environments/{{ terraform_environment }}/config
         terraform_effective_backend_key: >-
           ire/{{ terraform_environment }}/{{ terraform_stack }}/terraform.tfstate
 
@@ -166,17 +166,30 @@
 
     - name: Execute Terraform deployment
       block:
+        - name: Resolve approved private environment variables
+          ansible.builtin.include_tasks:
+            file: tasks/terraform_resolve_environment_variables.yml
+
         - name: Resolve approved Terraform lifecycle contracts
           ansible.builtin.include_tasks:
             file: tasks/terraform_resolve_contracts.yml
+
+        - name: Resolve approved Terraform sensitive variables
+          ansible.builtin.include_tasks:
+            file: tasks/terraform_resolve_sensitive_variables.yml
 
         - name: Build effective Terraform runtime variables
           ansible.builtin.set_fact:
             terraform_effective_variables: >-
               {{
-                terraform_variables
+                terraform_environment_variables
+                | combine(terraform_variables, recursive=true)
                 | combine(
                     terraform_contract_variables | default({}),
+                    recursive=true
+                  )
+                | combine(
+                    terraform_sensitive_variables | default({}),
                     recursive=true
                   )
                 | combine(
@@ -276,6 +289,14 @@
                     'Terraform plan completed; no summary line was detected.'
                   )
               }}
+
+        - name: Guard Identity deployment plan against deletion or replacement
+          ansible.builtin.include_tasks:
+            file: tasks/terraform_guard_identity_deploy_plan.yml
+          when:
+            - terraform_stack == 'identity'
+            - terraform_plan.rc == 2
+            - terraform_apply_enabled | bool
 
         - name: Apply Terraform deployment plan
           ansible.builtin.command:

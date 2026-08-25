@@ -111,6 +111,9 @@ module "backup_role" {
 # selection are protected by AWS Backup.
 # Workload protection is selected through the configuration-driven
 # recovery_workloads backup_enabled attribute.
+# Explicit instance ARNs are intentional: Recovery owns both the instances and
+# this selection in one state, and exact membership avoids accidentally
+# protecting unrelated resources that happen to carry a matching tag.
 # Purpose: Associates the selected Sandbox resources with the backup plan.
 # Change when: Change protected resource ARNs only when backup scope changes.
 module "backup_selection" {

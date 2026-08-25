@@ -6,7 +6,8 @@ variable "platform_contract" {
   description = "Topology-agnostic Platform values available to the Identity stack."
 
   type = object({
-    vpc_ids = map(string)
+    vpc_ids   = map(string)
+    vpc_cidrs = map(string)
 
     subnet_ids_by_group = map(
       map(list(string))

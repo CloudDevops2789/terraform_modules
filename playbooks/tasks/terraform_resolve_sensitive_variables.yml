@@ -1,0 +1,55 @@
+---
+################################################################################
+# Terraform Sensitive Runtime Variables
+#
+# Sensitive Terraform values come only from approved AAP credential injectors.
+# They are not accepted through the ordinary operator terraform_variables map.
+################################################################################
+
+- name: Initialize Terraform sensitive variable map
+  ansible.builtin.set_fact:
+    terraform_sensitive_variables: {}
+  no_log: true
+
+- name: Prevent operator override of credential-owned Terraform variables
+  ansible.builtin.assert:
+    that:
+      - >-
+        (
+          terraform_variables.keys()
+          | list
+          | intersect(terraform_reserved_sensitive_variable_names)
+          | length
+        ) == 0
+    fail_msg: >-
+      Credential-owned Terraform variables cannot be supplied through the
+      ordinary terraform_variables map.
+  vars:
+    terraform_reserved_sensitive_variable_names:
+      - managed_ad_password
+
+- name: Resolve Managed AD password from the AAP credential environment
+  ansible.builtin.set_fact:
+    terraform_sensitive_variables: >-
+      {{
+        {
+          'managed_ad_password':
+            lookup(
+              'ansible.builtin.env',
+              'IRE_TERRAFORM_MANAGED_AD_PASSWORD',
+              default=''
+            )
+        }
+        if (
+          lookup(
+            'ansible.builtin.env',
+            'IRE_TERRAFORM_MANAGED_AD_PASSWORD',
+            default=''
+          )
+          | length
+        ) > 0
+        else {}
+      }}
+  when:
+    - terraform_stack == 'identity'
+  no_log: true

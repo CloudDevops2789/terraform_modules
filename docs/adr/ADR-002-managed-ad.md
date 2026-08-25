@@ -6,64 +6,87 @@ Accepted.
 
 ## Context
 
-Recovered applications and Windows workloads require Active Directory authentication during a cyber recovery event. AWS Managed Microsoft AD provides this. The question is which VPC it should be deployed into: Recovery Access, Core Recovery, or Protected Data.
+The IRE needs a clean administrative directory that does not inherit identities, trusts, or compromise from production. Its initial purpose is user-based authentication for the administrative access path, including AWS Client VPN, and a small population of approved recovery administrators.
 
-Each VPC in the IRE has a distinct, deliberately narrow purpose:
+Recovered applications have a different identity requirement. They depend on production-matching SIDs, service-account secrets, SPNs, and machine trusts. As established by ADR-005, those applications authenticate against a separately restored and validated production-derived forest on EC2—not against AWS Managed Microsoft AD.
+
+The placement decision is therefore about the clean administrative control-plane directory, not the recovered application directory.
 
 ```mermaid
 flowchart LR
-    RA[Recovery Access VPC - administrative ingress] --> CR[Core Recovery VPC - platform services and recovery tooling]
-    CR --> PD[Protected Data VPC - recovered, not yet fully trusted, workloads]
+    RA["Recovery Access<br/>administrative ingress"]
+    CR["Core Recovery<br/>clean platform services"]
+    PD["Protected Data<br/>restored and unvalidated data"]
+
+    RA --> CR
+    CR --> PD
 ```
 
 ## Decision drivers
 
-- Recovery Access exists for connectivity, not for hosting shared services; mixing the two blurs a boundary that is otherwise kept clean throughout this design
-- Protected Data holds workloads that have just been restored from backup and are still moving through the recovery validation pipeline — they are not yet fully trusted at the point AD would need to authenticate against them
-- Identity infrastructure is Tier-0: it should not sit network-adjacent to the specific class of data this environment exists to be suspicious of
-- AWS landing zone conventions place shared services such as directory, DNS, and automation in a core or shared-services VPC, not an ingress VPC
+- Recovery Access is an ingress and administrative landing tier, not a shared-services hosting tier.
+- Protected Data contains restored material that is not trusted until validation completes.
+- Administrative identity is Tier-0 and must remain isolated from production-derived identity.
+- No trust or synchronization may exist between Managed AD and the restored production forest.
+- Placement must remain environment configuration rather than a hardcoded Terraform-module assumption.
+- AWS Managed Microsoft AD requires two subnets in different Availability Zones.
 
 ## Decision
 
-The target architecture places AWS Managed Microsoft AD in the Core Recovery VPC. The reusable Terraform module exists, but deployment is currently disabled in the integrated environment pending approval of the identity, DNS, and credential-handling workflow.
+The Sandbox places AWS Managed Microsoft AD in the Core Recovery VPC using the existing `directory-services` subnet group.
+
+Placement is resolved through the Platform contract:
+
+- `identity_placement.vpc_key`
+- `identity_placement.subnet_group`
+- `identity_placement.required_subnet_count`
+
+The reusable module receives only resolved VPC and subnet IDs. It does not hardcode Core Recovery, CIDRs, subnet names, Availability Zones, or Region. A future environment can select a different approved placement without changing the module.
+
+Managed AD remains disabled by default. Enabling it requires Git-controlled configuration, an approved AAP credential, an Identity plan, and explicit apply authorization.
 
 ```mermaid
 flowchart TB
-    Admin[Administrator] --> ClientVPN[AWS Client VPN]
-    ClientVPN --> RA[Recovery Access VPC]
-    RA --> TGW[Transit Gateway]
-    TGW --> CR[Core Recovery VPC - AWS Managed Microsoft AD]
-    CR --> TGW2[Transit Gateway]
-    TGW2 --> PD[Protected Data VPC - recovered workloads authenticate here]
-```
+    Admin["Recovery administrator"]
+    VPN["AWS Client VPN<br/>Recovery Access"]
+    TGW["Transit Gateway"]
+    ManagedAD["AWS Managed Microsoft AD<br/>Core Recovery"]
+    RestoredAD["Restored EC2 domain controllers<br/>separate data-plane forest"]
 
-Core Recovery is neither the untrusted entry point (Recovery Access) nor the not-yet-vetted recovered data tier (Protected Data). It is the one tier positioned to serve as a platform-services layer without extending trust in either direction.
+    Admin --> VPN
+    VPN --> TGW
+    TGW --> ManagedAD
+    ManagedAD -. "no trust or synchronization" .-> RestoredAD
+```
 
 ## Consequences
 
-Every authentication request from a recovered workload in Protected Data now crosses the inspection boundary between Core Recovery and Protected Data — every Kerberos ticket, LDAP bind, and SYSVOL/NETLOGON access. This is intentional, but it has a concrete operational requirement: whichever network firewall placement is selected under ADR-001 must carry explicit allow rules for the ports Active Directory requires between Core Recovery and Protected Data:
-
-| Port | Protocol | Purpose |
-|---|---|---|
-| 53 | TCP/UDP | DNS |
-| 88 | TCP/UDP | Kerberos |
-| 389 | TCP/UDP | LDAP |
-| 636 | TCP | LDAPS |
-| 445 | TCP | SMB (SYSVOL, NETLOGON) |
-| 464 | TCP/UDP | Kerberos password change |
-| 3268 | TCP | Global Catalog |
-| 3269 | TCP | Global Catalog over SSL |
-| 49152-65535 | TCP | RPC dynamic range, unless NTDS/Netlogon are pinned to a static port range on the domain controllers |
-
-Without these rules explicitly present, a stateful firewall between Core Recovery and Protected Data will silently break authentication for recovered workloads — this should be treated as a required input to whichever ADR-001 option is implemented, not an afterthought discovered during a recovery drill.
+- Client VPN user authentication requires explicitly reviewed routing, DNS, and directory-service flows between Recovery Access and Core Recovery.
+- Managed AD does not authenticate recovered applications and does not require a trust relationship with their restored forest.
+- Direct `directory-services` reachability into Protected Data is not implied by this decision. Existing route eligibility must be reviewed separately before production hardening.
+- The current Sandbox `directory-services` subnets satisfy the two-subnet, different-AZ placement requirement; no additional Managed AD subnets are required.
+- Changing the directory domain, edition, VPC, or subnets can require replacement and must receive explicit plan review.
+- AWS provider `6.57.1` requires the initial Admin password through its sensitive `password` argument and does not expose a write-only alternative. The bootstrap value is therefore retained in Terraform state.
+- The state backend must be encrypted and tightly access-controlled. AAP must inject the password from a secret credential, never from Git or ordinary Job Template YAML.
+- The Admin password must be rotated through an approved operational workflow after creation. Terraform ignores subsequent password configuration changes so password rotation cannot replace the directory.
+- User, group, MFA, and directory operational administration are separate identity-management responsibilities and are not created by this Terraform resource.
 
 ## Alternatives considered
 
-**Recovery Access VPC.** Rejected. This would convert an ingress-only VPC into a shared-services VPC, mixing two responsibilities that are kept separate everywhere else in this design.
+### Recovery Access VPC
 
-**Protected Data VPC.** Rejected. This is the option most likely to be assumed by proximity to the workloads it serves, so it is recorded explicitly rather than silently discarded. Protected Data holds workloads that are still moving through malware scanning, integrity validation, and approval at the point they would first need to authenticate. Placing Tier-0 identity infrastructure in the same VPC as data that has not yet cleared validation is the specific risk this ADR avoids.
+Rejected. Hosting Tier-0 directory services in the administrative ingress tier mixes connectivity and shared-service responsibilities and increases exposure.
+
+### Protected Data VPC
+
+Rejected. It places the clean administrative directory beside restored material that has not yet passed recovery validation.
+
+### Dedicated Identity VPC
+
+Not required for the current Sandbox. It remains a future option if scale, compliance, multi-account design, or production isolation requirements justify a separate identity boundary and CIDR allocation.
 
 ## Related
 
-- ADR-005: Dual Active Directory (this ADR concerns the control-plane directory's network placement; ADR-005 addresses why a second, separate directory also exists and how the two relate)
-- ADR-001: Network Firewall Placement (the port table above is a direct input to that decision)
+- ADR-005: Dual Active Directory—defines the separation between administrative Managed AD and the restored production forest.
+- ADR-003: DNS Strategy—governs name-resolution integration.
+- ADR-001: Network Firewall Placement—governs inspected inter-VPC flows.

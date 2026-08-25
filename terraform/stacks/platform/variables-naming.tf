@@ -32,6 +32,27 @@ variable "naming" {
   }
 }
 
+variable "security_group_naming_mode" {
+  description = <<-EOT
+    AWS security-group naming mode.
+
+    logical preserves the historical behavior by using each stable Terraform
+    map key as the AWS security-group name. standard derives organization,
+    project, environment, Region, purpose, and resource-type components from
+    the Platform naming contract. Changing this setting for an existing
+    environment replaces security groups and therefore requires a controlled
+    migration.
+  EOT
+
+  type    = string
+  default = "logical"
+
+  validation {
+    condition     = contains(["logical", "standard"], var.security_group_naming_mode)
+    error_message = "security_group_naming_mode must be logical or standard."
+  }
+}
+
 variable "resource_name_overrides" {
   description = "Optional exact resource names approved for this environment. Null values use derived names."
 

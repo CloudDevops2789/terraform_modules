@@ -139,4 +139,16 @@ variable "client_vpn_security_group_rule_names" {
   description = "Security-group rule names that are active only when Client VPN is enabled."
   type        = set(string)
   default     = []
+
+  validation {
+    condition = alltrue([
+      for rule_name in var.client_vpn_security_group_rule_names :
+      contains(
+        [for rule in var.security_group_rules : rule.name],
+        rule_name
+      )
+    ])
+
+    error_message = "Every client_vpn_security_group_rule_names entry must reference an existing security_group_rules name."
+  }
 }

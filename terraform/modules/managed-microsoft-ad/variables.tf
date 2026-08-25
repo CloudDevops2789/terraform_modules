@@ -7,9 +7,43 @@ variable "domain_name" {
   type        = string
 }
 
+variable "short_name" {
+  description = "Optional NetBIOS short name for the directory. When null, AWS derives it from the first DNS label."
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = var.short_name == null ? true : (
+      length(var.short_name) >= 1 &&
+      length(var.short_name) <= 15 &&
+      length(regexall("^[A-Za-z0-9-]+$", var.short_name)) == 1 &&
+      !startswith(var.short_name, "-") &&
+      !endswith(var.short_name, "-")
+    )
+    error_message = "short_name must contain 1-15 letters, numbers, or hyphens and cannot begin or end with a hyphen."
+  }
+}
+
 variable "password" {
-  type      = string
-  sensitive = true
+  description = "Initial Admin password. Terraform state retains this sensitive value; rotate it operationally after directory creation."
+  type        = string
+  sensitive   = true
+
+  validation {
+    condition = nonsensitive(
+      length(var.password) >= 8 &&
+      length(var.password) <= 64 &&
+      !strcontains(lower(var.password), "admin") &&
+      sum([
+        length(regexall("[A-Z]", var.password)) > 0 ? 1 : 0,
+        length(regexall("[a-z]", var.password)) > 0 ? 1 : 0,
+        length(regexall("[0-9]", var.password)) > 0 ? 1 : 0,
+        length(regexall("[^A-Za-z0-9]", var.password)) > 0 ? 1 : 0
+      ]) >= 3
+    )
+    error_message = "Password must be 8-64 characters, must not contain admin, and must include at least three of: uppercase, lowercase, number, or special character."
+  }
 }
 
 variable "edition" {
@@ -37,6 +71,20 @@ variable "subnet_ids" {
   validation {
     condition     = length(var.subnet_ids) == 2
     error_message = "Exactly two subnet IDs must be provided."
+  }
+}
+
+variable "client_cidr_blocks" {
+  description = "Approved client network CIDRs that require native Active Directory access to the managed directory."
+  type        = set(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for cidr in var.client_cidr_blocks :
+      can(cidrnetmask(cidr))
+    ])
+    error_message = "Every client_cidr_blocks entry must be a valid IPv4 CIDR."
   }
 }
 

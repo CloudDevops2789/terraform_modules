@@ -39,6 +39,9 @@ module "security_group" {
   security_groups = {
 
     management = {
+      # Optional AWS-side name. The map key remains the stable Terraform
+      # identity and output key.
+      name        = "example-ire-sandbox-use1-management-sg"
       description = "Management"
       vpc_id      = module.recovery_access.vpc_id
     }
@@ -87,13 +90,14 @@ module "security_group_rule" {
 
 | Name | Type | Default | Required | Description |
 |---|---|---|:---:|---|
-| `security_groups` | `map(object)` | `{}` | no | Security groups to create. The map key becomes the group name. |
+| `security_groups` | `map(object)` | `{}` | no | Security groups to create. The map key is the stable Terraform identity and the default AWS group name. |
 | `tags` | `map(string)` | `{}` | no | Tags applied to every group, before per-group overrides. |
 
 ### `security_groups` object
 
 | Attribute | Type | Default | Description |
 |---|---|---|---|
+| `name` | `string` | `null` | Optional AWS security-group name. When omitted, the stable map key is used. |
 | `description` | `string` | required | Group description. AWS requires a non-empty value and rejects the request otherwise. |
 | `vpc_id` | `string` | required | VPC the group belongs to. |
 | `tags` | `map(string)` | `{}` | Tags for this group, merged over the module-level `tags` input. |
@@ -104,13 +108,15 @@ module "security_group_rule" {
 
 | Name | Type | Description |
 |---|---|---|
-| `security_group_ids` | `map(string)` | Group name → security group ID. |
+| `security_group_ids` | `map(string)` | Stable logical map key → security group ID. |
 
 ---
 
 ## Design notes
 
-**The map key is the group name.** It becomes `name` in AWS, the `Name` tag, and the output key. Security group names must be unique within a VPC, so the same key may be reused across different VPCs — as the sandbox does not, but legitimately could.
+**The map key is the Terraform identity.** It remains the resource address and output key. The optional `name` attribute controls the AWS group name and `Name` tag; omitting it preserves the historical behavior by using the map key. Changing an existing AWS security-group name requires replacement, so naming changes must be reviewed as migrations rather than routine metadata updates.
+
+**Effective names are unique per VPC.** The module validates the combination of VPC ID and effective AWS name, allowing the same AWS name in different VPCs while rejecting case-insensitive duplicates inside one VPC.
 
 **Description is required, not optional.** AWS rejects a security group with an empty description. Making it a required attribute in the type turns a runtime API error into a plan-time type error.
 
@@ -123,9 +129,9 @@ module "security_group_rule" {
 | Concept | Where | Why it is used |
 |---|---|---|
 | `for_each` over a map | `security-group.tf` | One group per named entry |
-| `optional()` in object types | `variables.tf` | `tags` may be omitted entirely |
+| `optional()` in object types | `variables.tf` | `name` and `tags` may be omitted entirely |
 | Map comprehension + `merge()` | `locals.tf` | Precompute per-group tags with clear precedence |
-| `for` comprehension in outputs | `outputs.tf` | Return IDs keyed by group name |
+| `for` comprehension in outputs | `outputs.tf` | Return IDs keyed by stable logical identity |
 
 ---
 

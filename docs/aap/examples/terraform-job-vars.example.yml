@@ -14,4 +14,6 @@ terraform_variables: {}
 #
 # terraform_variables:
 #   demo_ec2_enabled: true
-#   ami_id: "<APPROVED_AMI_IN_DEPLOYMENT_REGION>"
+#
+# Recovery AMIs, access methods, and optional SSH key-pair references are
+# reviewed in terraform/environments/sandbox/config/recovery.tfvars.

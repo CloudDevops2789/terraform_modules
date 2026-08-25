@@ -2235,18 +2235,6 @@ flowchart TD
 - review every replacement shown by `terraform plan`;
 - do not integrate AWS Network Firewall until the VPC module and active consumers are migrated successfully.
 
-### Ignore migration backup folders
-
-Repository folders matching the following pattern are migration backups and should not be treated as active consumers:
-
-```text
-terraform/environments/.tag-migration-backup-*
-```
-
-Do not include them in active migration work or commits unless explicitly required.
-
----
-
 ## Future AWS Network Firewall integration
 
 The VPC module is designed to support AWS Network Firewall integration without owning firewall routing.

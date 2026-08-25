@@ -2,7 +2,7 @@
 # attaches rules to them, and the ec2 module attaches instances to them.
 output "security_group_ids" {
 
-  description = "Security group IDs."
+  description = "Security group IDs keyed by stable logical identity."
 
   value = {
     for name, sg in aws_security_group.this :
