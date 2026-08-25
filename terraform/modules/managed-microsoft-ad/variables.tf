@@ -56,6 +56,20 @@ variable "subnet_ids" {
   }
 }
 
+variable "client_cidr_blocks" {
+  description = "Approved client network CIDRs that require native Active Directory access to the managed directory."
+  type        = set(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for cidr in var.client_cidr_blocks :
+      can(cidrnetmask(cidr))
+    ])
+    error_message = "Every client_cidr_blocks entry must be a valid IPv4 CIDR."
+  }
+}
+
 variable "tags" {
   description = "Map of tags to apply to the directory."
 
