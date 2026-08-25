@@ -1,0 +1,90 @@
+---
+################################################################################
+# Approved Private Environment Terraform Variables
+#
+# Stable organization-specific values may come from an approved private AAP
+# inventory. They remain separate from operator-supplied terraform_variables
+# and credential-owned sensitive values.
+################################################################################
+
+- name: Validate private environment variable structure
+  ansible.builtin.assert:
+    that:
+      - terraform_environment_variables_by_stack | default({}) is mapping
+      - >-
+        (
+          terraform_environment_variables_by_stack
+          | default({})
+        ).get('common', {}) is mapping
+      - >-
+        (
+          terraform_environment_variables_by_stack
+          | default({})
+        ).get(terraform_stack, {}) is mapping
+    fail_msg: >-
+      terraform_environment_variables_by_stack must contain optional common
+      and stack-specific mappings.
+  no_log: true
+
+- name: Resolve approved private environment variables
+  ansible.builtin.set_fact:
+    terraform_environment_variables: >-
+      {{
+        (
+          terraform_environment_variables_by_stack
+          | default({})
+        ).get('common', {})
+        | combine(
+            (
+              terraform_environment_variables_by_stack
+              | default({})
+            ).get(terraform_stack, {}),
+            recursive=true
+          )
+      }}
+  no_log: true
+
+- name: Validate approved private environment variable keys
+  ansible.builtin.assert:
+    that:
+      - >-
+        (
+          terraform_environment_variables.keys()
+          | list
+          | difference(
+              (
+                terraform_environment_variable_allowlists.common
+                | default([])
+              )
+              +
+              (
+                terraform_environment_variable_allowlists[terraform_stack]
+                | default([])
+              )
+            )
+          | length
+        ) == 0
+      - >-
+        (
+          terraform_environment_variables.keys()
+          | list
+          | intersect(terraform_variables.keys() | list)
+          | length
+        ) == 0
+      - >-
+        (
+          terraform_environment_variables.keys()
+          | list
+          | intersect([
+              'aws_region',
+              'platform_contract',
+              'persistent_resources',
+              'managed_ad_password'
+            ])
+          | length
+        ) == 0
+    fail_msg: >-
+      Private environment variables contain an unapproved key, overlap an
+      operator runtime variable, or attempt to replace a contract, Region, or
+      credential-owned value.
+  no_log: true

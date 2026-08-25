@@ -42,6 +42,12 @@ declare -A MODULE_HAS_CONSUMER=()
 for module in "${CHANGED_MODULES[@]}"; do
   MODULE_HAS_CONSUMER["$module"]=false
 
+  if [ ! -d "terraform/modules/$module" ]; then
+    echo
+    echo "Skipping retired module: $module"
+    continue
+  fi
+
   echo
   echo "Discovering validation consumers for module: $module"
 
@@ -67,18 +73,22 @@ for module in "${CHANGED_MODULES[@]}"; do
     || true
 )
 
-  if git grep -l -E \
-  "source[[:space:]]*=[[:space:]]*\"../../modules/${module}\"" \
-  -- ':(glob)terraform/environments/sandbox/*.tf' \
-  >/dev/null; then
-  
-    ROOTS["terraform/environments/sandbox"]=1
+  while IFS= read -r file; do
+    [ -n "$file" ] || continue
+
+    root="$(dirname "$file")"
+    ROOTS["$root"]=1
     MODULE_HAS_CONSUMER["$module"]=true
-    echo "  sandbox: terraform/environments/sandbox"
-  fi
+    echo "  lifecycle stack: $root"
+  done < <(
+    git grep -l -E \
+      "source[[:space:]]*=[[:space:]]*\"../../modules/${module}\"" \
+      -- ':(glob)terraform/stacks/*/*.tf' \
+      || true
+  )
 
   if [ "${MODULE_HAS_CONSUMER[$module]}" = false ]; then
-    echo "ERROR: Changed module '$module' has no discovered module-test or Sandbox validation consumer."
+    echo "ERROR: Changed module '$module' has no discovered module-test or lifecycle-stack validation consumer."
     echo "Add a validation consumer before merging changes to this module."
     exit 1
   fi

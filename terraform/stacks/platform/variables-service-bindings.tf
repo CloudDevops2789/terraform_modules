@@ -6,6 +6,7 @@ variable "security_groups" {
   description = "Security groups keyed by caller-defined logical name and placed into VPCs using vpc_key."
 
   type = map(object({
+    name        = optional(string)
     description = string
     vpc_key     = string
     tags        = optional(map(string), {})
@@ -24,6 +25,15 @@ variable "security_groups" {
     ])
 
     error_message = "Every security group vpc_key must reference an existing network_config.vpcs entry."
+  }
+
+  validation {
+    condition = alltrue([
+      for security_group in values(var.security_groups) :
+      security_group.name == null ? true : length(trimspace(security_group.name)) > 0
+    ])
+
+    error_message = "Security group names must be null or non-empty strings."
   }
 }
 
@@ -71,6 +81,7 @@ variable "ssm_endpoint_bindings" {
   description = "VPCs that receive the private Systems Manager endpoint plane."
 
   type = map(object({
+    security_group_name        = optional(string)
     subnet_group               = string
     source_security_group_keys = set(string)
   }))
@@ -90,5 +101,14 @@ variable "ssm_endpoint_bindings" {
     ])
 
     error_message = "Every SSM endpoint binding must reference an existing VPC and at least one existing source security group."
+  }
+
+  validation {
+    condition = alltrue([
+      for binding in values(var.ssm_endpoint_bindings) :
+      binding.security_group_name == null ? true : length(trimspace(binding.security_group_name)) > 0
+    ])
+
+    error_message = "SSM endpoint security group names must be null or non-empty strings."
   }
 }

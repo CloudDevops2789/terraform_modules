@@ -1,0 +1,61 @@
+---
+################################################################################
+# Identity Deployment Plan Safety
+#
+# Normal Identity Apply operations may create or update identity resources, but
+# they cannot delete or replace them. Intentional removal remains owned by the
+# separately authorized Identity Destroy workflow.
+#
+# Terraform plan JSON can contain sensitive values. Tasks that handle the JSON
+# therefore use no_log and do not persist or display the plan document.
+################################################################################
+
+- name: Initialize Identity destructive-action inventory
+  ansible.builtin.set_fact:
+    terraform_identity_delete_addresses: []
+  no_log: true
+
+- name: Read saved Identity deployment plan as JSON
+  ansible.builtin.command:
+    argv:
+      - terraform
+      - show
+      - -json
+      - "{{ terraform_temp_dir.path }}/deploy.tfplan"
+  args:
+    chdir: "{{ terraform_effective_root }}"
+  environment:
+    TF_IN_AUTOMATION: "true"
+  register: terraform_identity_plan_json
+  changed_when: false
+  no_log: true
+
+- name: Collect Identity resources with delete or replacement actions
+  ansible.builtin.set_fact:
+    terraform_identity_delete_addresses: >-
+      {{
+        terraform_identity_delete_addresses
+        + [item.address]
+      }}
+  loop: >-
+    {{
+      (
+        terraform_identity_plan_json.stdout
+        | from_json
+      ).resource_changes
+      | default([])
+    }}
+  when:
+    - "'delete' in (item.change.actions | default([]))"
+  no_log: true
+
+- name: Reject destructive actions in normal Identity Apply
+  ansible.builtin.assert:
+    that:
+      - terraform_identity_delete_addresses | length == 0
+    fail_msg: >-
+      Normal Identity Apply rejected because the saved Terraform plan contains
+      deletion or replacement actions for:
+      {{ terraform_identity_delete_addresses | join(', ') }}.
+      Review the plan in plan-only mode. Intentional Identity removal must use
+      the separately authorized Identity Destroy workflow.

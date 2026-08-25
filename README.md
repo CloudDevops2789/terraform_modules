@@ -7,6 +7,20 @@ The repository combines reusable Terraform modules with Ansible Automation Platf
 > [!IMPORTANT]
 > Terraform is the infrastructure provisioning engine. Ansible Automation Platform (AAP) is the orchestration, authentication, approval, and execution-control layer.
 
+## Start here
+
+- New maintainers: read [`MAINTAINERS.md`](MAINTAINERS.md).
+- Troubleshooting and maintenance: use
+  [`docs/operations/troubleshooting.md`](docs/operations/troubleshooting.md).
+- Governed IRE deployments: use the four roots under `terraform/stacks` through
+  the approved AAP workflow.
+- Reusable module validation: use the consumer roots under
+  `terraform/environments/module-tests`.
+
+Environment configuration lives under `terraform/environments`; it is not a
+Terraform deployment root. Do not infer state ownership from directory names;
+use the lifecycle bindings and backend keys documented in `MAINTAINERS.md`.
+
 ---
 
 ## Contents
@@ -208,9 +222,14 @@ The following matrix distinguishes reusable implementation, environment integrat
 ├── scripts/
 │   └── ci/
 ├── terraform/
-│   ├── bootstrap/
+│   ├── stacks/
+│   │   ├── persistent/
+│   │   ├── platform/
+│   │   ├── identity/
+│   │   └── recovery/
 │   ├── environments/
 │   │   ├── sandbox/
+│   │   │   └── config/
 │   │   ├── module-tests/
 │   └── modules/
 │       ├── backup-*/
@@ -234,7 +253,11 @@ The following matrix distinguishes reusable implementation, environment integrat
 └── requirements.yml
 ```
 
-The `sandbox` directory is the current integrated environment root. Reusable module logic remains under `terraform/modules` and is validated independently through module-test roots.
+The four directories under `terraform/stacks` are the active lifecycle roots.
+Sandbox desired-state files consumed by AAP are under
+`terraform/environments/sandbox/config`. Reusable module logic remains under
+`terraform/modules` and is validated independently through module-validation
+roots under `terraform/environments/module-tests`.
 
 ---
 
@@ -284,13 +307,15 @@ The repository uses a three-layer configuration model.
 |---|---|---|
 | Architecture | Git | Stable non-sensitive desired state |
 | Environment binding | AAP | Region, execution role, backend and external resource references |
-| Runtime intent | AAP | Plan/apply, temporary workload lifecycle and approved AMI |
+| Runtime intent | AAP | Plan/apply and temporary workload lifecycle |
 
-The integrated Sandbox automatically loads:
+AAP passes the following Git-controlled Sandbox files explicitly to the active
+Platform root:
 
 ~~~text
-terraform/environments/sandbox/platform.auto.tfvars
-terraform/environments/sandbox/network-policy.auto.tfvars
+terraform/environments/sandbox/config/common-tags.tfvars
+terraform/environments/sandbox/config/platform.tfvars
+terraform/environments/sandbox/config/platform-network-policy.tfvars
 ~~~
 
 Git-controlled architecture includes:
@@ -302,6 +327,7 @@ Git-controlled architecture includes:
 - SSM management architecture;
 - naming;
 - standard tagging;
+- Recovery workload AMIs, placement, access methods and SSH exception registry;
 - Persistent Resources integration enablement; and
 - network security policy.
 
@@ -312,8 +338,9 @@ The backend Region remains independently configured because the state bucket
 may reside in a different AWS Region.
 
 `terraform.tfvars` remains ignored and is used only for local/runtime bindings.
-Non-sensitive desired-state environment configuration belongs in tracked
-`.auto.tfvars` files rather than being re-entered by operators on every run.
+Non-sensitive desired-state environment configuration belongs in the tracked
+stack-specific `.tfvars` files selected by AAP rather than being re-entered by
+operators on every run.
 
 Secrets, credentials, state, plans and sensitive runtime artifacts remain
 outside Git.
@@ -459,11 +486,21 @@ A recovery exercise needs only:
 ~~~yaml
 terraform_variables:
   demo_ec2_enabled: true
-  ami_id: "<APPROVED_AMI>"
 ~~~
+
+The reviewed Recovery stack configuration owns each workload's AMI, access
+method, placement, backup intent, and optional SSH key-pair reference. AAP
+cannot replace these through the normal Sandbox runtime map.
 
 When Git later enables enterprise federated Client VPN, AAP supplies the
 existing external certificate and SAML-provider ARNs.
+
+Identity secrets are separated from ordinary runtime variables. When Git enables
+Managed AD, an approved AAP custom credential injects the bootstrap password as
+`IRE_TERRAFORM_MANAGED_AD_PASSWORD`. The playbooks reserve
+`managed_ad_password`, reject operator override, and resolve the credential
+internally under `no_log`. With Managed AD disabled, Identity continues to use
+`terraform_variables: {}` without requiring the credential.
 
 The deploy workflow defaults to plan-only execution. Destroy remains separately
 guarded by explicit enablement and confirmation controls.
@@ -519,6 +556,35 @@ The current design includes the following controls:
 - plan-only defaults for infrastructure deployment and destruction workflows;
 - explicit confirmation before destructive execution; and
 - cleanup of temporary Terraform plan and variable artifacts.
+
+### Security-group composition and naming
+
+Platform security groups are role based rather than one-per-VPC. Workload
+groups such as `management`, `core`, and `protected` remain separate from the
+private Systems Manager endpoint groups. A resource may attach more than one
+logical group when it needs both a baseline policy and a workload-specific
+policy. Rules remain standalone resources and are supplied through the
+configuration-driven `security_group_rules` collection, so additional rules do
+not require changes to the reusable security-group modules.
+
+Security-group map keys are stable Terraform identities. They are also the
+keys used by workload placement, endpoint bindings, Client VPN bindings, rules,
+and outputs. AWS-visible names are deliberately separate from those identities:
+
+- `security_group_naming_mode = "logical"` is the compatibility default and
+  preserves the historical AWS names;
+- `security_group_naming_mode = "standard"` derives names from the Platform
+  `naming` object and the logical purpose; and
+- an optional `name` on a security-group definition, or
+  `security_group_name` on an SSM endpoint binding, provides an approved exact
+  AWS name when a derived name is not suitable.
+
+Changing the effective AWS name of an existing security group requires
+replacement. Environments must therefore keep `logical` mode until an explicit
+migration plan introduces replacement groups, moves attachments and rules, and
+retires the legacy groups. Changing `naming.organization` from a neutral value
+such as `org` to an organization code such as `fv` is similarly an environment
+configuration decision and must not be introduced as an AAP runtime override.
 
 ---
 
@@ -611,13 +677,12 @@ The workflow performs:
 1. input validation;
 2. AWS IAM role assumption;
 3. temporary workspace creation;
-4. runtime public-key materialization where required by the environment interface;
-5. runtime Terraform variable-file generation;
-6. Terraform backend initialization;
-7. `terraform validate`;
-8. saved Terraform plan generation;
-9. plan-summary reporting; and
-10. application of the saved plan only when explicitly enabled.
+4. runtime Terraform variable-file generation;
+5. Terraform backend initialization;
+6. `terraform validate`;
+7. saved Terraform plan generation;
+8. plan-summary reporting; and
+9. application of the saved plan only when explicitly enabled.
 
 The safe default is:
 

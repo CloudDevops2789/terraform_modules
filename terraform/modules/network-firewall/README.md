@@ -174,7 +174,7 @@ AWS Network Firewall is billable while deployed. Destroy the test immediately af
 
 ## Repository integration status
 
-The module is integrated in `terraform/environments/sandbox` as one two-AZ
-firewall in the dedicated centralized Inspection VPC. The environment selects
+The module is integrated by `terraform/stacks/platform` as one two-AZ firewall
+in the dedicated centralized Inspection VPC. The Platform composition selects
 same-AZ endpoint IDs for Transit Gateway traffic. The module itself remains
 topology-neutral and does not create routes.

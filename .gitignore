@@ -34,16 +34,10 @@ backend.hcl
 tfplan
 tfplan.*
 
-# Version-controlled Sandbox network security policy
-!terraform/environments/sandbox/network-policy.auto.tfvars
-
 # Local Ansible lint virtual environment
 .venv-ansible-lint/
 
-# Git-controlled Sandbox architecture
-!terraform/environments/sandbox/platform.auto.tfvars
-
-# Git-controlled, non-secret Terraform stack configuration.
+# Git-controlled, non-secret Terraform environment configuration.
 # Runtime/local terraform.tfvars files remain ignored.
-!terraform/environments/*/stacks/
-!terraform/environments/*/stacks/*.tfvars
+!terraform/environments/*/config/
+!terraform/environments/*/config/*.tfvars

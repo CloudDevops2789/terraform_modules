@@ -48,6 +48,30 @@ terraform_stack_var_files:
 # Cross-stack contracts are not Terraform operator inputs.
 # AAP resolves them from approved managed outputs or explicit external bindings.
 
+terraform_environment_variable_allowlists:
+  common:
+    - organization_tag_key_prefix
+    - org_it_cost_center
+    - org_department
+    - org_cmdb_calculated_app
+    - org_business_criticality
+    - org_environment
+    - org_data_classification
+    - org_project_name
+    - org_managed_by
+    - org_additional_tags
+
+  persistent: []
+
+  platform:
+    - security_group_naming_mode
+
+  identity:
+    - managed_ad_enabled
+    - managed_ad_configuration
+
+  recovery: []
+
 terraform_sandbox_runtime_variable_allowlists:
   persistent:
     - kms_key_administrators
@@ -62,7 +86,6 @@ terraform_sandbox_runtime_variable_allowlists:
 
   recovery:
     - demo_ec2_enabled
-    - ami_id
 
 ################################################################################
 # Approved lifecycle dependencies and output contracts

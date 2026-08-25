@@ -21,20 +21,6 @@ variable "platform_contract" {
 
   default  = null
   nullable = true
-
-  validation {
-    condition = (
-      !(var.demo_ec2_enabled && var.demo_ec2_access_method == "ssm") ||
-      try(
-        length(
-          trimspace(var.platform_contract.ssm_instance_profile_name)
-        ) > 0,
-        false
-      )
-    )
-
-    error_message = "The Platform contract must provide an SSM instance profile when Recovery workloads use SSM."
-  }
 }
 
 ##################################################################################################
@@ -47,6 +33,11 @@ variable "recovery_workloads" {
   type = map(object({
     server_name = optional(string)
     vpc_key     = string
+
+    # Workload-specific image and approved administrative access architecture.
+    ami_id           = optional(string)
+    access_method    = string
+    ssh_key_pair_key = optional(string)
 
     # Select either one exact subnet or a logical subnet group.
     subnet_key   = optional(string)
@@ -65,12 +56,91 @@ variable "recovery_workloads" {
   nullable = false
 
   validation {
+    condition = (
+      !var.demo_ec2_enabled ||
+      !anytrue([
+        for workload in values(var.recovery_workloads) :
+        contains(
+          ["ssm", "ssm_with_ssh_fallback"],
+          workload.access_method
+        )
+      ]) ||
+      try(
+        length(
+          trimspace(var.platform_contract.ssm_instance_profile_name)
+        ) > 0,
+        false
+      )
+    )
+
+    error_message = "The Platform contract must provide an SSM instance profile when enabled Recovery workloads use SSM."
+  }
+
+  validation {
     condition = alltrue([
       for workload in values(var.recovery_workloads) :
       workload.server_name == null ? true : length(trimspace(workload.server_name)) > 0
     ])
 
     error_message = "Recovery workload server names must be null or non-empty strings."
+  }
+
+  validation {
+    condition = alltrue([
+      for workload in values(var.recovery_workloads) :
+      (
+        workload.ami_id == null ||
+        can(regex("^ami-[0-9a-fA-F]+$", workload.ami_id))
+      )
+    ])
+
+    error_message = "Recovery workload ami_id values must be null or valid AMI IDs."
+  }
+
+  validation {
+    condition = alltrue([
+      for workload in values(var.recovery_workloads) :
+      contains(
+        ["none", "ssm", "ssh_key", "ssm_with_ssh_fallback"],
+        workload.access_method
+      )
+    ])
+
+    error_message = "Recovery workload access_method must be none, ssm, ssh_key, or ssm_with_ssh_fallback."
+  }
+
+  validation {
+    condition = alltrue([
+      for workload in values(var.recovery_workloads) :
+      (
+        contains(
+          ["ssh_key", "ssm_with_ssh_fallback"],
+          workload.access_method
+        )
+        ? (
+          workload.ssh_key_pair_key != null &&
+          contains(
+            keys(var.recovery_ssh_key_pairs),
+            workload.ssh_key_pair_key
+          )
+        )
+        : workload.ssh_key_pair_key == null
+      )
+    ])
+
+    error_message = "SSH workloads must reference recovery_ssh_key_pairs; non-SSH workloads must not set ssh_key_pair_key."
+  }
+
+  validation {
+    condition = (
+      !var.demo_ec2_enabled ||
+      alltrue([
+        for workload in values(var.recovery_workloads) :
+        workload.ami_id != null
+      ])
+    )
+
+    error_message = "Every enabled Recovery workload must define ami_id in recovery_workloads."
   }
 
   validation {
