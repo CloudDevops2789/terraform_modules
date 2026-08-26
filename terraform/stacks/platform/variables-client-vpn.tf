@@ -152,3 +152,39 @@ variable "client_vpn_security_group_rule_names" {
     error_message = "Every client_vpn_security_group_rule_names entry must reference an existing security_group_rules name."
   }
 }
+
+variable "client_vpn_dns_configuration" {
+  description = "DNS servers pushed to Client VPN users. vpc_resolver derives the associated VPC's private AmazonProvidedDNS address."
+
+  type = object({
+    mode               = optional(string, "none")
+    custom_dns_servers = optional(list(string), [])
+  })
+
+  default  = {}
+  nullable = false
+
+  validation {
+    condition = contains(
+      ["none", "vpc_resolver", "custom"],
+      var.client_vpn_dns_configuration.mode
+    )
+    error_message = "client_vpn_dns_configuration.mode must be none, vpc_resolver, or custom."
+  }
+
+  validation {
+    condition = (
+      var.client_vpn_dns_configuration.mode == "custom"
+      ? (
+        length(var.client_vpn_dns_configuration.custom_dns_servers) > 0 &&
+        length(distinct(var.client_vpn_dns_configuration.custom_dns_servers)) == length(var.client_vpn_dns_configuration.custom_dns_servers) &&
+        alltrue([
+          for dns_server in var.client_vpn_dns_configuration.custom_dns_servers :
+          can(cidrhost("${dns_server}/32", 0))
+        ])
+      )
+      : length(var.client_vpn_dns_configuration.custom_dns_servers) == 0
+    )
+    error_message = "custom mode requires unique IPv4 DNS server addresses; other modes must leave custom_dns_servers empty."
+  }
+}
