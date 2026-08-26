@@ -239,6 +239,7 @@ The following matrix distinguishes reusable implementation, environment integrat
 │       ├── key-pair/
 │       ├── kms/
 │       ├── managed-microsoft-ad/
+│       ├── route53-resolver/
 │       ├── network-firewall/
 │       ├── network-firewall-logging/
 │       ├── network-firewall-policy/
