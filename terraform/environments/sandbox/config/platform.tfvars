@@ -523,6 +523,12 @@ client_vpn_network_binding = {
   ]
 }
 
+# Push the Recovery Access VPC's AmazonProvidedDNS address to VPN clients.
+# Its associated forwarding rule resolves the private Managed AD namespace.
+client_vpn_dns_configuration = {
+  mode = "vpc_resolver"
+}
+
 ssm_endpoint_bindings = {
   recovery_access = {
     subnet_group               = "endpoints"

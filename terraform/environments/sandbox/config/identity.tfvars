@@ -25,3 +25,24 @@ managed_ad_configuration = {
   short_name  = "FVIRE"
   edition     = "Standard"
 }
+
+# Resolve the clean administrative directory through Route 53 Resolver without
+# creating a private hosted zone for the directory-owned DNS namespace.
+managed_ad_dns_resolver = {
+  enabled = true
+
+  endpoint_name       = "fv-ire-sandbox-managed-ad-dns-outbound"
+  rule_name           = "fv-ire-sandbox-managed-ad-domain"
+  security_group_name = "fv-ire-sandbox-managed-ad-dns-sg"
+
+  vpc_key               = "core_recovery"
+  subnet_group          = "endpoints"
+  required_subnet_count = 2
+
+  # Protected Data is deliberately excluded: restored production-derived
+  # workloads must not automatically resolve against the clean admin domain.
+  associated_vpc_keys = [
+    "core_recovery",
+    "recovery_access"
+  ]
+}
