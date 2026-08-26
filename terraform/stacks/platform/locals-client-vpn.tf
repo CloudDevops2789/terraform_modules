@@ -7,12 +7,25 @@ locals {
   # membership, and authorization target CIDRs describe relationships to
   # other resources and remain in client_vpn.tf.
   client_vpn = {
-    name                  = local.resource_names.client_vpn
-    client_cidr_block     = local.network_cidrs.client_vpn
-    split_tunnel          = true
-    transport_protocol    = "udp"
-    vpn_port              = 443
-    dns_servers           = []
+    name               = local.resource_names.client_vpn
+    client_cidr_block  = local.network_cidrs.client_vpn
+    split_tunnel       = true
+    transport_protocol = "udp"
+    vpn_port           = 443
+    dns_servers = (
+      var.client_vpn_dns_configuration.mode == "vpc_resolver"
+      ? [
+        cidrhost(
+          var.network_config.vpcs[
+            var.client_vpn_network_binding.vpc_key
+          ].cidr_block,
+          2
+        )
+      ]
+      : var.client_vpn_dns_configuration.mode == "custom"
+      ? var.client_vpn_dns_configuration.custom_dns_servers
+      : []
+    )
     session_timeout_hours = 8
     authorize_all_groups  = true
   }
