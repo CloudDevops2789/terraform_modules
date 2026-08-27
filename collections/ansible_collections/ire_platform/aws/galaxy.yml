@@ -28,5 +28,3 @@ tags:
 # (s3_bucket, sts_assume_role...) every role here calls.
 dependencies:
   amazon.aws: ">=10.0.0"
-
-repository: https://github.com/CloudDevops2789/ire-aws-iac-ansible-terraform-modules

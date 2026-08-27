@@ -98,7 +98,7 @@
 # reviewed through Terraform plan and Git approval.
 ################################################################################
 
-network_inspection_mode = "bypass"
+network_inspection_mode = "firewall"
 
 
 ################################################################################
@@ -521,6 +521,12 @@ client_vpn_network_binding = {
   authorization_vpc_keys = [
     "recovery_access"
   ]
+}
+
+# Push the Recovery Access VPC's AmazonProvidedDNS address to VPN clients.
+# Its associated forwarding rule resolves the private Managed AD namespace.
+client_vpn_dns_configuration = {
+  mode = "vpc_resolver"
 }
 
 ssm_endpoint_bindings = {
@@ -957,7 +963,7 @@ network_firewall_logging_enabled = false
 ################################################################################
 
 naming = {
-  organization             = "org"
+  organization             = "fv"
   project                  = "ire"
   project_display_name     = "IRE"
   environment              = "sandbox"

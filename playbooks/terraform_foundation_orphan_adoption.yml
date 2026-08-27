@@ -1,0 +1,649 @@
+---
+- name: Adopt existing Foundation resources into Terraform state
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars_files:
+    - vars/terraform_stack_bindings.yml
+
+  vars:
+    terraform_environment: "sandbox"
+    terraform_stack: "foundation"
+
+    terraform_backend_use_lockfile: true
+    terraform_backend_encrypt: true
+
+    terraform_foundation_adoption_kms_key_id: ""
+    terraform_foundation_adoption_kms_alias: ""
+    terraform_foundation_adoption_standard_vault_name: ""
+    terraform_foundation_adoption_airgap_vault_name: ""
+
+    terraform_foundation_nfw_kms_address: >-
+      module.network_firewall_logging_kms.aws_kms_key.this
+    terraform_foundation_nfw_kms_alias_address: >-
+      module.network_firewall_logging_kms.aws_kms_alias.this
+    terraform_foundation_standard_vault_address: >-
+      module.backup_standard_vault.aws_backup_vault.this
+    terraform_foundation_airgap_vault_address: >-
+      module.backup_logically_air_gapped_vault.aws_backup_logically_air_gapped_vault.this
+
+  pre_tasks:
+    - name: Validate Foundation adoption inputs
+      ansible.builtin.assert:
+        that:
+          - assume_role_role_arn | default('') | length > 0
+          - assume_role_aws_region | default('') | length > 0
+          - assume_role_application_name | default('') | length > 0
+          - >-
+            (assume_role_expected_account_id | default(''))
+            is match('^[0-9]{12}$')
+
+          - terraform_environment in terraform_allowed_environments
+          - terraform_stack == 'foundation'
+          - terraform_stack in terraform_active_stacks
+
+          - terraform_backend_bucket | default('') | length > 2
+          - terraform_backend_region | default('') | length > 0
+          - terraform_backend_key is not defined
+          - terraform_root is not defined
+
+          - terraform_variables is defined
+          - terraform_variables is mapping
+          - terraform_variables.kms_key_administrators is defined
+          - terraform_variables.kms_key_administrators is sequence
+          - terraform_variables.kms_key_administrators is not string
+          - terraform_variables.kms_key_administrators | length > 0
+          - >-
+            (
+              terraform_variables.keys()
+              | list
+              | difference(
+                  terraform_sandbox_runtime_variable_allowlists[terraform_stack]
+                )
+              | length
+            ) == 0
+
+          - >-
+            terraform_foundation_adoption_kms_key_id
+            is match(
+              '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+            )
+          - >-
+            terraform_foundation_adoption_kms_alias
+            is match('^alias/[A-Za-z0-9/_-]+$')
+          - >-
+            terraform_foundation_adoption_standard_vault_name
+            is match('^[A-Za-z0-9_-]{2,50}$')
+          - >-
+            terraform_foundation_adoption_airgap_vault_name
+            is match('^[A-Za-z0-9_-]{2,50}$')
+        fail_msg: >-
+          Foundation orphan-adoption inputs are missing or invalid. Supply the
+          approved AssumeRole and backend configuration, kms_key_administrators,
+          and the four exact AWS resource identifiers. Backend key and Terraform
+          root are derived internally and must not be supplied.
+
+    - name: Derive Foundation execution binding
+      ansible.builtin.set_fact:
+        terraform_effective_root: >-
+          {{ playbook_dir }}/../terraform/stacks/foundation
+        terraform_effective_environment_config_root: >-
+          {{ playbook_dir }}/../terraform/environments/{{ terraform_environment }}/stacks
+        terraform_effective_backend_key: >-
+          ire/{{ terraform_environment }}/foundation/terraform.tfstate
+
+    - name: Check Foundation stack root
+      ansible.builtin.stat:
+        path: "{{ terraform_effective_root }}"
+      register: terraform_foundation_root_stat
+
+    - name: Validate Foundation stack root
+      ansible.builtin.assert:
+        that:
+          - terraform_foundation_root_stat.stat.exists
+          - terraform_foundation_root_stat.stat.isdir
+        fail_msg: >-
+          Foundation Terraform stack root does not exist:
+          {{ terraform_effective_root }}
+
+    - name: Check required Git-controlled Foundation variable files
+      ansible.builtin.stat:
+        path: "{{ terraform_effective_environment_config_root }}/{{ item }}"
+      loop: "{{ terraform_stack_var_files[terraform_stack] }}"
+      register: terraform_foundation_git_var_file_stats
+
+    - name: Validate required Git-controlled Foundation variable files
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+          - item.stat.isreg
+        fail_msg: >-
+          Required Git-controlled Foundation variable file does not exist:
+          {{ item.item }}
+      loop: "{{ terraform_foundation_git_var_file_stats.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Initialize Foundation Git variable-file argument list
+      ansible.builtin.set_fact:
+        terraform_foundation_git_var_file_args: []
+
+    - name: Build Foundation Git variable-file arguments
+      ansible.builtin.set_fact:
+        terraform_foundation_git_var_file_args: >-
+          {{
+            terraform_foundation_git_var_file_args
+            +
+            [
+              '-var-file='
+              ~ terraform_effective_environment_config_root
+              ~ '/'
+              ~ item
+            ]
+          }}
+      loop: "{{ terraform_stack_var_files[terraform_stack] }}"
+
+    - name: Report Foundation adoption target
+      ansible.builtin.debug:
+        msg:
+          - "Environment: {{ terraform_environment }}"
+          - "Terraform root: {{ terraform_effective_root }}"
+          - "Backend key: {{ terraform_effective_backend_key }}"
+          - >-
+            KMS key ID:
+            {{ terraform_foundation_adoption_kms_key_id }}
+          - >-
+            KMS alias:
+            {{ terraform_foundation_adoption_kms_alias }}
+          - >-
+            Standard vault:
+            {{ terraform_foundation_adoption_standard_vault_name }}
+          - >-
+            Air-gapped vault:
+            {{ terraform_foundation_adoption_airgap_vault_name }}
+
+  roles:
+    - role: ire_platform.aws.assume_role
+
+  tasks:
+    - name: Verify KMS alias ownership before adoption
+      amazon.aws.kms_key_info:
+        alias: "{{ terraform_foundation_adoption_kms_alias }}"
+        access_key: "{{ assume_role_aws_auth.access_key }}"
+        secret_key: "{{ assume_role_aws_auth.secret_key }}"
+        session_token: "{{ assume_role_aws_auth.session_token }}"
+        region: "{{ assume_role_aws_auth.region }}"
+      register: terraform_foundation_adoption_kms_inventory
+      no_log: true
+
+    - name: Verify Backup vaults before adoption
+      amazon.aws.backup_vault_info:
+        backup_vault_names:
+          - "{{ terraform_foundation_adoption_standard_vault_name }}"
+          - "{{ terraform_foundation_adoption_airgap_vault_name }}"
+        access_key: "{{ assume_role_aws_auth.access_key }}"
+        secret_key: "{{ assume_role_aws_auth.secret_key }}"
+        session_token: "{{ assume_role_aws_auth.session_token }}"
+        region: "{{ assume_role_aws_auth.region }}"
+      register: terraform_foundation_adoption_backup_inventory
+      no_log: true
+
+    - name: Validate AWS resource identities before adoption
+      ansible.builtin.assert:
+        that:
+          - >-
+            terraform_foundation_adoption_kms_inventory.kms_keys
+            | default([])
+            | length == 1
+          - >-
+            terraform_foundation_adoption_kms_inventory.kms_keys[0].key_id
+            == terraform_foundation_adoption_kms_key_id
+          - >-
+            terraform_foundation_adoption_standard_vault_name
+            in (
+              terraform_foundation_adoption_backup_inventory.backup_vaults
+              | default([])
+              | map(attribute='backup_vault_name')
+              | list
+            )
+          - >-
+            terraform_foundation_adoption_airgap_vault_name
+            in (
+              terraform_foundation_adoption_backup_inventory.backup_vaults
+              | default([])
+              | map(attribute='backup_vault_name')
+              | list
+            )
+        fail_msg: >-
+          The supplied Foundation resource identifiers do not resolve to the
+          expected KMS alias owner and both Backup vaults. State was not changed.
+
+    - name: Create temporary Foundation adoption workspace
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: ire-foundation-adoption-
+      register: terraform_foundation_adoption_temp_dir
+
+    - name: Adopt existing Foundation resources
+      block:
+        - name: Initialize Foundation adoption facts
+          ansible.builtin.set_fact:
+            terraform_foundation_adoption_backend_initialized: false
+            terraform_foundation_adoption_rollback_armed: false
+            terraform_foundation_adoption_imports:
+              - address: "{{ terraform_foundation_nfw_kms_address }}"
+                id: "{{ terraform_foundation_adoption_kms_key_id }}"
+              - address: "{{ terraform_foundation_nfw_kms_alias_address }}"
+                id: "{{ terraform_foundation_adoption_kms_alias }}"
+              - address: "{{ terraform_foundation_standard_vault_address }}"
+                id: "{{ terraform_foundation_adoption_standard_vault_name }}"
+              - address: "{{ terraform_foundation_airgap_vault_address }}"
+                id: "{{ terraform_foundation_adoption_airgap_vault_name }}"
+          no_log: true
+
+        - name: Build Foundation runtime Terraform variables
+          ansible.builtin.set_fact:
+            terraform_foundation_effective_variables: >-
+              {{
+                terraform_variables
+                | combine(dict(aws_region=assume_role_aws_region))
+              }}
+          no_log: true
+
+        - name: Write temporary Foundation runtime variable file
+          ansible.builtin.copy:
+            content: >-
+              {{ terraform_foundation_effective_variables | to_nice_json }}
+            dest: >-
+              {{ terraform_foundation_adoption_temp_dir.path }}/terraform.auto.tfvars.json
+            mode: "0600"
+          no_log: true
+
+        - name: Initialize Foundation backend
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - init
+              - -input=false
+              - -reconfigure
+              - "-backend-config=bucket={{ terraform_backend_bucket }}"
+              - "-backend-config=key={{ terraform_effective_backend_key }}"
+              - "-backend-config=region={{ terraform_backend_region }}"
+              - "-backend-config=encrypt={{ terraform_backend_encrypt | lower }}"
+              - >-
+                -backend-config=use_lockfile={{ terraform_backend_use_lockfile | lower }}
+          args:
+            chdir: "{{ terraform_effective_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: >-
+              {{ terraform_foundation_adoption_temp_dir.path }}/foundation-tfdata
+          changed_when: false
+          no_log: true
+
+        - name: Mark Foundation backend initialized
+          ansible.builtin.set_fact:
+            terraform_foundation_adoption_backend_initialized: true
+
+        - name: Validate Foundation Terraform configuration
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - validate
+              - -no-color
+          args:
+            chdir: "{{ terraform_effective_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: >-
+              {{ terraform_foundation_adoption_temp_dir.path }}/foundation-tfdata
+          changed_when: false
+
+        - name: List Foundation state before adoption
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - state
+              - list
+          args:
+            chdir: "{{ terraform_effective_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: >-
+              {{ terraform_foundation_adoption_temp_dir.path }}/foundation-tfdata
+          register: terraform_foundation_state_before_adoption
+          changed_when: false
+
+        - name: Verify Foundation adoption targets are unowned
+          ansible.builtin.assert:
+            that:
+              - >-
+                terraform_foundation_nfw_kms_address
+                not in terraform_foundation_state_before_adoption.stdout_lines
+              - >-
+                terraform_foundation_nfw_kms_alias_address
+                not in terraform_foundation_state_before_adoption.stdout_lines
+              - >-
+                terraform_foundation_standard_vault_address
+                not in terraform_foundation_state_before_adoption.stdout_lines
+              - >-
+                terraform_foundation_airgap_vault_address
+                not in terraform_foundation_state_before_adoption.stdout_lines
+            fail_msg: >-
+              Foundation state already owns one or more adoption targets. Stop
+              and inspect state before retrying.
+
+        - name: Arm Foundation adoption rollback
+          ansible.builtin.set_fact:
+            terraform_foundation_adoption_rollback_armed: true
+
+        - name: Import approved Foundation resources
+          ansible.builtin.command:
+            argv: >-
+              {{
+                [
+                  'terraform',
+                  'import',
+                  '-input=false',
+                  '-lock=true',
+                  '-lock-timeout=5m'
+                ]
+                + terraform_foundation_git_var_file_args
+                +
+                [
+                  '-var-file='
+                  ~ terraform_foundation_adoption_temp_dir.path
+                  ~ '/terraform.auto.tfvars.json',
+                  foundation_adoption_import.address,
+                  foundation_adoption_import.id
+                ]
+              }}
+          args:
+            chdir: "{{ terraform_effective_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: >-
+              {{ terraform_foundation_adoption_temp_dir.path }}/foundation-tfdata
+          loop: "{{ terraform_foundation_adoption_imports }}"
+          loop_control:
+            loop_var: foundation_adoption_import
+            label: "{{ foundation_adoption_import.address }}"
+          changed_when: true
+          no_log: true
+
+        - name: Plan adopted Foundation configuration
+          ansible.builtin.command:
+            argv: >-
+              {{
+                [
+                  'terraform',
+                  'plan',
+                  '-input=false',
+                  '-no-color',
+                  '-detailed-exitcode',
+                  '-lock-timeout=5m'
+                ]
+                + terraform_foundation_git_var_file_args
+                +
+                [
+                  '-var-file='
+                  ~ terraform_foundation_adoption_temp_dir.path
+                  ~ '/terraform.auto.tfvars.json'
+                ]
+              }}
+          args:
+            chdir: "{{ terraform_effective_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: >-
+              {{ terraform_foundation_adoption_temp_dir.path }}/foundation-tfdata
+          register: terraform_foundation_adoption_plan
+          changed_when: false
+          failed_when:
+            - terraform_foundation_adoption_plan.rc not in [0, 2]
+          no_log: true
+
+        - name: Classify adopted Foundation plan
+          ansible.builtin.set_fact:
+            terraform_foundation_adoption_plan_summary: >-
+              {{
+                terraform_foundation_adoption_plan.stdout_lines
+                | select('match', '^(Plan:|No changes)')
+                | list
+              }}
+            terraform_foundation_adoption_plan_additive: >-
+              {{
+                terraform_foundation_adoption_plan.stdout_lines
+                | select('match', '^Plan: [1-9][0-9]* to add,')
+                | list
+                | length
+                > 0
+              }}
+            terraform_foundation_adoption_plan_destructive: >-
+              {{
+                'must be replaced' in terraform_foundation_adoption_plan.stdout
+                or ' will be destroyed' in terraform_foundation_adoption_plan.stdout
+                or '-/+' in terraform_foundation_adoption_plan.stdout
+              }}
+            terraform_foundation_adoption_resource_actions: >-
+              {{
+                terraform_foundation_adoption_plan.stdout_lines
+                | select(
+                    'match',
+                    '^  # .* (will be created|will be updated in-place|must be replaced|will be destroyed)$'
+                  )
+                | map('regex_replace', '^  # ', '')
+                | list
+              }}
+          no_log: true
+
+        - name: Display safe Foundation adoption plan summary
+          ansible.builtin.debug:
+            msg:
+              - >-
+                Plan exit code:
+                {{ terraform_foundation_adoption_plan.rc }}
+              - >-
+                Summary:
+                {{ terraform_foundation_adoption_plan_summary }}
+              - >-
+                Resource actions:
+                {{ terraform_foundation_adoption_resource_actions }}
+              - >-
+                Additions detected:
+                {{ terraform_foundation_adoption_plan_additive }}
+              - >-
+                Replacement/destroy detected:
+                {{ terraform_foundation_adoption_plan_destructive }}
+
+        - name: Validate adopted Foundation reconciliation
+          ansible.builtin.assert:
+            that:
+              - terraform_foundation_adoption_plan_summary | length > 0
+              - not (terraform_foundation_adoption_plan_additive | bool)
+              - not (terraform_foundation_adoption_plan_destructive | bool)
+            fail_msg: >-
+              Adopted Foundation resources are not safely reconcilable. Imported
+              state bindings will be removed; AWS resources will remain unchanged.
+
+        - name: List Foundation state after adoption
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - state
+              - list
+          args:
+            chdir: "{{ terraform_effective_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: >-
+              {{ terraform_foundation_adoption_temp_dir.path }}/foundation-tfdata
+          register: terraform_foundation_state_after_adoption
+          changed_when: false
+
+        - name: Verify adopted Foundation ownership
+          ansible.builtin.assert:
+            that:
+              - >-
+                terraform_foundation_nfw_kms_address
+                in terraform_foundation_state_after_adoption.stdout_lines
+              - >-
+                terraform_foundation_nfw_kms_alias_address
+                in terraform_foundation_state_after_adoption.stdout_lines
+              - >-
+                terraform_foundation_standard_vault_address
+                in terraform_foundation_state_after_adoption.stdout_lines
+              - >-
+                terraform_foundation_airgap_vault_address
+                in terraform_foundation_state_after_adoption.stdout_lines
+            fail_msg: >-
+              Foundation state does not contain all four approved resources.
+
+        - name: Report successful Foundation adoption
+          ansible.builtin.debug:
+            msg:
+              - >-
+                Existing Foundation resources were adopted into
+                {{ terraform_effective_backend_key }}.
+              - >-
+                State addresses:
+                {{ terraform_foundation_state_after_adoption.stdout_lines }}
+
+      rescue:
+        - name: List Foundation state for adoption rollback
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - state
+              - list
+          args:
+            chdir: "{{ terraform_effective_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: >-
+              {{ terraform_foundation_adoption_temp_dir.path }}/foundation-tfdata
+          register: terraform_foundation_adoption_rollback_state
+          changed_when: false
+          failed_when: false
+          when:
+            - >-
+              terraform_foundation_adoption_backend_initialized
+              | default(false)
+              | bool
+            - >-
+              terraform_foundation_adoption_rollback_armed
+              | default(false)
+              | bool
+
+        - name: Select Foundation bindings for adoption rollback
+          ansible.builtin.set_fact:
+            terraform_foundation_adoption_rollback_addresses: >-
+              {{
+                terraform_foundation_adoption_imports
+                | map(attribute='address')
+                | list
+                | intersect(
+                    terraform_foundation_adoption_rollback_state.stdout_lines
+                    | default([])
+                  )
+                | difference(
+                    terraform_foundation_state_before_adoption.stdout_lines
+                    | default([])
+                  )
+              }}
+          when:
+            - >-
+              terraform_foundation_adoption_backend_initialized
+              | default(false)
+              | bool
+            - >-
+              terraform_foundation_adoption_rollback_armed
+              | default(false)
+              | bool
+
+        - name: Remove Foundation bindings during adoption rollback
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - state
+              - rm
+              - -lock=true
+              - -lock-timeout=5m
+              - "{{ foundation_adoption_rollback_address }}"
+          args:
+            chdir: "{{ terraform_effective_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+            TF_DATA_DIR: >-
+              {{ terraform_foundation_adoption_temp_dir.path }}/foundation-tfdata
+          loop: >-
+            {{ terraform_foundation_adoption_rollback_addresses | default([]) }}
+          loop_control:
+            loop_var: foundation_adoption_rollback_address
+            label: "{{ foundation_adoption_rollback_address }}"
+          changed_when: true
+          when:
+            - >-
+              terraform_foundation_adoption_backend_initialized
+              | default(false)
+              | bool
+            - >-
+              terraform_foundation_adoption_rollback_armed
+              | default(false)
+              | bool
+
+        - name: Stop after failed Foundation adoption
+          ansible.builtin.fail:
+            msg: >-
+              Foundation orphan adoption failed or produced an unsafe plan.
+              Imported state bindings were removed where present. AWS resources
+              were not deleted or modified. Review the failed task before retrying.
+
+      always:
+        - name: Remove temporary Foundation adoption workspace
+          ansible.builtin.file:
+            path: "{{ terraform_foundation_adoption_temp_dir.path }}"
+            state: absent
+          when:
+            - terraform_foundation_adoption_temp_dir.path is defined

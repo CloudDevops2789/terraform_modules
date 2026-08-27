@@ -9,7 +9,7 @@
 backup_integration_enabled = false
 
 naming = {
-  organization             = "org"
+  organization             = "fv"
   project                  = "ire"
   project_display_name     = "IRE"
   environment              = "sandbox"
