@@ -25,6 +25,7 @@ module "managed_microsoft_ad" {
     : [
       for vpc_key in sort(tolist(var.managed_ad_client_vpc_keys)) :
       var.platform_contract.vpc_cidrs[vpc_key]
+      if vpc_key != try(var.identity_placement.vpc_key, null)
     ]
   )
 

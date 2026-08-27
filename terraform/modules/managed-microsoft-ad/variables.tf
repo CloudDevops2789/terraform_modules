@@ -57,7 +57,7 @@ variable "subnet_ids" {
 }
 
 variable "client_cidr_blocks" {
-  description = "Approved client network CIDRs that require native Active Directory access to the managed directory."
+  description = "Approved external client CIDRs that require native Active Directory access. Exclude the directory VPC CIDR because AWS owns its baseline rules."
   type        = set(string)
   default     = []
 
