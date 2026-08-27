@@ -256,6 +256,7 @@ Actual destroy authorization:
 | Identity | `terraform_destroy_enabled: true`, `terraform_allow_identity_destroy: true`, confirmation `DESTROY IDENTITY` |
 | Platform | `terraform_destroy_enabled: true`, `terraform_allow_platform_destroy: true`, confirmation `DESTROY PLATFORM` |
 | Persistent | `terraform_destroy_enabled: true`, `terraform_allow_persistent_destroy: true`, confirmation `DESTROY PERSISTENT` |
+| Client VPN AD POC | `terraform_destroy_enabled: true`, `terraform_allow_client_vpn_ad_poc_destroy: true`, confirmation `DESTROY CLIENT VPN AD POC` |
 
 Destroy must receive the same Git configuration, runtime Terraform variables,
 and contract source used to evaluate the deployed stack. External references

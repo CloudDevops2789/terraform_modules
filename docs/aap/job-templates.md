@@ -163,6 +163,42 @@ the password is resolved separately by the playbooks under `no_log`.
 Do not place the password or the injected environment variable value in Job
 Template YAML, surveys, inventory, SCM, or shell commands.
 
+## Client VPN Managed AD proof templates
+
+The short-lived `client-vpn-ad-poc` stack uses the normal Terraform deploy and
+destroy playbooks with a dedicated backend key. Its first apply creates the
+directory and private Windows validation host while leaving Client VPN disabled:
+
+~~~yaml
+terraform_stack: client-vpn-ad-poc
+terraform_apply_enabled: true
+terraform_variables:
+  public_key: "<OPERATOR_SSH_PUBLIC_KEY>"
+  client_vpn_enabled: false
+  authentication_type: directory
+~~~
+
+Attach the existing Managed AD password credential to POC plan, apply and
+destroy templates.
+
+Create a second secret credential with this injector for the proof user:
+
+~~~yaml
+env:
+  IRE_CLIENT_VPN_TEST_USER_PASSWORD: "{{ client_vpn_test_user_password }}"
+~~~
+
+Attach it only to a Job Template that runs
+`playbooks/client_vpn_ad_poc_bootstrap.yml`. Stable customer values such as the
+directory name, test username and group name belong in the approved private
+customer configuration or fixed Job Template fields, not the neutral baseline.
+
+After bootstrap, enable Client VPN with the returned group SID and approved ACM
+server certificate ARN, both supplied as runtime variables. Combined mode
+additionally requires the approved ACM client root CA certificate-chain ARN.
+Terraform never issues or imports these certificates in either home-lab or
+enterprise runs.
+
 Recovery plan and apply use:
 
 ~~~yaml

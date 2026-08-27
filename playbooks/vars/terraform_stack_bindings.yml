@@ -19,6 +19,7 @@ terraform_active_stacks:
   - platform
   - identity
   - recovery
+  - client-vpn-ad-poc
 
 ################################################################################
 # Git-controlled variable files
@@ -41,6 +42,10 @@ terraform_stack_var_files:
   recovery:
     - common-tags.tfvars
     - recovery.tfvars
+
+  client-vpn-ad-poc:
+    - common-tags.tfvars
+    - client-vpn-ad-poc.tfvars
 
 ################################################################################
 # Operator/runtime inputs
@@ -72,6 +77,8 @@ terraform_environment_variable_allowlists:
 
   recovery: []
 
+  client-vpn-ad-poc: []
+
 terraform_sandbox_runtime_variable_allowlists:
   persistent:
     - kms_key_administrators
@@ -86,6 +93,14 @@ terraform_sandbox_runtime_variable_allowlists:
 
   recovery:
     - demo_ec2_enabled
+
+  client-vpn-ad-poc:
+    - public_key
+    - client_vpn_enabled
+    - authentication_type
+    - client_vpn_access_group_id
+    - server_certificate_arn
+    - root_certificate_chain_arn
 
 ################################################################################
 # Approved lifecycle dependencies and output contracts
