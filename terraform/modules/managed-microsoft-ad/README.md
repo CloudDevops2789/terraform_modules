@@ -37,6 +37,9 @@ module "managed_microsoft_ad" {
   vpc_id     = local.approved_vpc_id
   subnet_ids = local.approved_directory_subnet_ids
 
+  # External networks only; AWS owns rules for the directory VPC CIDR.
+  client_cidr_blocks = local.approved_external_client_cidrs
+
   tags = local.org_tags
 }
 ```
@@ -52,6 +55,7 @@ Do not place a real password, customer domain, account identifier, or organizati
 | `edition` | `string` | No | `Standard` by default; `Enterprise` when explicitly selected |
 | `vpc_id` | `string` | Yes | Existing VPC in which AWS creates the directory |
 | `subnet_ids` | `list(string)` | Yes | Exactly two private subnet IDs in different Availability Zones |
+| `client_cidr_blocks` | `set(string)` | No | External client CIDRs requiring AD access; exclude the directory VPC CIDR because AWS owns its baseline rules |
 | `tags` | `map(string)` | No | Customer-neutral resource tags |
 
 The password must:

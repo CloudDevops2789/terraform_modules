@@ -48,7 +48,7 @@ variable "managed_ad_configuration" {
 }
 
 variable "managed_ad_client_vpc_keys" {
-  description = "Logical Platform VPC keys permitted to use native Active Directory services."
+  description = "Logical Platform VPC keys permitted to use native Active Directory services. The directory placement VPC is excluded from additive rules because AWS owns its baseline rules."
   type        = set(string)
   default     = []
 

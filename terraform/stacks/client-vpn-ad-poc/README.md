@@ -56,6 +56,8 @@ adds the user to the group, and publishes the non-secret group SID.
 - The Windows instance has no public IP.
 - RDP and ICMP are allowed only from the Client VPN address pool.
 - The VPN endpoint can send traffic only to the POC VPC CIDR.
+- AWS owns the Managed AD baseline rules for the directory VPC CIDR; Terraform
+  adds only the external Client VPN CIDR to that security group.
 - Directory and test-user passwords are supplied only through AAP credentials.
 - The test domain, username, certificate identifiers and organization tags are
   environment/customer configuration rather than reusable-module constants.

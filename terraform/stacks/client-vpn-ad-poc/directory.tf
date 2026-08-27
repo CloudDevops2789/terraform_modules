@@ -11,10 +11,9 @@ module "managed_microsoft_ad" {
     module.vpc.subnet_ids["directory-b"],
   ]
 
-  client_cidr_blocks = [
-    var.vpc_cidr_block,
-    var.client_cidr_block,
-  ]
+  # AWS Directory Service owns the baseline rules for the directory VPC CIDR.
+  # Add only networks external to that VPC to avoid duplicate AWS-managed rules.
+  client_cidr_blocks = [var.client_cidr_block]
 
   tags = local.tags
 }
