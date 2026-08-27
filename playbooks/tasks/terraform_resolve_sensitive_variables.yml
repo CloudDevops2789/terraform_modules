@@ -51,5 +51,5 @@
         else {}
       }}
   when:
-    - terraform_stack == 'identity'
+    - terraform_stack in ['identity', 'client-vpn-ad-poc']
   no_log: true

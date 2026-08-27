@@ -1,7 +1,10 @@
 # Copy this file to terraform.tfvars and replace the placeholder values.
 aws_region                 = "us-east-1"
-server_certificate_arn     = null
-root_certificate_chain_arn = null
+authentication_type        = "certificate"
+server_certificate_arn     = "arn:aws:acm:us-east-1:123456789012:certificate/replace-me"
+root_certificate_chain_arn = "arn:aws:acm:us-east-1:123456789012:certificate/replace-me"
+active_directory_id        = null
+access_group_id             = null
 
 ################################################################################
 # Enterprise tags
