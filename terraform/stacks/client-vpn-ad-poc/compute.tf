@@ -19,9 +19,9 @@ module "ec2" {
 
   instances = {
     windows-test = {
-      name                         = "${local.name_prefix}-windows"
-      ami                          = data.aws_ssm_parameter.windows_ami.value
-      instance_type                = var.test_instance_type
+      name                        = "${local.name_prefix}-windows"
+      ami                         = data.aws_ssm_parameter.windows_ami.value
+      instance_type               = var.test_instance_type
       subnet_id                   = module.vpc.subnet_ids["directory-a"]
       associate_public_ip_address = false
       key_name                    = module.key_pair.key_names["${local.name_prefix}-windows"]

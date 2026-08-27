@@ -9,7 +9,7 @@
 domain_name       = "poc.example.com"
 directory_edition = "Standard"
 
-vpc_cidr_block   = "10.250.0.0/16"
+vpc_cidr_block    = "10.250.0.0/16"
 client_cidr_block = "172.27.240.0/22"
 
 test_instance_type = "t3.micro"

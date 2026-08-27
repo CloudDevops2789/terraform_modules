@@ -27,17 +27,17 @@ module "client_vpn" {
     module.security_group.security_group_ids["client-vpn"]
   ]
 
-  dns_servers          = module.managed_microsoft_ad.dns_ip_addresses
-  split_tunnel         = true
-  transport_protocol   = "udp"
-  vpn_port             = 443
+  dns_servers           = module.managed_microsoft_ad.dns_ip_addresses
+  split_tunnel          = true
+  transport_protocol    = "udp"
+  vpn_port              = 443
   session_timeout_hours = 8
 
   authorization_rules = {
     poc-vpc = {
       target_network_cidr  = var.vpc_cidr_block
       authorize_all_groups = var.client_vpn_access_group_id == null
-      access_group_id       = var.client_vpn_access_group_id
+      access_group_id      = var.client_vpn_access_group_id
     }
   }
 
