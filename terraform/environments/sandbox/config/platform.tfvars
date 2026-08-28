@@ -470,7 +470,6 @@ network_config = {
       destination_vpc_key = "protected_data"
       source_route_table_groups = [
         "recovery-services",
-        "directory-services"
       ]
     }
 
