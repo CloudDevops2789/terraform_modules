@@ -1,53 +1,85 @@
-# ADR-003: DNS Strategy and Route 53 Resolver Module Design
+# ADR-003: Private DNS and Route 53 Resolver Strategy
 
 ## Status
 
-Accepted.
+Accepted; revised to cover multi-VPC Managed Microsoft AD resolution.
 
 ## Context
 
-Workloads inside the IRE need to resolve names. AWS Managed Microsoft AD (ADR-002), when enabled, provides integrated DNS for anything joined to it, and every workload that currently exists in this design lives inside Core Recovery or Protected Data — both reachable from that directory's DNS. The question is whether a Route 53 Resolver module is needed now, and if so, what it should build.
+AWS Managed Microsoft AD is authoritative for its own directory DNS namespace.
+Creating a Route 53 private hosted zone for the same namespace would introduce
+competing authority and could prevent clients from discovering the directory's
+LDAP and Kerberos service records.
 
-Route 53 Resolver has two distinct endpoint types, serving opposite directions of traffic:
+IRE workloads should normally continue using AmazonProvidedDNS because AWS
+interface endpoint private DNS and AWS internal names depend on it. Workloads in
+other VPCs nevertheless need a private mechanism to resolve the directory
+namespace without replacing their primary resolver configuration.
 
-```mermaid
-flowchart LR
-    OnPrem[On-premises or external DNS] --> Inbound[Inbound endpoint]
-    Inbound --> VPCDNS[VPC / Managed AD DNS]
-    VPCWorkload[AWS workload] --> Outbound[Outbound endpoint]
-    Outbound --> ExternalDNS[External DNS server]
-```
+Route 53 Resolver endpoints have directional names that describe query flow:
 
-## Decision drivers
+- an outbound endpoint forwards selected queries from VPC Resolver to a target
+  DNS service in another network location, including another VPC; and
+- an inbound endpoint accepts DNS queries from an on-premises network or another
+  connected network and passes them to VPC Resolver.
 
-- Managed AD's integrated DNS already resolves every workload inside the current VPC set; no endpoint is needed for that path today
-- The environment has a standing requirement, independent of this ADR, that nothing inside the IRE reach external network destinations — including for DNS resolution
-- Named future scenarios (hybrid DNS, on-premises integration, secondary recovery sites, cross-account DNS, another AWS Region) will require resolver rules, which depend on an outbound endpoint existing as their target
-- Building a narrowly-scoped module now, for a need that does not yet exist, risks a second module being needed later anyway if the interface does not anticipate resolver rules
+`OUTBOUND` does not inherently mean internet or external DNS. A forwarding rule
+can target private AWS Managed AD DNS addresses inside the IRE.
 
 ## Decision
 
-Build a generic `route53-resolver` module now, capable of provisioning inbound endpoints, outbound endpoints, and resolver rules depending on input variables — but do not provision an outbound endpoint in the current environment.
+Provide a reusable `route53-resolver` module supporting:
 
-```mermaid
-flowchart TB
-    Module[route53-resolver module] --> EndpointType{endpoint_type variable}
-    EndpointType --> Inbound[INBOUND - not provisioned today]
-    EndpointType --> Outbound[OUTBOUND - not provisioned today]
-    Module --> Rules[resolver_rules - optional list, empty today]
-```
+- private inbound or outbound endpoint placement;
+- caller-supplied subnet and security-group IDs;
+- explicit outbound forwarding rules and target DNS IP addresses;
+- rule associations with caller-selected VPCs; and
+- optional association with an existing Resolver query-log configuration.
 
-The module's `endpoint_type` variable is constrained by a `validation` block to `INBOUND` or `OUTBOUND`, following the same pattern already used for enable/disable strings in the `transit-gateway` module. `resolver_rules` is typed as `optional(list(object({...})), [])`, so an endpoint can be created today with no rules attached, and rules can be added later without changing the module's interface.
+The reusable module creates no VPCs, hosted zones, security groups, routes, log
+destinations, KMS keys, public records, or internet connectivity.
 
-No endpoint of either type is instantiated in the current environment. The module exists so that the day one of the named future scenarios becomes real, the response is a new module call, not a new module.
+The Identity stack optionally composes an outbound endpoint for its managed
+directory. When enabled, it:
+
+1. places endpoint ENIs in a caller-selected private subnet group;
+2. forwards only the managed directory FQDN to the directory DNS addresses;
+3. associates the rule only with caller-approved VPCs; and
+4. permits only TCP and UDP port 53 between the endpoint security group and the
+   AWS-managed directory security group.
+
+The capability remains disabled by default. Environment configuration must make
+the deployment and VPC associations explicit.
+
+No private hosted zone is created for the directory namespace. Managed Microsoft
+AD remains authoritative for that namespace.
+
+## Hybrid DNS boundary
+
+On-premises DNS integration is a separate decision. Until private connectivity,
+source networks, DNS namespaces and operational ownership are approved:
+
+- do not create an inbound Resolver endpoint;
+- do not forward on-premises or production namespaces;
+- do not configure a catch-all `.` forwarding rule; and
+- do not establish DNS behavior that implies an Active Directory trust.
+
+When hybrid DNS is approved, the same reusable module can create the required
+endpoint. Its rules and associations must remain environment configuration.
 
 ## Consequences
 
-The outbound endpoint specifically is not simply deferred as "not needed yet" — it is deliberately withheld, because provisioning it would be a statement that something inside the IRE now needs to resolve external DNS, which is a decision that should be made consciously and documented, not defaulted into. Anyone extending this module to add an outbound endpoint should read this ADR first and record the reason in a new or updated ADR rather than wiring it up to solve an unrelated, local problem.
-
-If a future need genuinely requires reaching external DNS (for example, a component of the offline software supply chain described in ADR-004 running partially inside IRE VPCs rather than entirely in the separate connected staging account), that need should be evaluated against ADR-004's boundary first, since the intended pattern is that external reachability lives in the staging account, not inside the IRE.
+- AWS workloads retain AmazonProvidedDNS for AWS private service names.
+- Only the directory suffix is sent to Managed AD DNS.
+- Resolver endpoint IP addresses incur hourly and query-processing charges when
+  the capability is enabled.
+- Endpoint direction, subnet placement, and IP-family changes can cause
+  replacement and require explicit plan review.
+- DNS reachability does not grant directory trust or application access; TGW,
+  route-table, security-group and directory controls remain authoritative.
 
 ## Related
 
-- ADR-002: Managed AD Placement (the reason no endpoint is needed today)
-- ADR-004: Recovery Artifact Repository (the boundary that should be checked before an outbound endpoint is ever added)
+- ADR-002: Managed AD placement and lifecycle
+- ADR-004: Recovery artifact repository and external-reachability boundary
+- ADR-005: Separation between clean administrative AD and restored AD
