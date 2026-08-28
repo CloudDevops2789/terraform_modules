@@ -47,6 +47,23 @@ variable "managed_ad_configuration" {
   }
 }
 
+variable "managed_ad_client_vpc_keys" {
+  description = "Logical Platform VPC keys permitted to use native Active Directory services."
+  type        = set(string)
+  default     = []
+
+  validation {
+    condition = (
+      var.platform_contract == null ||
+      alltrue([
+        for vpc_key in var.managed_ad_client_vpc_keys :
+        contains(keys(var.platform_contract.vpc_cidrs), vpc_key)
+      ])
+    )
+    error_message = "Every managed_ad_client_vpc_keys entry must resolve through the Platform contract."
+  }
+}
+
 variable "managed_ad_password" {
   description = "Bootstrap password for the AWS Managed Microsoft AD Admin account. Supply only through an approved AAP secret."
   type        = string
