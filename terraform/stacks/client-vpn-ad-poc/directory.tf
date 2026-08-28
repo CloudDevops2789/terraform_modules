@@ -5,6 +5,9 @@ module "managed_microsoft_ad" {
   password    = var.managed_ad_password
   edition     = var.directory_edition
 
+  # The bootstrap job manages the proof user and group through this API.
+  enable_directory_data_access = true
+
   vpc_id = module.vpc.vpc_id
   subnet_ids = [
     module.vpc.subnet_ids["directory-a"],

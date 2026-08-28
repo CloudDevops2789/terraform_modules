@@ -34,6 +34,8 @@ module "managed_microsoft_ad" {
   password    = var.managed_ad_password
   edition     = "Standard"
 
+  enable_directory_data_access = false
+
   vpc_id     = local.approved_vpc_id
   subnet_ids = local.approved_directory_subnet_ids
 
@@ -53,6 +55,7 @@ Do not place a real password, customer domain, account identifier, or organizati
 | `domain_name` | `string` | Yes | Approved directory FQDN |
 | `password` | `string` | Yes | Sensitive bootstrap password for the directory `Admin` account |
 | `edition` | `string` | No | `Standard` by default; `Enterprise` when explicitly selected |
+| `enable_directory_data_access` | `bool` | No | Enables Directory Service Data API access; disabled by default |
 | `vpc_id` | `string` | Yes | Existing VPC in which AWS creates the directory |
 | `subnet_ids` | `list(string)` | Yes | Exactly two private subnet IDs in different Availability Zones |
 | `client_cidr_blocks` | `set(string)` | No | External client CIDRs requiring AD access; exclude the directory VPC CIDR because AWS owns its baseline rules |

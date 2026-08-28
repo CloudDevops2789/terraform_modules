@@ -21,6 +21,8 @@ resource "aws_directory_service_directory" "this" {
   edition  = var.edition
   type     = "MicrosoftAD"
 
+  enable_directory_data_access = var.enable_directory_data_access
+
   vpc_settings {
     vpc_id     = var.vpc_id
     subnet_ids = var.subnet_ids
