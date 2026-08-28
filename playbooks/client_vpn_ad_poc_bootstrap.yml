@@ -27,265 +27,52 @@
     - role: ire_platform.aws.assume_role
 
   tasks:
-    - name: Create temporary protected bootstrap workspace
-      ansible.builtin.tempfile:
-        state: directory
-        prefix: ire-client-vpn-ad-poc-
-      register: client_vpn_ad_poc_temp_dir
-
     - name: Bootstrap proof directory identity
+      ire_platform.aws.managed_ad_poc_identity:
+        directory_name: "{{ client_vpn_ad_poc_domain_name }}"
+        user_name: "{{ client_vpn_ad_poc_user_name }}"
+        group_name: "{{ client_vpn_ad_poc_group_name }}"
+        temporary_password: >-
+          {{
+            lookup(
+              'ansible.builtin.env',
+              'IRE_CLIENT_VPN_TEST_USER_PASSWORD'
+            )
+          }}
+        reset_existing_password: >-
+          {{ client_vpn_ad_poc_reset_existing_password | default(false) | bool }}
+        region: "{{ assume_role_aws_auth.region }}"
       environment:
         AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
         AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
         AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
         AWS_REGION: "{{ assume_role_aws_auth.region }}"
         AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+      register: client_vpn_ad_poc_bootstrap
 
-      block:
-        - name: Verify AWS CLI availability
-          ansible.builtin.command:
-            argv:
-              - aws
-              - --version
-          changed_when: false
+    - name: Validate proof bootstrap result
+      ansible.builtin.assert:
+        that:
+          - client_vpn_ad_poc_bootstrap.directory_id is match('^d-[0-9a-f]{10}$')
+          - client_vpn_ad_poc_bootstrap.group_sid is match('^S-[0-9-]+$')
+        fail_msg: Directory bootstrap did not return valid directory and group identifiers.
 
-        - name: Locate the active proof directory
-          ansible.builtin.command:
-            argv:
-              - aws
-              - ds
-              - describe-directories
-              - --query
-              - >-
-                DirectoryDescriptions[?Name=='{{ client_vpn_ad_poc_domain_name }}']
-                | [0].[DirectoryId,Stage]
-              - --output
-              - json
-          register: client_vpn_ad_poc_directory_query
-          changed_when: false
+    - name: Publish proof bootstrap workflow artifacts
+      ansible.builtin.set_stats:
+        data:
+          client_vpn_ad_poc_directory_id: >-
+            {{ client_vpn_ad_poc_bootstrap.directory_id }}
+          client_vpn_access_group_id: >-
+            {{ client_vpn_ad_poc_bootstrap.group_sid }}
+        per_host: false
 
-        - name: Resolve proof directory identity
-          ansible.builtin.set_fact:
-            client_vpn_ad_poc_directory_result: >-
-              {{ client_vpn_ad_poc_directory_query.stdout | from_json }}
-
-        - name: Require one active proof directory
-          ansible.builtin.assert:
-            that:
-              - client_vpn_ad_poc_directory_result is sequence
-              - client_vpn_ad_poc_directory_result | length == 2
-              - client_vpn_ad_poc_directory_result[0] is match('^d-[0-9a-f]{10}$')
-              - client_vpn_ad_poc_directory_result[1] == 'Active'
-            fail_msg: >-
-              Exactly one Active AWS Managed Microsoft AD named
-              {{ client_vpn_ad_poc_domain_name }} is required.
-
-        - name: Store proof directory ID
-          ansible.builtin.set_fact:
-            client_vpn_ad_poc_directory_id: >-
-              {{ client_vpn_ad_poc_directory_result[0] }}
-
-        - name: Probe Directory Service Data access
-          ansible.builtin.command:
-            argv:
-              - aws
-              - ds-data
-              - list-users
-              - --directory-id
-              - "{{ client_vpn_ad_poc_directory_id }}"
-              - --max-results
-              - "1"
-          register: client_vpn_ad_poc_data_access_probe
-          failed_when: false
-          changed_when: false
-          no_log: true
-
-        - name: Enable Directory Service Data access
-          ansible.builtin.command:
-            argv:
-              - aws
-              - ds
-              - enable-directory-data-access
-              - --directory-id
-              - "{{ client_vpn_ad_poc_directory_id }}"
-          when: client_vpn_ad_poc_data_access_probe.rc != 0
-          changed_when: true
-          no_log: true
-
-        - name: Wait for Directory Service Data access
-          ansible.builtin.command:
-            argv:
-              - aws
-              - ds-data
-              - list-users
-              - --directory-id
-              - "{{ client_vpn_ad_poc_directory_id }}"
-              - --max-results
-              - "1"
-          register: client_vpn_ad_poc_data_access_ready
-          until: client_vpn_ad_poc_data_access_ready.rc == 0
-          retries: 30
-          delay: 10
-          changed_when: false
-          no_log: true
-
-        - name: Check whether the VPN access group exists
-          ansible.builtin.command:
-            argv:
-              - aws
-              - ds-data
-              - describe-group
-              - --directory-id
-              - "{{ client_vpn_ad_poc_directory_id }}"
-              - --sam-account-name
-              - "{{ client_vpn_ad_poc_group_name }}"
-          register: client_vpn_ad_poc_group_probe
-          failed_when: false
-          changed_when: false
-
-        - name: Create the VPN access group
-          ansible.builtin.command:
-            argv:
-              - aws
-              - ds-data
-              - create-group
-              - --directory-id
-              - "{{ client_vpn_ad_poc_directory_id }}"
-              - --sam-account-name
-              - "{{ client_vpn_ad_poc_group_name }}"
-          when: client_vpn_ad_poc_group_probe.rc != 0
-          changed_when: true
-
-        - name: Check whether the proof user exists
-          ansible.builtin.command:
-            argv:
-              - aws
-              - ds-data
-              - describe-user
-              - --directory-id
-              - "{{ client_vpn_ad_poc_directory_id }}"
-              - --sam-account-name
-              - "{{ client_vpn_ad_poc_user_name }}"
-          register: client_vpn_ad_poc_user_probe
-          failed_when: false
-          changed_when: false
-
-        - name: Create the proof user
-          ansible.builtin.command:
-            argv:
-              - aws
-              - ds-data
-              - create-user
-              - --directory-id
-              - "{{ client_vpn_ad_poc_directory_id }}"
-              - --sam-account-name
-              - "{{ client_vpn_ad_poc_user_name }}"
-          when: client_vpn_ad_poc_user_probe.rc != 0
-          changed_when: true
-
-        - name: Write protected password reset request
-          ansible.builtin.copy:
-            content: >-
-              {{
-                {
-                  'DirectoryId': client_vpn_ad_poc_directory_id,
-                  'UserName': client_vpn_ad_poc_user_name,
-                  'NewPassword': lookup(
-                    'ansible.builtin.env',
-                    'IRE_CLIENT_VPN_TEST_USER_PASSWORD'
-                  )
-                } | to_json
-              }}
-            dest: "{{ client_vpn_ad_poc_temp_dir.path }}/reset-password.json"
-            mode: "0600"
-          no_log: true
-
-        - name: Set and enable the proof user password
-          ansible.builtin.command:
-            argv:
-              - aws
-              - ds
-              - reset-user-password
-              - --cli-input-json
-              - "file://{{ client_vpn_ad_poc_temp_dir.path }}/reset-password.json"
-          changed_when: true
-          no_log: true
-
-        - name: Check proof user group membership
-          ansible.builtin.command:
-            argv:
-              - aws
-              - ds-data
-              - list-group-members
-              - --directory-id
-              - "{{ client_vpn_ad_poc_directory_id }}"
-              - --sam-account-name
-              - "{{ client_vpn_ad_poc_group_name }}"
-              - --query
-              - >-
-                length(Members[?SAMAccountName=='{{ client_vpn_ad_poc_user_name }}'])
-              - --output
-              - text
-          register: client_vpn_ad_poc_membership_count
-          changed_when: false
-
-        - name: Add the proof user to the VPN access group
-          ansible.builtin.command:
-            argv:
-              - aws
-              - ds-data
-              - add-group-member
-              - --directory-id
-              - "{{ client_vpn_ad_poc_directory_id }}"
-              - --group-name
-              - "{{ client_vpn_ad_poc_group_name }}"
-              - --member-name
-              - "{{ client_vpn_ad_poc_user_name }}"
-          when: client_vpn_ad_poc_membership_count.stdout | int == 0
-          changed_when: true
-
-        - name: Read the VPN access group SID
-          ansible.builtin.command:
-            argv:
-              - aws
-              - ds-data
-              - describe-group
-              - --directory-id
-              - "{{ client_vpn_ad_poc_directory_id }}"
-              - --sam-account-name
-              - "{{ client_vpn_ad_poc_group_name }}"
-              - --query
-              - SID
-              - --output
-              - text
-          register: client_vpn_ad_poc_group_sid_query
-          changed_when: false
-
-        - name: Validate the VPN access group SID
-          ansible.builtin.assert:
-            that:
-              - client_vpn_ad_poc_group_sid_query.stdout is match('^S-[0-9-]+$')
-            fail_msg: Directory bootstrap did not return a valid group SID.
-
-        - name: Publish proof bootstrap workflow artifacts
-          ansible.builtin.set_stats:
-            data:
-              client_vpn_ad_poc_directory_id: "{{ client_vpn_ad_poc_directory_id }}"
-              client_vpn_access_group_id: "{{ client_vpn_ad_poc_group_sid_query.stdout }}"
-            per_host: false
-
-        - name: Report proof bootstrap result
-          ansible.builtin.debug:
-            msg:
-              - "Directory: {{ client_vpn_ad_poc_domain_name }}"
-              - "Directory ID: {{ client_vpn_ad_poc_directory_id }}"
-              - "User: {{ client_vpn_ad_poc_user_name }}@{{ client_vpn_ad_poc_domain_name }}"
-              - "VPN group: {{ client_vpn_ad_poc_group_name }}"
-              - "VPN group SID: {{ client_vpn_ad_poc_group_sid_query.stdout }}"
-
-      always:
-        - name: Remove protected bootstrap workspace
-          ansible.builtin.file:
-            path: "{{ client_vpn_ad_poc_temp_dir.path }}"
-            state: absent
-          when: client_vpn_ad_poc_temp_dir.path is defined
+    - name: Report proof bootstrap result
+      ansible.builtin.debug:
+        msg:
+          - "Directory: {{ client_vpn_ad_poc_domain_name }}"
+          - "Directory ID: {{ client_vpn_ad_poc_bootstrap.directory_id }}"
+          - "User: {{ client_vpn_ad_poc_user_name }}@{{ client_vpn_ad_poc_domain_name }}"
+          - "User created: {{ client_vpn_ad_poc_bootstrap.user_created }}"
+          - "Password changed: {{ client_vpn_ad_poc_bootstrap.password_changed }}"
+          - "VPN group: {{ client_vpn_ad_poc_group_name }}"
+          - "VPN group SID: {{ client_vpn_ad_poc_bootstrap.group_sid }}"

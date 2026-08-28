@@ -193,6 +193,11 @@ Attach it only to a Job Template that runs
 directory name, test username and group name belong in the approved private
 customer configuration or fixed Job Template fields, not the neutral baseline.
 
+The bootstrap calls AWS through Boto3 and does not require the AWS CLI in the
+execution environment. It sets the supplied password only when creating the
+user. Do not set `client_vpn_ad_poc_reset_existing_password` during normal
+runs; use it only as a temporary, explicitly reviewed recovery input.
+
 After bootstrap, enable Client VPN with the returned group SID and approved ACM
 server certificate ARN, both supplied as runtime variables. Combined mode
 additionally requires the approved ACM client root CA certificate-chain ARN.
