@@ -40,6 +40,13 @@ variable "edition" {
   }
 }
 
+variable "enable_directory_data_access" {
+  description = "Enable AWS Directory Service Data API access for caller-owned user and group automation."
+  type        = bool
+  default     = false
+  nullable    = false
+}
+
 variable "vpc_id" {
   description = "ID of the VPC where the directory will be deployed."
   type        = string
