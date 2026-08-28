@@ -33,6 +33,7 @@ flowchart LR
 | Backup plan/role/selection | `backup-plan`, `backup-role`, `backup-selection` | Recovery `backup.tf` |
 | EC2/key registration | `ec2`, `key-pair` | Recovery `compute.tf` |
 | Managed Microsoft AD | `managed-microsoft-ad` | Identity `identity.tf` |
+| Private DNS forwarding | `route53-resolver` | Identity `dns-resolver.tf` when enabled |
 
 ## Trace order
 
