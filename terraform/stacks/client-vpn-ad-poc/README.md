@@ -46,10 +46,16 @@ operator-held client certificate.
 
 ## Identity bootstrap
 
-The bootstrap playbook uses AWS Directory Service Data through the assumed AAP
-role. It creates the configured group and user idempotently, sets the user's
-password from the `IRE_CLIENT_VPN_TEST_USER_PASSWORD` credential environment,
-adds the user to the group, and publishes the non-secret group SID.
+The bootstrap playbook uses Boto3 and AWS Directory Service Data through the
+assumed AAP role; it does not require the AWS CLI in the execution environment.
+It creates the configured group and user idempotently, applies the password from
+the `IRE_CLIENT_VPN_TEST_USER_PASSWORD` credential only when it creates the
+user, adds the user to the group, and publishes the non-secret group SID.
+
+Normal reruns never reset an existing user's password. Recovery from an
+interrupted user-creation attempt requires an explicit, temporary
+`client_vpn_ad_poc_reset_existing_password: true` input. Remove that input
+after the recovery run.
 
 ## Security boundary
 
