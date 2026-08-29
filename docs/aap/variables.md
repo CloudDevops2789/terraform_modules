@@ -21,6 +21,7 @@ stable IRE architecture and capability enablement.
 | Persistent | `common-tags.tfvars`, `persistent.tfvars` |
 | Platform | `common-tags.tfvars`, `platform.tfvars`, `platform-network-policy.tfvars` |
 | Identity | `common-tags.tfvars`, `identity.tfvars` |
+| Remote Access | `common-tags.tfvars`, `remote-access.tfvars` |
 | Recovery | `common-tags.tfvars`, `recovery.tfvars` |
 
 Persistent capability flags are Git controlled:
@@ -59,14 +60,14 @@ Every JT supplies only:
 
 | Variable | Required | Purpose |
 |---|---:|---|
-| `terraform_stack` | Yes | Fixed JT value: `persistent`, `platform`, `identity`, or `recovery` |
+| `terraform_stack` | Yes | Fixed JT value: `persistent`, `platform`, `identity`, `remote-access`, or `recovery` |
 | Lifecycle flag | Yes | Fixed plan/apply or destroy intent |
 | `terraform_variables` | Yes | Stack-specific allowlisted runtime map; use `{}` when empty |
 | Destroy gate | Destroy only | Stack-specific allow Boolean and confirmation |
 
 The playbooks derive Terraform root and backend key internally. Never supply
-`terraform_root`, `terraform_backend_key`, `persistent_resources`, or
-`platform_contract` through `terraform_variables`.
+`terraform_root`, `terraform_backend_key`, `persistent_resources`,
+`platform_contract`, or `identity_contract` through `terraform_variables`.
 
 ## Persistent contract selection
 
@@ -116,8 +117,9 @@ is a consumer binding and never manages external resources.
 | Stack | Allowed keys | Required condition |
 |---|---|---|
 | Persistent | `kms_key_administrators` | Required only when managed logging KMS creation is enabled |
-| Platform | `server_certificate_arn`, `root_certificate_chain_arn`, `saml_provider_arn`, `ssm_instance_profile_name` | Depends on Git-selected Client VPN and SSM modes |
+| Platform | `ssm_instance_profile_name` | Required only for externally owned SSM profile mode |
 | Identity | None | Supply `{}` |
+| Remote Access | `client_vpn_access_group_id`, `server_certificate_arn`, `client_root_certificate_chain_arn` | Root CA ARN is required only for Git-selected combined mutual mode |
 | Recovery | `demo_ec2_enabled` | Enables only the workloads already reviewed in Git |
 
 Examples:
@@ -254,6 +256,7 @@ Actual destroy authorization:
 |---|---|
 | Recovery | `terraform_destroy_enabled: true`, `terraform_allow_recovery_destroy: true`, confirmation `DESTROY RECOVERY` |
 | Identity | `terraform_destroy_enabled: true`, `terraform_allow_identity_destroy: true`, confirmation `DESTROY IDENTITY` |
+| Remote Access | `terraform_destroy_enabled: true`, `terraform_allow_remote_access_destroy: true`, confirmation `DESTROY REMOTE ACCESS` |
 | Platform | `terraform_destroy_enabled: true`, `terraform_allow_platform_destroy: true`, confirmation `DESTROY PLATFORM` |
 | Persistent | `terraform_destroy_enabled: true`, `terraform_allow_persistent_destroy: true`, confirmation `DESTROY PERSISTENT` |
 | Client VPN AD POC | `terraform_destroy_enabled: true`, `terraform_allow_client_vpn_ad_poc_destroy: true`, confirmation `DESTROY CLIENT VPN AD POC` |

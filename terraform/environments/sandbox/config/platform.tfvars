@@ -18,7 +18,7 @@
 # Git / config/platform.tfvars owns:
 #   - network inspection mode;
 #   - VPC and subnet CIDRs;
-#   - Client VPN enablement and authentication architecture;
+#   - Client VPN association subnet reservation;
 #   - SSM administration architecture;
 #   - Persistent Resources integration enablement;
 #   - naming policy; and
@@ -46,9 +46,6 @@
 # AAP terraform_variables is intentionally restricted to approved Platform
 # runtime bindings, currently including:
 #
-#   server_certificate_arn
-#   root_certificate_chain_arn
-#   saml_provider_arn
 #   ssm_instance_profile_name
 #
 # Cross-stack persistent_resources is resolved internally by AAP and is not an
@@ -117,14 +114,6 @@ network_inspection_mode = "bypass"
 #
 #   Parent allocation reserved for the four IRE VPCs.
 #
-# client_vpn_cidr_block:
-#
-#   Address pool allocated to AWS Client VPN clients.
-#
-#   This pool is reserved in the architecture even when:
-#
-#     client_vpn_enabled = false
-#
 # VPC roles:
 #
 #   recovery_access
@@ -148,8 +137,7 @@ network_inspection_mode = "bypass"
 ################################################################################
 
 network_config = {
-  account_cidr_block    = "10.213.252.0/22"
-  client_vpn_cidr_block = "172.30.240.0/22"
+  account_cidr_block = "10.213.252.0/22"
 
   vpcs = {
     recovery_access = {
@@ -513,16 +501,6 @@ security_groups = {
   }
 }
 
-client_vpn_network_binding = {
-  vpc_key             = "recovery_access"
-  subnet_group        = "client-vpn"
-  security_group_keys = ["management"]
-
-  authorization_vpc_keys = [
-    "recovery_access"
-  ]
-}
-
 ssm_endpoint_bindings = {
   recovery_access = {
     subnet_group               = "endpoints"
@@ -539,165 +517,6 @@ ssm_endpoint_bindings = {
     source_security_group_keys = ["protected"]
   }
 }
-
-ssh_key_access_rule_names = [
-  "management-ssh-from-client-vpn"
-]
-
-client_vpn_security_group_rule_names = [
-  "management-ssh-from-client-vpn",
-  "management-ping"
-]
-
-################################################################################
-# Client VPN Architecture
-################################################################################
-#
-# Client VPN architecture is intentionally separated from the externally
-# managed PKI and identity resources that the endpoint consumes.
-#
-# Git controls:
-#
-#   client_vpn_enabled
-#   authentication_type
-#   manage_saml_provider
-#
-# AAP supplies external environment bindings only when the selected Git
-# architecture requires them.
-#
-# -------------------------------------------------------------------------------
-# client_vpn_enabled
-# -------------------------------------------------------------------------------
-#
-# false
-#
-#   Client VPN resources are not created.
-#
-#   The persistent IRE platform can therefore bootstrap before enterprise PKI
-#   and Identity/SAML prerequisites are ready.
-#
-#   AAP does NOT need:
-#
-#     server_certificate_arn
-#     root_certificate_chain_arn
-#     saml_provider_arn
-#
-# true
-#
-#   Client VPN resources are created.
-#
-#   Required external AAP bindings depend on authentication_type.
-#
-# Ownership:
-#
-#   Git controlled.
-################################################################################
-
-# client_vpn_enabled = false
-client_vpn_enabled = true
-
-################################################################################
-# Client VPN Authentication Pattern
-################################################################################
-#
-# Supported values:
-#
-#   "federated"
-#
-#     Enterprise target.
-#
-#     Authentication is performed through the enterprise SAML identity provider.
-#     MFA is enforced by the enterprise identity provider, not by a separate
-#     Terraform Client VPN MFA setting.
-#
-#     When:
-#
-#       client_vpn_enabled  = true
-#       authentication_type = "federated"
-#       manage_saml_provider = false
-#
-#     AAP terraform_variables must supply:
-#
-#       server_certificate_arn
-#       saml_provider_arn
-#
-#     server_certificate_arn:
-#
-#       Existing ACM TLS server certificate used by the AWS Client VPN endpoint.
-#       It must belong to the selected deployment Region.
-#
-#       This is NOT a per-user/client certificate.
-#
-#     saml_provider_arn:
-#
-#       Existing AWS IAM SAML provider owned by the approved Identity/IAM process.
-#
-#
-#   "certificate"
-#
-#     Controlled lab / compatibility mode.
-#
-#     When:
-#
-#       client_vpn_enabled  = true
-#       authentication_type = "certificate"
-#
-#     AAP terraform_variables must supply:
-#
-#       server_certificate_arn
-#       root_certificate_chain_arn
-#
-#     root_certificate_chain_arn represents the approved certificate authority
-#     used for mutual certificate authentication.
-#
-# Ownership:
-#
-#   Git controlled.
-#
-# Do not expose authentication_type as an AAP survey/runtime architecture choice.
-################################################################################
-
-#authentication_type = "federated"
-authentication_type = "certificate"
-
-################################################################################
-# IAM SAML Provider Ownership
-################################################################################
-#
-# This setting is relevant to federated Client VPN authentication.
-#
-# false
-#
-#   Recommended enterprise model.
-#
-#   The IAM/Identity process owns the AWS IAM SAML provider.
-#
-#   When Client VPN is enabled with federated authentication, AAP supplies:
-#
-#     saml_provider_arn
-#
-#
-# true
-#
-#   Terraform owns creation of the AWS IAM SAML provider.
-#
-#   Terraform-managed SAML requires approved SAML metadata in addition to the
-#   provider name/configuration.
-#
-#   IMPORTANT:
-#
-#   Terraform-managed SAML is not currently part of the standard Sandbox AAP
-#   runtime contract. Before selecting true for an AAP-driven enterprise
-#   deployment, the governed automation interface must be explicitly extended
-#   to supply approved SAML metadata.
-#
-# Ownership:
-#
-#   Git controlled.
-################################################################################
-
-manage_saml_provider = false
-
 
 ################################################################################
 # Recovery Workload Administration
@@ -1015,36 +834,7 @@ resource_name_overrides = {}
 #     ami_id: "<APPROVED_AMI_IN_DEPLOYMENT_REGION>"
 #
 #
-# 3. Federated Client VPN after Git enables Client VPN
-#
-#   Git:
-#
-#     client_vpn_enabled   = true
-#     authentication_type  = "federated"
-#     manage_saml_provider = false
-#
-#   AAP:
-#
-#     terraform_variables:
-#       server_certificate_arn: "<ACM_SERVER_CERTIFICATE_ARN>"
-#       saml_provider_arn: "<IAM_SAML_PROVIDER_ARN>"
-#
-#
-# 4. Certificate-authenticated Client VPN
-#
-#   Git:
-#
-#     client_vpn_enabled  = true
-#     authentication_type = "certificate"
-#
-#   AAP:
-#
-#     terraform_variables:
-#       server_certificate_arn: "<ACM_SERVER_CERTIFICATE_ARN>"
-#       root_certificate_chain_arn: "<ACM_ROOT_CA_ARN>"
-#
-#
-# 5. External SSM instance-profile ownership
+# 3. External SSM instance-profile ownership
 #
 #   Git:
 #

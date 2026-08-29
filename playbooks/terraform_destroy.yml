@@ -21,6 +21,7 @@
     terraform_allow_persistent_destroy: false
     terraform_allow_platform_destroy: false
     terraform_allow_identity_destroy: false
+    terraform_allow_remote_access_destroy: false
     terraform_allow_recovery_destroy: false
     terraform_allow_client_vpn_ad_poc_destroy: false
 
@@ -68,6 +69,12 @@
             not (terraform_destroy_enabled | bool)
             or
             (
+              terraform_stack == 'remote-access'
+              and (terraform_allow_remote_access_destroy | bool)
+              and terraform_destroy_confirmation == 'DESTROY REMOTE ACCESS'
+            )
+            or
+            (
               terraform_stack == 'recovery'
               and (terraform_allow_recovery_destroy | bool)
               and terraform_destroy_confirmation == 'DESTROY RECOVERY'
@@ -104,7 +111,9 @@
           DESTROY RECOVERY. Platform
           requires terraform_allow_platform_destroy=true and DESTROY PLATFORM.
           Identity requires terraform_allow_identity_destroy=true and
-          DESTROY IDENTITY. Client VPN AD POC requires
+          DESTROY IDENTITY. Remote Access requires
+          terraform_allow_remote_access_destroy=true and DESTROY REMOTE ACCESS.
+          Client VPN AD POC requires
           terraform_allow_client_vpn_ad_poc_destroy=true and
           DESTROY CLIENT VPN AD POC.
 
