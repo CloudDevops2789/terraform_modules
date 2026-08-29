@@ -15,8 +15,10 @@ module "managed_microsoft_ad" {
   ]
 
   # AWS Directory Service owns the baseline rules for the directory VPC CIDR.
-  # Add only networks external to that VPC to avoid duplicate AWS-managed rules.
-  client_cidr_blocks = [var.client_cidr_block]
+  # Client VPN IPv4 traffic reaches the directory after source NAT to an
+  # association-subnet ENI address, so the client pool is not an external
+  # directory source and must not be added here.
+  client_cidr_blocks = []
 
   tags = local.tags
 }
