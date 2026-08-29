@@ -16,10 +16,11 @@ resource "aws_directory_service_directory" "this" {
   # Creates an AWS Managed Microsoft Active Directory.
   ##########################################################
 
-  name     = var.domain_name
-  password = var.password
-  edition  = var.edition
-  type     = "MicrosoftAD"
+  name       = var.domain_name
+  short_name = var.short_name
+  password   = var.password
+  edition    = var.edition
+  type       = "MicrosoftAD"
 
   enable_directory_data_access = var.enable_directory_data_access
 
