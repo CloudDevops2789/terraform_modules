@@ -26,6 +26,7 @@ variable "managed_ad_configuration" {
 
   type = object({
     domain_name = string
+    short_name  = optional(string)
     edition     = optional(string, "Standard")
   })
 

@@ -13,6 +13,7 @@ module "managed_microsoft_ad" {
   source = "../../modules/managed-microsoft-ad"
 
   domain_name = try(var.managed_ad_configuration.domain_name, "")
+  short_name  = try(var.managed_ad_configuration.short_name, null)
   password    = var.managed_ad_password
   edition     = try(var.managed_ad_configuration.edition, "Standard")
 
