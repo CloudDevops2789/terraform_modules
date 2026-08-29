@@ -64,8 +64,9 @@ after the recovery run.
   subnet CIDR. AWS Client VPN applies IPv4 source NAT, so the workload sees an
   association ENI address rather than the original client-pool address.
 - The VPN endpoint can send traffic only to the POC VPC CIDR.
-- AWS owns the Managed AD baseline rules for the directory VPC CIDR; Terraform
-  adds only the external Client VPN CIDR to that security group.
+- AWS owns the Managed AD baseline rules for the directory VPC CIDR. Client VPN
+  traffic reaches the directory after source NAT to an association-subnet ENI,
+  so Terraform does not add the client pool to the directory security group.
 - Directory and test-user passwords are supplied only through AAP credentials.
 - The test domain, username, certificate identifiers and organization tags are
   environment/customer configuration rather than reusable-module constants.
