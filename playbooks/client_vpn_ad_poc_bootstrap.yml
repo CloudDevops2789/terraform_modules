@@ -5,13 +5,35 @@
   gather_facts: false
 
   pre_tasks:
+    - name: Resolve proof identity user list
+      ansible.builtin.set_fact:
+        client_vpn_ad_poc_effective_user_names: >-
+          {{
+            client_vpn_ad_poc_user_names
+            | default([client_vpn_ad_poc_user_name])
+            | list
+          }}
+
     - name: Validate proof identity inputs
       ansible.builtin.assert:
         that:
           - assume_role_role_arn | default('') | length > 0
           - assume_role_aws_region | default('') | length > 0
           - client_vpn_ad_poc_domain_name | default('') is match('^[A-Za-z0-9.-]+$')
-          - client_vpn_ad_poc_user_name | default('') is match('^[A-Za-z0-9._-]+$')
+          - client_vpn_ad_poc_effective_user_names | length > 0
+          - >-
+            client_vpn_ad_poc_effective_user_names
+            | map('lower')
+            | unique
+            | list
+            | length
+            == client_vpn_ad_poc_effective_user_names | length
+          - >-
+            client_vpn_ad_poc_effective_user_names
+            | select('match', '^[A-Za-z0-9._-]{1,20}$')
+            | list
+            | length
+            == client_vpn_ad_poc_effective_user_names | length
           - client_vpn_ad_poc_group_name | default('') is match('^[A-Za-z0-9._ -]+$')
           - >-
             lookup(
@@ -28,9 +50,9 @@
 
   tasks:
     - name: Bootstrap proof directory identity
-      ire_platform.aws.managed_ad_poc_identity:
+      ire_platform.aws.managed_ad_client_vpn_identities:
         directory_name: "{{ client_vpn_ad_poc_domain_name }}"
-        user_name: "{{ client_vpn_ad_poc_user_name }}"
+        user_names: "{{ client_vpn_ad_poc_effective_user_names }}"
         group_name: "{{ client_vpn_ad_poc_group_name }}"
         temporary_password: >-
           {{
@@ -71,8 +93,11 @@
         msg:
           - "Directory: {{ client_vpn_ad_poc_domain_name }}"
           - "Directory ID: {{ client_vpn_ad_poc_bootstrap.directory_id }}"
-          - "User: {{ client_vpn_ad_poc_user_name }}@{{ client_vpn_ad_poc_domain_name }}"
-          - "User created: {{ client_vpn_ad_poc_bootstrap.user_created }}"
-          - "Password changed: {{ client_vpn_ad_poc_bootstrap.password_changed }}"
+          - >-
+            Users: {{ client_vpn_ad_poc_effective_user_names | join(', ') }}
+          - >-
+            Users created: {{ client_vpn_ad_poc_bootstrap.users_created | join(', ') }}
+          - >-
+            Passwords changed: {{ client_vpn_ad_poc_bootstrap.passwords_changed | join(', ') }}
           - "VPN group: {{ client_vpn_ad_poc_group_name }}"
           - "VPN group SID: {{ client_vpn_ad_poc_bootstrap.group_sid }}"

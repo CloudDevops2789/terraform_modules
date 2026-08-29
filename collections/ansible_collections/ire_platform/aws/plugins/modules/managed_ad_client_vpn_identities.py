@@ -1,30 +1,32 @@
 #!/usr/bin/python
-"""Bootstrap one proof identity in AWS Managed Microsoft AD."""
+"""Bootstrap Client VPN identities in AWS Managed Microsoft AD."""
 
 from __future__ import annotations
 
+import re
 import time
 
 DOCUMENTATION = r"""
 ---
-module: managed_ad_poc_identity
-short_description: Bootstrap a Client VPN proof identity in Managed Microsoft AD
+module: managed_ad_client_vpn_identities
+short_description: Bootstrap Client VPN identities in Managed Microsoft AD
 description:
   - Locates one active AWS Managed Microsoft AD by DNS name.
   - Enables Directory Service Data access when required.
-  - Creates one security group and one user when absent.
-  - Sets the supplied temporary password only for a newly created user unless an
+  - Creates one Active Directory security group and multiple users when absent.
+  - Sets the supplied temporary password only for newly created users unless an
     explicit existing-password reset is requested.
-  - Adds the user to the group and returns the group SID.
+  - Adds every requested user to the group and returns the group SID.
 options:
   directory_name:
     description: Fully qualified DNS name of the Managed Microsoft AD.
     required: true
     type: str
-  user_name:
-    description: SAM account name of the proof user.
+  user_names:
+    description: Unique SAM account names to create and add to the group.
     required: true
-    type: str
+    type: list
+    elements: str
   group_name:
     description: SAM account name of the Client VPN authorization group.
     required: true
@@ -59,10 +61,12 @@ requirements:
 """
 
 EXAMPLES = r"""
-- name: Bootstrap proof identity
-  ire_platform.aws.managed_ad_poc_identity:
+- name: Bootstrap Client VPN identities
+  ire_platform.aws.managed_ad_client_vpn_identities:
     directory_name: poc.example.com
-    user_name: proof.user
+    user_names:
+      - proof.user
+      - proof.user2
     group_name: IRE-Client-VPN-Users
     temporary_password: "{{ proof_user_password }}"
     region: us-east-1
@@ -77,22 +81,22 @@ group_sid:
   description: SID of the Client VPN authorization group.
   returned: always
   type: str
-user_created:
-  description: Whether this execution created the proof user.
+users_created:
+  description: SAM account names created by this execution.
   returned: always
-  type: bool
+  type: list
 group_created:
   description: Whether this execution created the authorization group.
   returned: always
   type: bool
-membership_added:
-  description: Whether this execution added the user to the group.
+memberships_added:
+  description: SAM account names added to the group by this execution.
   returned: always
-  type: bool
-password_changed:
-  description: Whether this execution set or reset the user password.
+  type: list
+passwords_changed:
+  description: SAM account names whose password was set or reset.
   returned: always
-  type: bool
+  type: list
 data_access_enabled:
   description: Whether this execution requested Directory Service Data access.
   returned: always
@@ -204,7 +208,11 @@ def run_module() -> None:
     module = AnsibleModule(
         argument_spec={
             "directory_name": {"type": "str", "required": True},
-            "user_name": {"type": "str", "required": True},
+            "user_names": {
+                "type": "list",
+                "elements": "str",
+                "required": True,
+            },
             "group_name": {"type": "str", "required": True},
             "temporary_password": {"type": "str", "required": True, "no_log": True},
             "reset_existing_password": {"type": "bool", "default": False},
@@ -223,9 +231,9 @@ def run_module() -> None:
         "changed": False,
         "data_access_enabled": False,
         "group_created": False,
-        "user_created": False,
-        "password_changed": False,
-        "membership_added": False,
+        "users_created": [],
+        "passwords_changed": [],
+        "memberships_added": [],
     }
 
     try:
@@ -260,48 +268,67 @@ def run_module() -> None:
             result["group_created"] = True
         result["group_sid"] = group["SID"]
 
-        user = _describe_or_none(
-            data_client,
-            "describe_user",
-            DirectoryId=directory_id,
-            SAMAccountName=params["user_name"],
-        )
-        if user is None:
-            data_client.create_user(
-                DirectoryId=directory_id,
-                SAMAccountName=params["user_name"],
-            )
-            result["user_created"] = True
-
-        if result["user_created"] or params["reset_existing_password"]:
-            ds_client.reset_user_password(
-                DirectoryId=directory_id,
-                UserName=params["user_name"],
-                NewPassword=params["temporary_password"],
-            )
-            result["password_changed"] = True
-
-        if not _is_member(
-            data_client,
-            directory_id,
-            params["group_name"],
-            params["user_name"],
+        user_names = params["user_names"]
+        normalized_user_names = [name.strip() for name in user_names]
+        if not normalized_user_names or any(not name for name in normalized_user_names):
+            raise ValueError("user_names must contain at least one non-empty name.")
+        if any(
+            re.fullmatch(r"[A-Za-z0-9._-]{1,20}", name) is None
+            for name in normalized_user_names
         ):
-            data_client.add_group_member(
-                DirectoryId=directory_id,
-                GroupName=params["group_name"],
-                MemberName=params["user_name"],
+            raise ValueError(
+                "Each user name must contain 1-20 letters, numbers, dots, "
+                "underscores, or hyphens."
             )
-            result["membership_added"] = True
+        if len({name.lower() for name in normalized_user_names}) != len(
+            normalized_user_names
+        ):
+            raise ValueError("user_names must not contain duplicate names.")
+
+        for user_name in normalized_user_names:
+            user = _describe_or_none(
+                data_client,
+                "describe_user",
+                DirectoryId=directory_id,
+                SAMAccountName=user_name,
+            )
+            user_created = user is None
+            if user_created:
+                data_client.create_user(
+                    DirectoryId=directory_id,
+                    SAMAccountName=user_name,
+                )
+                result["users_created"].append(user_name)
+
+            if user_created or params["reset_existing_password"]:
+                ds_client.reset_user_password(
+                    DirectoryId=directory_id,
+                    UserName=user_name,
+                    NewPassword=params["temporary_password"],
+                )
+                result["passwords_changed"].append(user_name)
+
+            if not _is_member(
+                data_client,
+                directory_id,
+                params["group_name"],
+                user_name,
+            ):
+                data_client.add_group_member(
+                    DirectoryId=directory_id,
+                    GroupName=params["group_name"],
+                    MemberName=user_name,
+                )
+                result["memberships_added"].append(user_name)
 
         result["changed"] = any(
             result[key]
             for key in (
                 "data_access_enabled",
                 "group_created",
-                "user_created",
-                "password_changed",
-                "membership_added",
+                "users_created",
+                "passwords_changed",
+                "memberships_added",
             )
         )
         module.exit_json(**result)

@@ -18,8 +18,9 @@ module "client_vpn" {
   vpc_id            = module.vpc.vpc_id
 
   network_associations = {
-    primary = {
-      subnet_id = module.vpc.subnet_ids["directory-a"]
+    for subnet_key in local.client_vpn_association_subnet_keys :
+    subnet_key => {
+      subnet_id = module.vpc.subnet_ids[subnet_key]
     }
   }
 

@@ -34,31 +34,13 @@ module "security_group" {
 module "security_group_rule" {
   source = "../../modules/security-group-rule"
 
-  rules = {
+  rules = merge({
     client-vpn-egress = {
       type              = "egress"
       security_group_id = module.security_group.security_group_ids["client-vpn"]
       description       = "Allow authenticated VPN traffic to approved VPC destinations"
       ip_protocol       = "-1"
       cidr_ipv4         = var.vpc_cidr_block
-    }
-    windows-rdp-from-vpn = {
-      type              = "ingress"
-      security_group_id = module.security_group.security_group_ids["windows-test"]
-      description       = "RDP from the Client VPN address pool"
-      ip_protocol       = "tcp"
-      from_port         = 3389
-      to_port           = 3389
-      cidr_ipv4         = var.client_cidr_block
-    }
-    windows-icmp-from-vpn = {
-      type              = "ingress"
-      security_group_id = module.security_group.security_group_ids["windows-test"]
-      description       = "ICMP validation from the Client VPN address pool"
-      ip_protocol       = "icmp"
-      from_port         = -1
-      to_port           = -1
-      cidr_ipv4         = var.client_cidr_block
     }
     windows-egress = {
       type              = "egress"
@@ -67,5 +49,27 @@ module "security_group_rule" {
       ip_protocol       = "-1"
       cidr_ipv4         = var.vpc_cidr_block
     }
-  }
+    }, {
+    for subnet_key in local.client_vpn_association_subnet_keys :
+    "windows-rdp-from-vpn-${subnet_key}" => {
+      type              = "ingress"
+      security_group_id = module.security_group.security_group_ids["windows-test"]
+      description       = "RDP from the Client VPN association subnet"
+      ip_protocol       = "tcp"
+      from_port         = 3389
+      to_port           = 3389
+      cidr_ipv4         = local.subnets[subnet_key].cidr_block
+    }
+    }, {
+    for subnet_key in local.client_vpn_association_subnet_keys :
+    "windows-icmp-from-vpn-${subnet_key}" => {
+      type              = "ingress"
+      security_group_id = module.security_group.security_group_ids["windows-test"]
+      description       = "ICMP from the Client VPN association subnet"
+      ip_protocol       = "icmp"
+      from_port         = 8
+      to_port           = -1
+      cidr_ipv4         = local.subnets[subnet_key].cidr_block
+    }
+  })
 }

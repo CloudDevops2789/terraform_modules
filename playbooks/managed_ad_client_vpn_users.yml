@@ -1,0 +1,95 @@
+---
+- name: Provision Managed AD Client VPN users
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  pre_tasks:
+    - name: Validate Managed AD user provisioning inputs
+      ansible.builtin.assert:
+        that:
+          - assume_role_role_arn | default('') | length > 0
+          - assume_role_aws_region | default('') | length > 0
+          - managed_ad_directory_name | default('') is match('^[A-Za-z0-9.-]+$')
+          - managed_ad_client_vpn_group_name | default('') is match('^[A-Za-z0-9._ -]+$')
+          - managed_ad_client_vpn_user_names is sequence
+          - managed_ad_client_vpn_user_names is not string
+          - managed_ad_client_vpn_user_names | length > 0
+          - >-
+            managed_ad_client_vpn_user_names
+            | map('lower')
+            | unique
+            | list
+            | length
+            == managed_ad_client_vpn_user_names | length
+          - >-
+            managed_ad_client_vpn_user_names
+            | select('match', '^[A-Za-z0-9._-]{1,20}$')
+            | list
+            | length
+            == managed_ad_client_vpn_user_names | length
+          - >-
+            lookup(
+              'ansible.builtin.env',
+              'IRE_MANAGED_AD_USER_BOOTSTRAP_PASSWORD',
+              default=''
+            ) | length > 0
+        fail_msg: >-
+          Supply the approved AssumeRole binding, directory name, VPN group,
+          unique user-name list, and Managed AD user-bootstrap credential.
+
+  roles:
+    - role: ire_platform.aws.assume_role
+
+  tasks:
+    - name: Provision Managed AD Client VPN identities
+      ire_platform.aws.managed_ad_client_vpn_identities:
+        directory_name: "{{ managed_ad_directory_name }}"
+        user_names: "{{ managed_ad_client_vpn_user_names }}"
+        group_name: "{{ managed_ad_client_vpn_group_name }}"
+        temporary_password: >-
+          {{
+            lookup(
+              'ansible.builtin.env',
+              'IRE_MANAGED_AD_USER_BOOTSTRAP_PASSWORD'
+            )
+          }}
+        reset_existing_password: >-
+          {{ managed_ad_reset_existing_user_passwords | default(false) | bool }}
+        region: "{{ assume_role_aws_auth.region }}"
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+        AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+        AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+        AWS_REGION: "{{ assume_role_aws_auth.region }}"
+        AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+      register: managed_ad_client_vpn_identities
+      no_log: true
+
+    - name: Validate Managed AD provisioning result
+      ansible.builtin.assert:
+        that:
+          - managed_ad_client_vpn_identities.directory_id is match('^d-[0-9a-f]{10}$')
+          - managed_ad_client_vpn_identities.group_sid is match('^S-[0-9-]+$')
+        fail_msg: Managed AD provisioning did not return valid directory and group identifiers.
+
+    - name: Publish Remote Access workflow artifacts
+      ansible.builtin.set_stats:
+        data:
+          client_vpn_access_group_id: >-
+            {{ managed_ad_client_vpn_identities.group_sid }}
+        per_host: false
+
+    - name: Report Managed AD Client VPN user result
+      ansible.builtin.debug:
+        msg:
+          - "Directory: {{ managed_ad_directory_name }}"
+          - "Directory ID: {{ managed_ad_client_vpn_identities.directory_id }}"
+          - "VPN group: {{ managed_ad_client_vpn_group_name }}"
+          - "VPN group SID: {{ managed_ad_client_vpn_identities.group_sid }}"
+          - >-
+            Requested users: {{ managed_ad_client_vpn_user_names | join(', ') }}
+          - >-
+            Created users: {{ managed_ad_client_vpn_identities.users_created | join(', ') }}
+          - >-
+            Memberships added: {{ managed_ad_client_vpn_identities.memberships_added | join(', ') }}

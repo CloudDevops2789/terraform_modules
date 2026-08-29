@@ -42,5 +42,5 @@ The Managed AD bootstrap password is not an environment variable. It remains
 owned by the AAP custom credential that injects
 `IRE_TERRAFORM_MANAGED_AD_PASSWORD`.
 
-Client VPN certificate ARNs remain approved Platform runtime bindings. Client
-VPN authentication type and enablement remain Git-controlled.
+Client VPN certificate ARNs remain approved Remote Access runtime bindings.
+Remote Access authentication type and enablement remain Git-controlled.

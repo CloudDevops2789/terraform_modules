@@ -60,7 +60,9 @@ after the recovery run.
 ## Security boundary
 
 - The Windows instance has no public IP.
-- RDP and ICMP are allowed only from the Client VPN address pool.
+- RDP and ICMP are allowed only from the selected Client VPN association
+  subnet CIDR. AWS Client VPN applies IPv4 source NAT, so the workload sees an
+  association ENI address rather than the original client-pool address.
 - The VPN endpoint can send traffic only to the POC VPC CIDR.
 - AWS owns the Managed AD baseline rules for the directory VPC CIDR; Terraform
   adds only the external Client VPN CIDR to that security group.
@@ -82,8 +84,6 @@ group SID used for the final apply so Terraform evaluates the same state.
 
 ## Production integration boundary
 
-This root is a validation harness, not the final production lifecycle design.
-Directory-authenticated Client VPN depends on both Platform networking and the
-Identity directory. After the proof, an Access stack should be evaluated to
-consume both contracts without creating a Platform-to-Identity dependency
-cycle.
+This root is a validation harness, not the production lifecycle design. The
+separate `remote-access` stack consumes Platform and Identity contracts without
+creating a Platform-to-Identity dependency cycle. See ADR-006.

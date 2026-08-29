@@ -38,4 +38,6 @@ locals {
       route_table_key         = "directory-b"
     }
   }
+
+  client_vpn_association_subnet_keys = ["directory-a"]
 }
