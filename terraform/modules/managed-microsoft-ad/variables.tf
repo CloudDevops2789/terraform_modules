@@ -7,6 +7,24 @@ variable "domain_name" {
   type        = string
 }
 
+variable "short_name" {
+  description = "Optional NetBIOS short name for the directory. When null, AWS derives it from the first DNS label."
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = var.short_name == null ? true : (
+      length(var.short_name) >= 1 &&
+      length(var.short_name) <= 15 &&
+      length(regexall("^[A-Za-z0-9-]+$", var.short_name)) == 1 &&
+      !startswith(var.short_name, "-") &&
+      !endswith(var.short_name, "-")
+    )
+    error_message = "short_name must contain 1-15 letters, numbers, or hyphens and cannot begin or end with a hyphen."
+  }
+}
+
 variable "password" {
   description = "Initial Admin password. Terraform state retains this sensitive value; rotate it operationally after directory creation."
   type        = string

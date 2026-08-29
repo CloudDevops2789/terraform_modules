@@ -31,6 +31,7 @@ module "managed_microsoft_ad" {
   source = "../../modules/managed-microsoft-ad"
 
   domain_name = "admin.ire.example"
+  short_name  = "IRE"
   password    = var.managed_ad_password
   edition     = "Standard"
 
@@ -53,6 +54,7 @@ Do not place a real password, customer domain, account identifier, or organizati
 | Input | Type | Required | Description |
 |---|---|---:|---|
 | `domain_name` | `string` | Yes | Approved directory FQDN |
+| `short_name` | `string` | No | Explicit NetBIOS short name; AWS derives it from the first DNS label when omitted |
 | `password` | `string` | Yes | Sensitive bootstrap password for the directory `Admin` account |
 | `edition` | `string` | No | `Standard` by default; `Enterprise` when explicitly selected |
 | `enable_directory_data_access` | `bool` | No | Enables Directory Service Data API access; disabled by default |
