@@ -100,7 +100,7 @@ Run from WSL and inspect the complete output before continuing:
 
   echo "=== REPOSITORY REFERENCE SCREEN ==="
   rg -n \
-    'terraform/environments/sandbox|terraform/stacks/(persistent|platform|identity|recovery)' \
+    'terraform/environments/sandbox|terraform/stacks/(persistent|platform|identity|remote-access|recovery)' \
     README.md MAINTAINERS.md docs playbooks scripts .github \
     --glob '*.md' --glob '*.yml' --glob '*.yaml' --glob '*.sh' \
     || true

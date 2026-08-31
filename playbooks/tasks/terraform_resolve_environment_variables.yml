@@ -78,6 +78,7 @@
           | intersect([
               'aws_region',
               'platform_contract',
+              'identity_contract',
               'persistent_resources',
               'managed_ad_password'
             ])
