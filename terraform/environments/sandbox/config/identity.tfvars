@@ -21,9 +21,10 @@ managed_ad_enabled = true
 
 # Define the approved domain and edition before enabling the directory.
 managed_ad_configuration = {
-  domain_name = "ad.fairview-ire.org"
-  short_name  = "FVIRE"
-  edition     = "Standard"
+  domain_name                  = "ad.fairview-ire.org"
+  short_name                   = "FVIRE"
+  edition                      = "Standard"
+  enable_directory_data_access = true
 }
 
 # Resolve the clean administrative directory through Route 53 Resolver without

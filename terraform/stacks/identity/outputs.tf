@@ -41,3 +41,15 @@ output "managed_ad_dns_resolver_rule_ids" {
   description = "Private Route 53 Resolver rule IDs, or an empty map when disabled."
   value       = try(module.managed_ad_dns_resolver[0].resolver_rule_ids, {})
 }
+
+output "identity_contract" {
+  description = "Narrow downstream contract for services that consume the managed directory."
+
+  value = {
+    managed_ad_enabled = var.managed_ad_enabled
+    directory_id       = try(module.managed_microsoft_ad[0].directory_id, null)
+    directory_name     = try(module.managed_microsoft_ad[0].directory_name, null)
+    dns_ip_addresses   = try(module.managed_microsoft_ad[0].dns_ip_addresses, [])
+    security_group_id  = try(module.managed_microsoft_ad[0].security_group_id, null)
+  }
+}

@@ -7,10 +7,10 @@ cd "$REPO_ROOT"
 
 VALIDATOR="scripts/ci/terraform-validate-root.sh"
 STACK_ROOT="terraform/stacks"
-STACKS=(persistent platform identity recovery)
+STACKS=(persistent platform identity remote-access recovery)
 
-if [ ! -x "$VALIDATOR" ]; then
-  echo "ERROR: Terraform validation helper is missing or not executable: $VALIDATOR"
+if [ ! -f "$VALIDATOR" ]; then
+  echo "ERROR: Terraform validation helper is missing: $VALIDATOR"
   exit 1
 fi
 
@@ -26,7 +26,7 @@ for stack in "${STACKS[@]}"; do
     exit 1
   fi
 
-  "$VALIDATOR" "$root"
+  bash "$VALIDATOR" "$root"
 done
 
 echo
