@@ -42,18 +42,22 @@ variable "client_cidr_block" {
 # Supported values:
 # - certificate: Mutual Authentication using client certificates.
 # - federated: Federated Authentication using SAML 2.0.
+# - directory: User-based authentication using AWS Directory Service.
+# - directory_and_mutual: Directory authentication plus a client certificate.
 variable "authentication_type" {
-  description = "Client VPN authentication method. Supported values are certificate and federated."
+  description = "Client VPN authentication mode. Supported values are certificate, federated, directory, and directory_and_mutual."
   type        = string
   default     = "certificate"
 
   validation {
     condition = contains([
       "certificate",
-      "federated"
+      "federated",
+      "directory",
+      "directory_and_mutual"
     ], var.authentication_type)
 
-    error_message = "authentication_type must be either certificate or federated."
+    error_message = "authentication_type must be certificate, federated, directory, or directory_and_mutual."
   }
 }
 
@@ -90,6 +94,15 @@ variable "root_certificate_chain_arn" {
 # This is required when authentication_type is federated.
 variable "saml_provider_arn" {
   description = "ARN of the IAM SAML identity provider. Required when authentication_type is federated."
+  type        = string
+  default     = null
+  nullable    = true
+}
+
+# AWS Directory Service directory used for user-based authentication.
+# Required for directory and directory_and_mutual modes.
+variable "active_directory_id" {
+  description = "AWS Directory Service directory ID used for directory authentication."
   type        = string
   default     = null
   nullable    = true
@@ -363,9 +376,22 @@ variable "authorization_rules" {
 
     authorize_all_groups = optional(bool, true)
 
+    access_group_id = optional(string)
+
   }))
 
   default = {}
+
+  validation {
+    condition = alltrue([
+      for rule in values(var.authorization_rules) :
+      rule.authorize_all_groups
+      ? rule.access_group_id == null
+      : try(length(trimspace(rule.access_group_id)) > 0, false)
+    ])
+
+    error_message = "Each authorization rule must either authorize all groups without access_group_id, or set authorize_all_groups=false with a non-empty access_group_id."
+  }
 
 }
 

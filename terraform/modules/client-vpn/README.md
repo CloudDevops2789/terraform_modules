@@ -1,6 +1,7 @@
 # AWS Client VPN Terraform Module
 
-Creates an AWS Client VPN endpoint with mutual-certificate authentication,
+Creates an AWS Client VPN endpoint with certificate, SAML federated, AWS
+Directory Service, or combined directory-plus-certificate authentication,
 CloudWatch connection logging, target-network associations, authorization rules,
 optional routes, and caller-supplied security groups.
 
@@ -21,7 +22,10 @@ The module is reusable and does not decide the caller's network trust model.
 | `name` | Endpoint display name |
 | `client_cidr_block` | Address pool assigned to VPN clients |
 | `server_certificate_arn` | ACM server certificate |
-| `root_certificate_chain_arn` | Trusted client-certificate CA |
+| `authentication_type` | `certificate`, `federated`, `directory`, or `directory_and_mutual` |
+| `root_certificate_chain_arn` | Trusted client-certificate CA for certificate-bearing modes |
+| `active_directory_id` | Directory ID for directory-bearing modes |
+| `saml_provider_arn` | IAM SAML provider ARN for federated mode |
 | `vpc_id` | VPC containing target-network association subnets |
 | `network_associations` | Association subnet IDs keyed by logical name |
 | `security_group_ids` | Security groups attached to Client VPN ENIs |
@@ -117,18 +121,35 @@ networks.
 
 ## Authentication and certificate boundary
 
-The module supports certificate-based and SAML federated authentication.
+The module supports four authentication modes:
 
-For certificate authentication, the module consumes an existing ACM server
-certificate ARN and an ACM root certificate chain ARN.
+| Mode | AWS authentication blocks | Client requirement |
+|---|---|---|
+| `certificate` | Certificate | Client certificate and private key |
+| `federated` | SAML federation | Enterprise federated sign-in |
+| `directory` | Directory Service | Directory username and password |
+| `directory_and_mutual` | Directory Service and certificate | Both directory credentials and a valid client certificate |
+
+For certificate authentication, the caller supplies an existing ACM server
+certificate ARN and an ACM root certificate-chain ARN at runtime.
 
 For federated authentication, the module consumes an existing ACM server
 certificate ARN and an IAM SAML identity provider ARN.
 
-The module intentionally does not create or manage enterprise identity
-providers, SAML metadata, MFA policy, certificate issuance, private-key
-custody, certificate rotation, revocation, or client trust distribution.
-Those responsibilities remain outside the Client VPN infrastructure module.
+For directory authentication, the module consumes an existing AWS Directory
+Service directory ID. Combined mode also consumes the trusted client root CA.
+AWS requires both methods to succeed when combined mode is selected.
+
+Authorization can grant all authenticated users or set `access_group_id` to an
+Active Directory group SID. Group-scoped authorization is preferred for
+directory modes.
+
+The module intentionally does not create, import, or manage server
+certificates, client certificates, certificate authorities, or private keys in
+home-lab or enterprise deployments. It also does not manage enterprise identity
+providers, SAML metadata, MFA policy, certificate rotation, revocation, or
+client trust distribution. Those responsibilities remain outside the Client
+VPN infrastructure module.
 
 ## Security guidance
 

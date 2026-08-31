@@ -31,17 +31,6 @@
 
 security_group_rules = [
   {
-    name           = "management-ssh-from-client-vpn"
-    direction      = "ingress"
-    security_group = "management"
-    protocol       = "tcp"
-    from_port      = 22
-    to_port        = 22
-    peer_type      = "security_group"
-    peer           = "management"
-    description    = "Allow SSH from the Client VPN management security group"
-  },
-  {
     name           = "management-ssh-from-core"
     direction      = "ingress"
     security_group = "management"
@@ -51,17 +40,6 @@ security_group_rules = [
     peer_type      = "vpc"
     peer           = "core_recovery"
     description    = "Allow SSH from Core Recovery to Management"
-  },
-  {
-    name           = "management-ping"
-    direction      = "ingress"
-    security_group = "management"
-    protocol       = "icmp"
-    from_port      = 8
-    to_port        = -1
-    peer_type      = "security_group"
-    peer           = "management"
-    description    = "Allow ICMP echo requests from the Client VPN management security group"
   },
   {
     name           = "management-egress"

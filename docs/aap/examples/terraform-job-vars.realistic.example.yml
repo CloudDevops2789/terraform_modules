@@ -1,12 +1,12 @@
 ---
 ################################################################################
-# Platform Apply JT With Certificate Authentication Runtime Bindings
+# Remote Access Apply JT With Directory Authentication Runtime Bindings
 ################################################################################
-terraform_stack: "platform"
+terraform_stack: "remote-access"
 terraform_apply_enabled: true
 
-# Git controls client_vpn_enabled and authentication_type. The JT supplies only
-# the approved external certificate references required by that configuration.
+# Git controls Remote Access enablement and authentication type. The JT supplies
+# only the approved external identifiers required by that configuration.
 terraform_variables:
+  client_vpn_access_group_id: "<MANAGED_AD_VPN_GROUP_SID>"
   server_certificate_arn: "<APPROVED_SERVER_CERTIFICATE_ARN>"
-  root_certificate_chain_arn: "<APPROVED_ROOT_CA_CERTIFICATE_ARN>"

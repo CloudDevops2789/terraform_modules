@@ -66,7 +66,6 @@ variable "resource_name_overrides" {
     transit_gateway_core_recovery_rt   = optional(string)
     transit_gateway_protected_data_rt  = optional(string)
     transit_gateway_inspection_rt      = optional(string)
-    client_vpn                         = optional(string)
     standard_backup_vault              = optional(string)
     air_gapped_backup_vault            = optional(string)
     backup_plan                        = optional(string)

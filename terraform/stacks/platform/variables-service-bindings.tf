@@ -37,46 +37,6 @@ variable "security_groups" {
   }
 }
 
-variable "client_vpn_network_binding" {
-  description = "Topology-independent Client VPN placement and authorization binding."
-
-  type = object({
-    vpc_key                = string
-    subnet_group           = string
-    security_group_keys    = set(string)
-    authorization_vpc_keys = set(string)
-  })
-
-  default  = null
-  nullable = true
-
-  validation {
-    condition = (
-      !var.client_vpn_enabled ||
-      (
-        var.client_vpn_network_binding != null &&
-        try(
-          contains(
-            keys(var.network_config.vpcs),
-            var.client_vpn_network_binding.vpc_key
-          ) &&
-          alltrue([
-            for key in var.client_vpn_network_binding.security_group_keys :
-            contains(keys(var.security_groups), key)
-          ]) &&
-          alltrue([
-            for key in var.client_vpn_network_binding.authorization_vpc_keys :
-            contains(keys(var.network_config.vpcs), key)
-          ]),
-          false
-        )
-      )
-    )
-
-    error_message = "When Client VPN is enabled, its VPC, security groups, and authorization VPC keys must reference configured Platform objects."
-  }
-}
-
 variable "ssm_endpoint_bindings" {
   description = "VPCs that receive the private Systems Manager endpoint plane."
 

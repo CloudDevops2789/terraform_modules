@@ -21,6 +21,7 @@
     terraform_allow_persistent_destroy: false
     terraform_allow_platform_destroy: false
     terraform_allow_identity_destroy: false
+    terraform_allow_remote_access_destroy: false
     terraform_allow_recovery_destroy: false
 
   pre_tasks:
@@ -67,6 +68,12 @@
             not (terraform_destroy_enabled | bool)
             or
             (
+              terraform_stack == 'remote-access'
+              and (terraform_allow_remote_access_destroy | bool)
+              and terraform_destroy_confirmation == 'DESTROY REMOTE ACCESS'
+            )
+            or
+            (
               terraform_stack == 'recovery'
               and (terraform_allow_recovery_destroy | bool)
               and terraform_destroy_confirmation == 'DESTROY RECOVERY'
@@ -97,7 +104,8 @@
           DESTROY RECOVERY. Platform
           requires terraform_allow_platform_destroy=true and DESTROY PLATFORM.
           Identity requires terraform_allow_identity_destroy=true and
-          DESTROY IDENTITY.
+          DESTROY IDENTITY. Remote Access requires
+          terraform_allow_remote_access_destroy=true and DESTROY REMOTE ACCESS.
 
     - name: Enforce Sandbox stack runtime variable allowlist
       ansible.builtin.assert:

@@ -8,9 +8,7 @@ variable "aws_region" {
 }
 
 # Authentication type used by the Client VPN module test.
-# Supported values:
-# - certificate: Mutual Authentication using client certificates.
-# - federated: Federated Authentication using SAML 2.0.
+# Supported values mirror the reusable module.
 variable "authentication_type" {
   description = "Authentication method used by the Client VPN module test."
   type        = string
@@ -20,10 +18,19 @@ variable "authentication_type" {
     condition = contains([
       "certificate",
       "federated",
+      "directory",
+      "directory_and_mutual",
     ], var.authentication_type)
 
-    error_message = "authentication_type must be either certificate or federated."
+    error_message = "authentication_type must be certificate, federated, directory, or directory_and_mutual."
   }
+}
+
+variable "active_directory_id" {
+  description = "Existing AWS Directory Service directory ID used for directory authentication tests."
+  type        = string
+  default     = null
+  nullable    = true
 }
 
 variable "saml_provider_arn" {
@@ -33,44 +40,28 @@ variable "saml_provider_arn" {
   nullable    = true
 }
 
-# Named to match the Platform stack variable for direct contract tracing.
-#
-# Optional. Left unset (the default), this environment generates a
-# throwaway self-signed server certificate and imports it into ACM itself
-# (see certificates.tf) - the home lab path, where nothing needs to exist
-# beforehand and `terraform apply` is fully self-contained.
-#
-# Supplying a real ACM certificate ARN here overrides that generated
-# certificate and switches this test to the enterprise path: it validates
-# the client-vpn module against certificates already issued and managed
-# outside this test, exactly as a production deployment would use it.
-#
-# Must be supplied together with root_certificate_chain_arn - a server
-# certificate not signed by the supplied root will fail at apply time.
 variable "server_certificate_arn" {
-  description = "Existing ACM server certificate ARN. Leave unset to auto-generate a throwaway certificate instead."
+  description = "Existing ACM server certificate ARN supplied by the operator at runtime. Terraform never creates it."
   type        = string
-  default     = null
+
+  validation {
+    condition     = length(trimspace(var.server_certificate_arn)) > 0
+    error_message = "server_certificate_arn must be supplied at runtime."
+  }
 }
 
-# Named to match the Platform stack variable for direct contract tracing.
-#
-# Optional. Left unset (the default), this environment generates a
-# throwaway self-signed root CA and imports it into ACM itself (see
-# certificates.tf) - the home lab path, where nothing needs to exist
-# beforehand and `terraform apply` is fully self-contained.
-#
-# Supplying a real ACM root CA certificate chain ARN here overrides that
-# generated CA and switches this test to the enterprise path: it validates
-# the client-vpn module against a CA already issued and managed outside
-# this test, exactly as a production deployment would use it.
-#
-# Must be supplied together with server_certificate_arn - see that
-# variable's description.
 variable "root_certificate_chain_arn" {
-  description = "Existing ACM root CA certificate chain ARN. Leave unset to auto-generate a throwaway CA instead."
+  description = "Existing ACM client root CA certificate-chain ARN supplied at runtime for mutual-authentication modes. Terraform never creates it."
   type        = string
   default     = null
+  nullable    = true
+}
+
+variable "access_group_id" {
+  description = "Optional Active Directory group SID used to validate group-scoped authorization."
+  type        = string
+  default     = null
+  nullable    = true
 }
 
 variable "org_it_cost_center" {

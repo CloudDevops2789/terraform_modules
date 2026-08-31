@@ -58,6 +58,13 @@ variable "edition" {
   }
 }
 
+variable "enable_directory_data_access" {
+  description = "Enable AWS Directory Service Data API access for caller-owned user and group automation."
+  type        = bool
+  default     = false
+  nullable    = false
+}
+
 variable "vpc_id" {
   description = "ID of the VPC where the directory will be deployed."
   type        = string
@@ -75,7 +82,7 @@ variable "subnet_ids" {
 }
 
 variable "client_cidr_blocks" {
-  description = "Approved client network CIDRs that require native Active Directory access to the managed directory."
+  description = "Approved external client CIDRs that require native Active Directory access. Exclude the directory VPC CIDR because AWS owns its baseline rules."
   type        = set(string)
   default     = []
 

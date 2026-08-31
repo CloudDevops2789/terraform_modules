@@ -81,23 +81,17 @@ as Terraform `aws_region`.
 
 The Terraform backend Region remains a separate binding.
 
-## Client VPN bootstrap
+## Remote Access lifecycle
 
-Client VPN is optional during initial platform bootstrap.
+Client VPN is not owned by Platform. The `remote-access` stack runs only after
+Platform networking, Managed AD and the approved AD user/group bootstrap are
+ready. AAP brokers the two Terraform contracts and supplies the existing ACM
+server-certificate ARN and AD authorization-group SID.
 
-With:
-
-~~~hcl
-client_vpn_enabled = false
-~~~
-
-the persistent IRE platform can be created without a Client VPN server
-certificate or SAML provider ARN.
-
-The enterprise target remains federated authentication. After PKI and Identity
-dependencies are available, enable Client VPN through a reviewed Git change and
-supply the existing certificate/SAML ARNs through the approved AAP environment
-binding.
+Git selects either initial `directory` authentication or future
+`directory_and_mutual` authentication. Combined mode additionally consumes an
+existing ACM client root certificate-chain ARN. Terraform generates no
+certificates and receives no AD user passwords.
 
 ## Runtime artifacts
 
@@ -117,7 +111,7 @@ orchestration path.
 - AWS credentials are temporary STS credentials obtained by AssumeRole.
 - Architecture changes require Git review.
 - Sandbox runtime Terraform variables are allowlisted.
-- Client VPN authentication mode is not a normal launch-time selection.
+- Remote Access authentication mode is not a normal launch-time selection.
 - SSM is the standard administrative pattern for representative validation
   compute.
 - Sensitive values belong in AAP Credentials or approved secret-management

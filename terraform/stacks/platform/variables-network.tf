@@ -6,8 +6,7 @@ variable "network_config" {
   description = "Topology-agnostic VPC, subnet, route-table, Transit Gateway, connectivity, and inspection configuration."
 
   type = object({
-    account_cidr_block    = string
-    client_vpn_cidr_block = string
+    account_cidr_block = string
 
     vpcs = map(object({
       cidr_block = string
@@ -72,8 +71,7 @@ variable "network_config" {
   validation {
     condition = alltrue(concat(
       [
-        can(cidrnetmask(var.network_config.account_cidr_block)),
-        can(cidrnetmask(var.network_config.client_vpn_cidr_block))
+        can(cidrnetmask(var.network_config.account_cidr_block))
       ],
       flatten([
         for vpc in values(var.network_config.vpcs) : concat(
