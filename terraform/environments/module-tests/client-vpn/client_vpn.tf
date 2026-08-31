@@ -10,16 +10,16 @@ module "client_vpn" {
 
   name = local.client_vpn.name
 
-  # Authentication type: certificate or federated.
-  # This test validates both paths, but only one at a time. The
+  # The test validates one supported authentication path at a time. The
   # authentication_type variable controls which path is tested.
   authentication_type = var.authentication_type
+  active_directory_id = var.active_directory_id
 
-  server_certificate_arn = local.effective_server_certificate_arn
+  server_certificate_arn = var.server_certificate_arn
 
   root_certificate_chain_arn = (
-    var.authentication_type == "certificate"
-    ? local.effective_root_certificate_chain_arn
+    contains(["certificate", "directory_and_mutual"], var.authentication_type)
+    ? var.root_certificate_chain_arn
     : null
   )
 
@@ -56,7 +56,8 @@ module "client_vpn" {
   authorization_rules = {
     vpc = {
       target_network_cidr  = module.vpc.vpc_cidr
-      authorize_all_groups = local.client_vpn.authorize_all_groups
+      authorize_all_groups = var.access_group_id == null
+      access_group_id      = var.access_group_id
     }
   }
 

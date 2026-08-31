@@ -14,9 +14,3 @@ provider "aws" {
   }
 
 }
-
-# The tls provider has no configuration of its own - it generates key
-# material locally rather than calling any remote API. It exists here only
-# to satisfy the Client VPN module's certificate requirement (see
-# certificates.tf); certificate generation is not the focus of this test.
-provider "tls" {}

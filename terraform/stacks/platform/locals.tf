@@ -80,11 +80,6 @@ locals {
       "${local.name_prefix}-inspection-tgw-rt"
     )
 
-    client_vpn = coalesce(
-      var.resource_name_overrides.client_vpn,
-      "${local.name_prefix}-client-vpn"
-    )
-
     standard_backup_vault = coalesce(
       var.resource_name_overrides.standard_backup_vault,
       "${local.name_prefix}-standard-backup-vault"
@@ -133,8 +128,7 @@ locals {
 
   network_cidrs = merge(
     {
-      account    = var.network_config.account_cidr_block
-      client_vpn = var.network_config.client_vpn_cidr_block
+      account = var.network_config.account_cidr_block
     },
     {
       for vpc_key, vpc in var.network_config.vpcs :
