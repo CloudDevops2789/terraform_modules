@@ -54,7 +54,7 @@ this Terraform state.
 
 ## Recommended fixed Job Templates
 
-Create four JTs per stack. This gives 16 predictable templates backed by the
+Create four JTs per lifecycle stack. This gives 20 predictable templates backed by the
 two reusable playbooks and one shared environment inventory.
 
 | Stack | Plan | Apply | Destroy plan | Destroy |
@@ -62,6 +62,7 @@ two reusable playbooks and one shared environment inventory.
 | Persistent | `IRE-Persistent-Plan` | `IRE-Persistent-Apply` | `IRE-Persistent-Destroy-Plan` | `IRE-Persistent-Destroy` |
 | Platform | `IRE-Platform-Plan` | `IRE-Platform-Apply` | `IRE-Platform-Destroy-Plan` | `IRE-Platform-Destroy` |
 | Identity | `IRE-Identity-Plan` | `IRE-Identity-Apply` | `IRE-Identity-Destroy-Plan` | `IRE-Identity-Destroy` |
+| Remote Access | `IRE-Remote-Access-Plan` | `IRE-Remote-Access-Apply` | `IRE-Remote-Access-Destroy-Plan` | `IRE-Remote-Access-Destroy` |
 | Recovery | `IRE-Recovery-Plan` | `IRE-Recovery-Apply` | `IRE-Recovery-Destroy-Plan` | `IRE-Recovery-Destroy` |
 
 Every JT selects the approved SCM inventory. Do not expose
@@ -112,19 +113,6 @@ terraform_apply_enabled: true
 terraform_variables: {}
 ~~~
 
-Git controls Client VPN enablement and authentication type. When required by
-that reviewed configuration, both Platform JTs receive the same approved
-external bindings under `terraform_variables`:
-
-~~~yaml
-terraform_variables:
-  server_certificate_arn: "<APPROVED_SERVER_CERTIFICATE_ARN>"
-  root_certificate_chain_arn: "<APPROVED_ROOT_CA_CERTIFICATE_ARN>"
-~~~
-
-Use `saml_provider_arn` instead of `root_certificate_chain_arn` when the
-Git-selected authentication type is federated.
-
 Identity plan and apply use:
 
 ~~~yaml
@@ -135,6 +123,24 @@ terraform_variables: {}
 
 When `managed_ad_enabled = false`, the example above is complete and no Managed
 AD credential is required.
+
+Remote Access plan and apply run only after Platform, Identity and the Managed
+AD user/group bootstrap workflow. Git controls enablement and authentication
+mode. AAP supplies the existing certificate ARN and group SID:
+
+~~~yaml
+terraform_stack: remote-access
+terraform_apply_enabled: false  # true only in the fixed Apply JT
+terraform_variables:
+  client_vpn_access_group_id: "<MANAGED_AD_VPN_GROUP_SID>"
+  server_certificate_arn: "<APPROVED_ACM_SERVER_CERTIFICATE_ARN>"
+~~~
+
+Future `directory_and_mutual` mode additionally supplies:
+
+~~~yaml
+  client_root_certificate_chain_arn: "<APPROVED_ACM_CLIENT_ROOT_CA_ARN>"
+~~~
 
 Before Git enables Managed AD, create an approved custom credential type with a
 secret input field:
@@ -162,6 +168,42 @@ the password is resolved separately by the playbooks under `no_log`.
 
 Do not place the password or the injected environment variable value in Job
 Template YAML, surveys, inventory, SCM, or shell commands.
+
+## Managed AD Client VPN user provisioning
+
+Use `playbooks/managed_ad_client_vpn_users.yml` after Identity and before Remote
+Access. Supply a reviewed list of SAM account names and one authorization group:
+
+~~~yaml
+managed_ad_directory_name: "<APPROVED_DIRECTORY_FQDN>"
+managed_ad_client_vpn_group_name: "IRE-Client-VPN-Users"
+managed_ad_client_vpn_user_names:
+  - user001
+  - user002
+managed_ad_reset_existing_user_passwords: false
+~~~
+
+Create a secret AAP credential whose injector is:
+
+~~~yaml
+env:
+  IRE_MANAGED_AD_USER_BOOTSTRAP_PASSWORD: "{{ managed_ad_user_bootstrap_password }}"
+~~~
+
+One credential supplies the shared bootstrap password for the whole controlled
+batch; do not create one AAP credential per AD user.
+
+The workflow creates only missing users, sets the password only for newly
+created users, adds users to the VPN group and publishes its SID. Removing a
+name from the input list does not delete or disable an AD account. Normal
+offboarding requires a separate approved identity process.
+
+A shared bootstrap password is suitable only for a controlled initial rollout.
+Directory Service Data password reset does not provide this workflow with a
+reliable force-change-at-next-VPN-login control, and Client VPN is not a
+password-enrollment interface. Enterprise onboarding should therefore replace
+the shared password promptly through an approved individual password or
+self-service identity process before broad access is granted.
 
 Recovery plan and apply use:
 
@@ -210,6 +252,18 @@ terraform_allow_identity_destroy: true
 terraform_destroy_confirmation: "DESTROY IDENTITY"
 ~~~
 
+Actual Remote Access destroy:
+
+~~~yaml
+terraform_stack: remote-access
+terraform_variables:
+  client_vpn_access_group_id: "<MANAGED_AD_VPN_GROUP_SID>"
+  server_certificate_arn: "<APPROVED_ACM_SERVER_CERTIFICATE_ARN>"
+terraform_destroy_enabled: true
+terraform_allow_remote_access_destroy: true
+terraform_destroy_confirmation: "DESTROY REMOTE ACCESS"
+~~~
+
 Actual Platform destroy:
 
 ~~~yaml
@@ -238,7 +292,7 @@ Persistent stack and cannot delete externally owned KMS keys or vaults.
 Managed creation:
 
 ~~~text
-Persistent -> Platform -> Identity
+Persistent -> Platform -> Identity -> AD bootstrap -> Remote Access
                        -> Recovery
 ~~~
 
@@ -252,7 +306,7 @@ Approved external references -> Platform -> Identity
 Managed destruction uses reverse dependency order:
 
 ~~~text
-Recovery -> Identity -> Platform -> Persistent
+Recovery -> Remote Access -> Identity -> Platform -> Persistent
 ~~~
 
 Persistent destroy is omitted when resources are external or intentionally

@@ -17,7 +17,8 @@ resource "aws_ec2_client_vpn_authorization_rule" "this" {
 
   target_network_cidr = each.value.target_network_cidr
 
-  authorize_all_groups = each.value.authorize_all_groups
+  authorize_all_groups = each.value.authorize_all_groups ? true : null
+  access_group_id      = each.value.authorize_all_groups ? null : each.value.access_group_id
 
   timeouts {
     create = "20m"

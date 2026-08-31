@@ -109,6 +109,25 @@
   no_log: true
 
 ################################################################################
+# Platform + Identity -> Remote Access
+################################################################################
+
+- name: Build Remote Access lifecycle contracts
+  ansible.builtin.set_fact:
+    terraform_contract_variables: >-
+      {{
+        {
+          'platform_contract':
+            terraform_dependency_outputs.platform.platform_contract,
+          'identity_contract':
+            terraform_dependency_outputs.identity.identity_contract
+        }
+      }}
+  when:
+    - terraform_stack == 'remote-access'
+  no_log: true
+
+################################################################################
 # Persistent Resources + Platform -> Recovery
 ################################################################################
 
