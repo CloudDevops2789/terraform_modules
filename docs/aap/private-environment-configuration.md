@@ -28,6 +28,7 @@ terraform_environment_variables_by_stack:
     managed_ad_configuration:
       domain_name: "<APPROVED_DIRECTORY_FQDN>"
       edition: Standard
+      enable_directory_data_access: true
 ~~~
 
 These values are:
@@ -41,6 +42,11 @@ These values are:
 The Managed AD bootstrap password is not an environment variable. It remains
 owned by the AAP custom credential that injects
 `IRE_TERRAFORM_MANAGED_AD_PASSWORD`.
+
+Set `enable_directory_data_access` to `true` only when approved automation
+manages directory users or groups through the Directory Service Data API. This
+keeps Terraform ownership aligned with the AAP user-provisioning workflow and
+prevents a later Identity plan from disabling the API after AAP enables it.
 
 Client VPN certificate ARNs remain approved Remote Access runtime bindings.
 Remote Access authentication type and enablement remain Git-controlled.
