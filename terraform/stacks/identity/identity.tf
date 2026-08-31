@@ -17,6 +17,11 @@ module "managed_microsoft_ad" {
   password    = var.managed_ad_password
   edition     = try(var.managed_ad_configuration.edition, "Standard")
 
+  enable_directory_data_access = try(
+    var.managed_ad_configuration.enable_directory_data_access,
+    false
+  )
+
   vpc_id     = try(local.identity_platform_placement.vpc_id, "")
   subnet_ids = try(local.identity_platform_placement.subnet_ids, [])
 

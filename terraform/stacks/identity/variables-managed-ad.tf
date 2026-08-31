@@ -25,9 +25,10 @@ variable "managed_ad_configuration" {
   description = "Git-controlled, non-sensitive AWS Managed Microsoft AD configuration."
 
   type = object({
-    domain_name = string
-    short_name  = optional(string)
-    edition     = optional(string, "Standard")
+    domain_name                  = string
+    short_name                   = optional(string)
+    edition                      = optional(string, "Standard")
+    enable_directory_data_access = optional(bool, false)
   })
 
   default  = null
