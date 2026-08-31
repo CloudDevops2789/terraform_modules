@@ -18,6 +18,7 @@ terraform_active_stacks:
   - persistent
   - platform
   - identity
+  - remote-access
   - recovery
 
 ################################################################################
@@ -37,6 +38,10 @@ terraform_stack_var_files:
   identity:
     - common-tags.tfvars
     - identity.tfvars
+
+  remote-access:
+    - common-tags.tfvars
+    - remote-access.tfvars
 
   recovery:
     - common-tags.tfvars
@@ -70,6 +75,8 @@ terraform_environment_variable_allowlists:
     - managed_ad_enabled
     - managed_ad_configuration
 
+  remote-access: []
+
   recovery: []
 
 terraform_sandbox_runtime_variable_allowlists:
@@ -77,12 +84,14 @@ terraform_sandbox_runtime_variable_allowlists:
     - kms_key_administrators
 
   platform:
-    - server_certificate_arn
-    - root_certificate_chain_arn
-    - saml_provider_arn
     - ssm_instance_profile_name
 
   identity: []
+
+  remote-access:
+    - client_vpn_access_group_id
+    - server_certificate_arn
+    - client_root_certificate_chain_arn
 
   recovery:
     - demo_ec2_enabled
@@ -101,6 +110,12 @@ terraform_stack_dependency_outputs:
     platform:
       - platform_contract
 
+  remote-access:
+    platform:
+      - platform_contract
+    identity:
+      - identity_contract
+
   recovery:
     persistent:
       - standard_backup_vault_name
@@ -117,3 +132,5 @@ terraform_dependency_backend_keys:
   sandbox:
     persistent: "ire/sandbox/persistent/terraform.tfstate"
     platform: "ire/sandbox/platform/terraform.tfstate"
+    identity: "ire/sandbox/identity/terraform.tfstate"
+    remote-access: "ire/sandbox/remote-access/terraform.tfstate"

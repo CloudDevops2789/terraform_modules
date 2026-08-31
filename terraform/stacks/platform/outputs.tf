@@ -38,6 +38,24 @@ output "subnet_ids_by_group" {
   }
 }
 
+output "subnet_cidrs_by_group" {
+  description = "Subnet IPv4 CIDRs grouped by caller-defined function inside each VPC."
+
+  value = {
+    for vpc_key, vpc in module.vpc :
+    vpc_key => {
+      for group in distinct([
+        for subnet in values(vpc.subnets) : subnet.group
+      ]) :
+      group => [
+        for subnet_key in sort(keys(vpc.subnets)) :
+        vpc.subnets[subnet_key].cidr_block
+        if vpc.subnets[subnet_key].group == group
+      ]
+    }
+  }
+}
+
 output "route_table_ids" {
   description = "Route-table IDs keyed first by VPC key and then route-table key."
 
@@ -81,16 +99,6 @@ output "ssm_instance_profile_name" {
   value       = local.effective_ssm_instance_profile_name
 }
 
-output "client_vpn_endpoint_id" {
-  description = "Client VPN endpoint ID, or null when Client VPN is disabled."
-  value       = try(module.client_vpn[0].id, null)
-}
-
-output "client_vpn_saml_provider_arn" {
-  description = "Resolved IAM SAML provider ARN used by Client VPN."
-  value       = local.resolved_saml_provider_arn
-}
-
 output "platform_contract" {
   description = "Topology-agnostic downstream Platform contract."
 
@@ -113,6 +121,20 @@ output "platform_contract" {
     subnet_ids_by_group = {
       for vpc_key, vpc in module.vpc :
       vpc_key => vpc.subnet_ids_by_group
+    }
+
+    subnet_cidrs_by_group = {
+      for vpc_key, vpc in module.vpc :
+      vpc_key => {
+        for group in distinct([
+          for subnet in values(vpc.subnets) : subnet.group
+        ]) :
+        group => [
+          for subnet_key in sort(keys(vpc.subnets)) :
+          vpc.subnets[subnet_key].cidr_block
+          if vpc.subnets[subnet_key].group == group
+        ]
+      }
     }
 
     route_table_ids = {

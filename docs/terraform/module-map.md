@@ -6,6 +6,8 @@
 flowchart LR
     Persistent --> Platform
     Platform --> Identity
+    Platform --> RemoteAccess["Remote Access"]
+    Identity --> RemoteAccess
     Platform --> Recovery
     Persistent --> Recovery
 ```
@@ -13,8 +15,9 @@ flowchart LR
 | Stack | Primary ownership | Main composition files |
 |---|---|---|
 | Persistent | Backup vaults and optional logging KMS | `backup-vaults.tf`, `network-firewall-logging-kms.tf` |
-| Platform | VPC, TGW, routing, security, SSM, endpoints, VPN and firewall | `networking.tf`, `routing.tf`, `security.tf`, service-specific files |
+| Platform | VPC, TGW, routing, security, SSM, endpoints and firewall | `networking.tf`, `routing.tf`, `security.tf`, service-specific files |
 | Identity | AWS Managed Microsoft AD | `identity.tf` |
+| Remote Access | Client VPN, endpoint SG, routes and authorization | `main.tf` |
 | Recovery | Temporary compute and backup policy | `compute.tf`, `backup.tf` |
 
 ## Reusable module consumers
@@ -25,7 +28,7 @@ flowchart LR
 | Transit Gateway | `transit-gateway` | Platform `networking.tf` |
 | Security groups/rules | `security-group`, `security-group-rule` | Platform `security.tf` |
 | SSM endpoints | `vpc-endpoints` | Platform `ssm-management.tf` |
-| Client VPN/SAML | `client-vpn`, `iam-saml-provider` | Platform `client_vpn.tf` |
+| Client VPN | `client-vpn` | Remote Access `main.tf` |
 | Network Firewall | `network-firewall*` | Platform firewall and routing files |
 | IAM | `iam` | Platform SSM and Recovery backup composition |
 | KMS | `kms` | Persistent logging-KMS composition |

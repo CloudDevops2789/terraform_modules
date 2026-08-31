@@ -226,6 +226,7 @@ The following matrix distinguishes reusable implementation, environment integrat
 │   │   ├── persistent/
 │   │   ├── platform/
 │   │   ├── identity/
+│   │   ├── remote-access/
 │   │   └── recovery/
 │   ├── environments/
 │   │   ├── sandbox/
@@ -323,8 +324,7 @@ Git-controlled architecture includes:
 
 - `network_config`;
 - `network_inspection_mode`;
-- `client_vpn_enabled`;
-- `authentication_type`;
+- Remote Access enablement and authentication mode in `remote-access.tfvars`;
 - SSM management architecture;
 - naming;
 - standard tagging;
@@ -375,54 +375,22 @@ See `terraform/stacks/persistent/README.md`, `docs/aap/variables.md`, and
 
 ## Client VPN authentication
 
-AWS Client VPN is an optional access-plane component of the Sandbox.
-
-Initial infrastructure bootstrap uses:
-
-~~~hcl
-client_vpn_enabled  = false
-authentication_type = "federated"
-~~~
-
-This allows VPCs, Transit Gateway, routing, security controls, SSM and the
-remaining persistent IRE platform to deploy before enterprise PKI and Identity
-dependencies are available.
-
-When Client VPN is enabled, a server TLS certificate is required. Federated
-authentication additionally consumes the approved enterprise IAM SAML provider.
-
-Enterprise enablement therefore follows:
+AWS Client VPN is owned by the independent Remote Access stack so Platform can
+create networking before Managed AD exists. Enterprise enablement follows:
 
 ~~~text
-Persistent IRE platform
-      |
-      | client_vpn_enabled = false
-      v
-Platform bootstrap succeeds
-      |
-      +--> PKI provisions server certificate
-      |
-      +--> Identity team configures SAML + MFA
-      |
-      +--> IAM SAML provider becomes available
-      |
-      v
-Reviewed Git change
-client_vpn_enabled = true
-      |
-      v
-AAP supplies external certificate/SAML ARNs
-      |
-      v
-Client VPN endpoint created
+Platform -> Identity -> Managed AD users/group -> Remote Access
 ~~~
 
-The normal enterprise target is SAML-federated authentication with MFA
-controlled by the enterprise identity provider.
+Initial Remote Access uses Managed AD username/password authentication and an
+externally supplied ACM server certificate. Future combined mode requires both
+Managed AD authentication and an approved client certificate. AAP supplies
+certificate ARNs and the AD group SID; Terraform never generates certificates
+or stores AD user passwords.
 
-Mutual certificate authentication remains supported by the reusable module for
-controlled use cases, but it is not the normal enterprise AAP/laptop access
-pattern.
+Client VPN IPv4 traffic is source-NATed to the endpoint network interface.
+Workload ingress therefore uses the exact association-subnet CIDRs exposed by
+the Platform contract, not the Client VPN client address pool.
 
 Client VPN authorization remains scoped to approved destinations and does not
 create a direct Recovery Access-to-Protected Data trust path.
