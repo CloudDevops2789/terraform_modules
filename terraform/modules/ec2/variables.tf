@@ -42,10 +42,16 @@ variable "instances" {
     private_ip = optional(string)
 
     associate_public_ip_address = optional(bool, false)
+    monitoring                  = optional(bool, false)
+    disable_api_termination     = optional(bool, false)
+    ebs_optimized               = optional(bool)
 
     root_block_device = optional(object({
       volume_size           = optional(number)
       volume_type           = optional(string, "gp3")
+      iops                  = optional(number)
+      throughput            = optional(number)
+      kms_key_id            = optional(string)
       encrypted             = optional(bool, true)
       delete_on_termination = optional(bool, true)
     }), {})
@@ -87,6 +93,41 @@ variable "instances" {
     ])
 
     error_message = "EC2 root volumes must be encrypted."
+  }
+
+  validation {
+    condition = alltrue([
+      for instance in values(var.instances) :
+      instance.root_block_device.iops == null || (
+        instance.root_block_device.iops > 0 &&
+        contains(["gp3", "io1", "io2"], instance.root_block_device.volume_type)
+      )
+    ])
+
+    error_message = "Root-volume IOPS must be positive and may only be set for gp3, io1, or io2 volumes."
+  }
+
+  validation {
+    condition = alltrue([
+      for instance in values(var.instances) :
+      instance.root_block_device.throughput == null || (
+        instance.root_block_device.throughput > 0 &&
+        instance.root_block_device.volume_type == "gp3"
+      )
+    ])
+
+    error_message = "Root-volume throughput must be positive and may only be set for gp3 volumes."
+  }
+
+  validation {
+    condition = alltrue([
+      for instance in values(var.instances) :
+      instance.root_block_device.kms_key_id == null
+      ? true
+      : length(trimspace(instance.root_block_device.kms_key_id)) > 0
+    ])
+
+    error_message = "Root-volume KMS key IDs must be null or non-empty strings."
   }
 
   validation {

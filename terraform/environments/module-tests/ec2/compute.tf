@@ -17,10 +17,20 @@ module "ec2" {
       instance_type               = local.ec2.instance_type
       subnet_id                   = module.vpc.subnet_ids["public-a"]
       associate_public_ip_address = local.ec2.associate_public_ip_address
+      monitoring                  = true
+      disable_api_termination     = false
+      ebs_optimized               = true
       key_name                    = module.key_pair.key_names["management"]
       vpc_security_group_ids = [
         module.security_group.security_group_ids["management"]
       ]
+
+      root_block_device = {
+        volume_size = 20
+        volume_type = "gp3"
+        iops        = 3000
+        throughput  = 125
+      }
     }
   }
 }

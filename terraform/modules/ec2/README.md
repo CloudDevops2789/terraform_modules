@@ -108,6 +108,9 @@ output "core_private_ip" {
 | `iam_instance_profile` | `string` | `null` | Instance profile name for an IAM role. |
 | `private_ip` | `string` | `null` | Fixed private IP. Omit to let AWS assign one. |
 | `associate_public_ip_address` | `bool` | `false` | Assign a public IP. Only meaningful in a subnet with an IGW route. |
+| `monitoring` | `bool` | `false` | Enable detailed CloudWatch monitoring. |
+| `disable_api_termination` | `bool` | `false` | Enable EC2 API termination protection. |
+| `ebs_optimized` | `bool` | `null` | Explicitly enable or disable EBS optimization. Omit to use the instance-type/provider behavior. |
 | `root_block_device` | `object` | `{}` | Root volume settings. Encryption is enabled by default while AMI/default size may be retained. |
 | `metadata_options` | `object` | secure defaults | EC2 Instance Metadata Service settings. IMDSv2 is required by default. |
 | `tags` | `map(string)` | `{}` | Tags for this instance, merged over the module-level `tags` input. |
@@ -118,6 +121,9 @@ output "core_private_ip" {
 |---|---|---|---|
 | `volume_size` | `number` | `null` | Root volume size in GiB. Omit to retain the AMI/provider default. |
 | `volume_type` | `string` | `"gp3"` | Volume type. |
+| `iops` | `number` | `null` | Provisioned IOPS for supported volume types. |
+| `throughput` | `number` | `null` | Provisioned throughput for `gp3`, in MiB/s. |
+| `kms_key_id` | `string` | `null` | Optional customer-managed KMS key ID, ARN, or alias. |
 | `encrypted` | `bool` | `true` | Encrypt at rest. Defaults on. |
 | `delete_on_termination` | `bool` | `true` | Delete the volume when the instance terminates. |
 

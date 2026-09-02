@@ -26,12 +26,19 @@ resource "aws_instance" "this" {
     false
   )
 
+  monitoring              = each.value.monitoring
+  disable_api_termination = each.value.disable_api_termination
+  ebs_optimized           = try(each.value.ebs_optimized, null)
+
   # Always emit an explicit root block device so encryption is enforced
   # even when the caller does not customize the AMI root volume. A null
   # volume_size allows the provider/AMI default size to remain in effect.
   root_block_device {
     volume_size           = try(each.value.root_block_device.volume_size, null)
     volume_type           = each.value.root_block_device.volume_type
+    iops                  = try(each.value.root_block_device.iops, null)
+    throughput            = try(each.value.root_block_device.throughput, null)
+    kms_key_id            = try(each.value.root_block_device.kms_key_id, null)
     encrypted             = each.value.root_block_device.encrypted
     delete_on_termination = each.value.root_block_device.delete_on_termination
   }
