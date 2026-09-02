@@ -7,7 +7,7 @@ cd "$REPO_ROOT"
 
 VALIDATOR="scripts/ci/terraform-validate-root.sh"
 STACK_ROOT="terraform/stacks"
-STACKS=(persistent platform identity remote-access recovery)
+STACKS=(persistent platform identity remote-access recovery automation-mesh)
 
 if [ ! -f "$VALIDATOR" ]; then
   echo "ERROR: Terraform validation helper is missing: $VALIDATOR"
