@@ -1,0 +1,18 @@
+---
+# First-hop AWS role.
+role_arn: "" # noqa var-naming[no-role-prefix]
+
+# Optional second-hop target deployment role.
+target_role_arn: "" # noqa var-naming[no-role-prefix]
+
+aws_region: "" # noqa var-naming[no-role-prefix]
+application_name: "ire-terraform" # noqa var-naming[no-role-prefix]
+
+# Optional STS controls for the first hop. When a second hop is configured,
+# AWS limits the chained session to a maximum of 3,600 seconds.
+role_session_duration_seconds: "" # noqa var-naming[no-role-prefix]
+role_external_id: "" # noqa var-naming[no-role-prefix]
+
+# Independent account guards for both role assumptions.
+role_expected_account_id: "" # noqa var-naming[no-role-prefix]
+target_role_expected_account_id: "" # noqa var-naming[no-role-prefix]
