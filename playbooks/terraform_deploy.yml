@@ -1,82 +1,93 @@
 ---
-- name: Deploy Terraform infrastructure
+- name: Plan or apply Terraform infrastructure
   hosts: localhost
   connection: local
   gather_facts: false
 
-  vars_files:
-    - vars/terraform_stack_bindings.yml
-
   vars:
-    terraform_stack: ""
-
     terraform_backend_use_lockfile: true
     terraform_backend_encrypt: true
 
-    # Safe default. AAP must explicitly enable apply.
-    terraform_apply_enabled: false
+    terraform_common_environment_variable_allowlist:
+      - organization_tag_key_prefix
+      - org_it_cost_center
+      - org_department
+      - org_cmdb_calculated_app
+      - org_business_criticality
+      - org_environment
+      - org_data_classification
+      - org_project_name
+      - org_managed_by
+      - org_additional_tags
 
   pre_tasks:
-    - name: Validate Terraform deployment inputs
+    - name: Validate Terraform entry-point inputs
       ansible.builtin.assert:
         that:
-          - assume_role_role_arn | default('') | length > 0
-          - assume_role_aws_region | default('') | length > 0
-
-          - terraform_environment | default('') | length > 0
-          - terraform_environment in terraform_allowed_environments
-
+          - terraform_operation | default('') in ['plan', 'apply']
           - terraform_stack | default('') | length > 0
-          - terraform_stack in terraform_active_stacks
-          - terraform_stack_var_files[terraform_stack] is defined
-
+          - terraform_environment | default('') == 'sandbox'
           - terraform_backend_bucket | default('') | length > 2
           - terraform_backend_region | default('') | length > 0
+          - assume_role_role_arn | default('') | length > 0
+          - assume_role_aws_region | default('') | length > 0
+          - terraform_variables is defined
+          - terraform_variables is mapping
+        fail_msg: >-
+          Terraform entry-point, environment, backend, authentication, or
+          runtime-variable inputs are missing or invalid.
 
+    - name: Load stack configuration
+      ansible.builtin.include_vars:
+        file: "{{ terraform_repository_root }}/playbooks/terraform/config/{{ terraform_stack }}.yml"
+
+    - name: Validate stack configuration
+      ansible.builtin.assert:
+        that:
+          - terraform_var_files is defined
+          - terraform_var_files is sequence
+          - terraform_environment_variable_allowlist is defined
+          - terraform_runtime_variable_allowlist is defined
+          - terraform_dependencies is mapping
+        fail_msg: >-
+          Stack configuration is missing required Terraform lifecycle metadata.
+
+    - name: Validate Persistent Resources source
+      ansible.builtin.assert:
+        that:
           - >-
             terraform_persistent_contract_source
             | default('')
             in ['managed', 'external']
           - terraform_external_persistent_resources is defined
           - terraform_external_persistent_resources is mapping
-
-          - terraform_variables is defined
-          - terraform_variables is mapping
-
-          - terraform_backend_key is not defined
-          - terraform_root is not defined
-
+          - >-
+            terraform_stack != 'persistent'
+            or terraform_persistent_contract_source == 'managed'
         fail_msg: >-
-          Required Terraform deployment inputs are missing or invalid.
-          Supply an approved terraform_environment, terraform_stack,
-          AssumeRole configuration, backend bucket/Region, and
-          terraform_variables. terraform_backend_key and terraform_root
-          are derived internally and must not be supplied.
+          Persistent Resources source must be managed or external. The
+          persistent stack itself may run only in managed mode.
 
-    - name: Enforce Sandbox stack runtime variable allowlist
+    - name: Validate operator runtime variables
       ansible.builtin.assert:
         that:
           - >-
-            terraform_environment != 'sandbox'
-            or (
+            (
               terraform_variables.keys()
               | list
-              | difference(
-                  terraform_sandbox_runtime_variable_allowlists[terraform_stack]
-                )
+              | difference(terraform_runtime_variable_allowlist)
               | length
             ) == 0
         fail_msg: >-
-          Sandbox AAP runtime variables contain values not approved for the
-          selected lifecycle stack. Stable architecture and security settings
-          must remain Git controlled.
+          terraform_variables contains values not approved by this stack
+          configuration.
 
-    - name: Derive Terraform execution binding
+    - name: Derive Terraform execution paths
       ansible.builtin.set_fact:
         terraform_effective_root: >-
-          {{ playbook_dir }}/../terraform/stacks/{{ terraform_stack }}
+          {{ terraform_repository_root }}/terraform/stacks/{{ terraform_stack }}
         terraform_effective_environment_config_root: >-
-          {{ playbook_dir }}/../terraform/environments/{{ terraform_environment }}/config
+          {{ terraform_repository_root }}/terraform/environments/{{ terraform_environment }}/config
         terraform_effective_backend_key: >-
           ire/{{ terraform_environment }}/{{ terraform_stack }}/terraform.tfstate
 
@@ -91,27 +102,12 @@
           - terraform_root_stat.stat.exists
           - terraform_root_stat.stat.isdir
         fail_msg: >-
-          Terraform lifecycle stack root does not exist:
-          {{ terraform_effective_root }}
-
-    - name: Check environment stack configuration directory
-      ansible.builtin.stat:
-        path: "{{ terraform_effective_environment_config_root }}"
-      register: terraform_environment_config_stat
-
-    - name: Validate environment stack configuration directory
-      ansible.builtin.assert:
-        that:
-          - terraform_environment_config_stat.stat.exists
-          - terraform_environment_config_stat.stat.isdir
-        fail_msg: >-
-          Terraform environment stack configuration directory does not exist:
-          {{ terraform_effective_environment_config_root }}
+          Terraform stack root does not exist: {{ terraform_effective_root }}
 
     - name: Check required Git-controlled Terraform variable files
       ansible.builtin.stat:
         path: "{{ terraform_effective_environment_config_root }}/{{ item }}"
-      loop: "{{ terraform_stack_var_files[terraform_stack] }}"
+      loop: "{{ terraform_var_files }}"
       register: terraform_git_var_file_stats
 
     - name: Validate required Git-controlled Terraform variable files
@@ -120,39 +116,34 @@
           - item.stat.exists
           - item.stat.isreg
         fail_msg: >-
-          Required Git-controlled Terraform variable file does not exist:
-          {{ item.item }}
+          Required Terraform variable file does not exist: {{ item.item }}
       loop: "{{ terraform_git_var_file_stats.results }}"
       loop_control:
         label: "{{ item.item }}"
 
-    - name: Initialize Terraform Git variable-file argument list
-      ansible.builtin.set_fact:
-        terraform_git_var_file_args: []
-
-    - name: Build Terraform Git variable-file arguments
+    - name: Build Terraform variable-file arguments
       ansible.builtin.set_fact:
         terraform_git_var_file_args: >-
           {{
-            terraform_git_var_file_args
-            +
-            [
-              '-var-file='
-              ~ terraform_effective_environment_config_root
-              ~ '/'
-              ~ item
-            ]
+            terraform_var_files
+            | map(
+                'regex_replace',
+                '^(.*)$',
+                '-var-file='
+                ~ terraform_effective_environment_config_root
+                ~ '/\\1'
+              )
+            | list
           }}
-      loop: "{{ terraform_stack_var_files[terraform_stack] }}"
 
-    - name: Report derived Terraform execution binding
+    - name: Report Terraform execution
       ansible.builtin.debug:
         msg:
+          - "Operation: {{ terraform_operation }}"
           - "Environment: {{ terraform_environment }}"
           - "Stack: {{ terraform_stack }}"
-          - "Terraform root: {{ terraform_effective_root }}"
           - "Backend key: {{ terraform_effective_backend_key }}"
-          - "Git variable files: {{ terraform_stack_var_files[terraform_stack] }}"
+          - "Variable files: {{ terraform_var_files }}"
 
   roles:
     - role: ire_platform.aws.assume_role
@@ -164,15 +155,13 @@
         prefix: ire-terraform-
       register: terraform_temp_dir
 
-    - name: Execute Terraform deployment
+    - name: Execute Terraform workflow
       block:
-
-        - name: Prepare Terraform execution inputs
+        - name: Build Terraform runtime variables
           ansible.builtin.include_tasks:
-            file: tasks/terraform_prepare.yml
+            file: tasks/terraform_runtime_variables.yml
 
         - name: Write temporary Terraform runtime variable file
-
           ansible.builtin.copy:
             content: "{{ terraform_effective_variables | to_nice_json }}"
             dest: "{{ terraform_temp_dir.path }}/terraform.auto.tfvars.json"
@@ -214,7 +203,7 @@
             TF_IN_AUTOMATION: "true"
           changed_when: false
 
-        - name: Create Terraform deployment plan
+        - name: Create Terraform plan
           ansible.builtin.command:
             argv: >-
               {{
@@ -259,20 +248,18 @@
                   | list
                   | first
                 )
-                | default(
-                    'Terraform plan completed; no summary line was detected.'
-                  )
+                | default('Terraform plan completed successfully.')
               }}
 
-        - name: Guard Identity deployment plan against deletion or replacement
+        - name: Guard Identity plan against deletion or replacement
           ansible.builtin.include_tasks:
             file: tasks/terraform_guard_identity_deploy_plan.yml
           when:
             - terraform_stack == 'identity'
+            - terraform_operation == 'apply'
             - terraform_plan.rc == 2
-            - terraform_apply_enabled | bool
 
-        - name: Apply Terraform deployment plan
+        - name: Apply saved Terraform plan
           ansible.builtin.command:
             argv:
               - terraform
@@ -289,23 +276,22 @@
             AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
             TF_IN_AUTOMATION: "true"
           when:
+            - terraform_operation == 'apply'
             - terraform_plan.rc == 2
-            - terraform_apply_enabled | bool
-          register: terraform_apply
           changed_when: true
 
-        - name: Report Terraform deployment result
+        - name: Report Terraform result
           ansible.builtin.debug:
             msg: >-
               {% if terraform_plan.rc == 0 %}
               Terraform {{ terraform_environment }}/{{ terraform_stack }}
               is already at the desired state.
-              {% elif terraform_apply_enabled | bool %}
+              {% elif terraform_operation == 'apply' %}
               Terraform {{ terraform_environment }}/{{ terraform_stack }}
-              deployed successfully.
+              applied successfully.
               {% else %}
               Terraform {{ terraform_environment }}/{{ terraform_stack }}
-              plan completed successfully. Apply was not enabled.
+              plan completed successfully.
               {% endif %}
 
       always:

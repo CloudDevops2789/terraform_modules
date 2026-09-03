@@ -1,23 +1,18 @@
 ---
-- name: Validate dependency backend binding
+- name: Validate dependency request
   ansible.builtin.assert:
     that:
-      - terraform_dependency_stack | length > 0
-      - terraform_dependency_output_names | length > 0
-      - terraform_dependency_backend_keys[terraform_environment] is defined
-      - >-
-        terraform_dependency_backend_keys[terraform_environment]
-        [terraform_dependency_stack] is defined
+      - terraform_dependency_stack | default('') | length > 0
+      - terraform_dependency_output_names | default([]) | length > 0
     fail_msg: >-
-      Missing approved backend or output binding for dependency
-      {{ terraform_dependency_stack }}.
+      Terraform dependency stack and required output names must be supplied.
 
 - name: Derive dependency Terraform binding
   ansible.builtin.set_fact:
     terraform_dependency_root: >-
-      {{ playbook_dir }}/../terraform/stacks/{{ terraform_dependency_stack }}
+      {{ terraform_repository_root }}/terraform/stacks/{{ terraform_dependency_stack }}
     terraform_dependency_backend_key: >-
-      {{ terraform_dependency_backend_keys[terraform_environment][terraform_dependency_stack] }}
+      ire/{{ terraform_environment }}/{{ terraform_dependency_stack }}/terraform.tfstate
     terraform_dependency_tf_data_dir: >-
       {{ terraform_temp_dir.path }}/tfdata-{{ terraform_dependency_stack }}
 
@@ -61,7 +56,7 @@
   changed_when: false
   no_log: true
 
-- name: Read dependency output document
+- name: Read dependency outputs
   ansible.builtin.command:
     argv:
       - terraform
@@ -81,7 +76,7 @@
   changed_when: false
   no_log: true
 
-- name: Parse dependency output document
+- name: Parse dependency outputs
   ansible.builtin.set_fact:
     terraform_dependency_output_document: >-
       {{ terraform_dependency_output_read.stdout | from_json }}
@@ -95,21 +90,19 @@
         or
         (
           terraform_dependency_output_names
-          | difference(
-              terraform_dependency_output_document.keys() | list
-            )
+          | difference(terraform_dependency_output_document.keys() | list)
           | length
         ) == 0
     fail_msg: >-
       Required outputs are missing from the {{ terraform_dependency_stack }}
-      Terraform state. Apply the approved upstream stack before retrying.
+      Terraform state. Apply the upstream stack before retrying.
 
 - name: Initialize dependency output map
   ansible.builtin.set_fact:
     terraform_current_dependency_outputs: {}
   no_log: true
 
-- name: Build approved dependency output map
+- name: Build dependency output map
   ansible.builtin.set_fact:
     terraform_current_dependency_outputs: >-
       {{
@@ -144,7 +137,7 @@
               terraform_dependency_stack:
                 terraform_current_dependency_outputs
             },
-            recursive=True
+            recursive=true
           )
       }}
   no_log: true

@@ -1,0 +1,7 @@
+---
+- name: Plan persistent Terraform stack
+  import_playbook: ../../terraform_deploy.yml
+  vars:
+    terraform_stack: persistent
+    terraform_operation: plan
+    terraform_repository_root: "{{ playbook_dir }}/../../.."

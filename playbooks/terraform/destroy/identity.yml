@@ -1,0 +1,7 @@
+---
+- name: Destroy identity Terraform stack
+  import_playbook: ../../terraform_destroy.yml
+  vars:
+    terraform_stack: identity
+    terraform_operation: destroy
+    terraform_repository_root: "{{ playbook_dir }}/../../.."
