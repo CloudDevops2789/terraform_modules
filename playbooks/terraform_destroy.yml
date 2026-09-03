@@ -220,39 +220,13 @@
 
     - name: Execute Terraform destroy workflow
       block:
-        - name: Resolve approved private environment variables
-          ansible.builtin.include_tasks:
-            file: tasks/terraform_resolve_environment_variables.yml
 
-        - name: Resolve approved Terraform lifecycle contracts
+        - name: Prepare Terraform execution inputs
           ansible.builtin.include_tasks:
-            file: tasks/terraform_resolve_contracts.yml
-
-        - name: Resolve approved Terraform sensitive variables
-          ansible.builtin.include_tasks:
-            file: tasks/terraform_resolve_sensitive_variables.yml
-
-        - name: Build effective Terraform runtime variables
-          ansible.builtin.set_fact:
-            terraform_effective_variables: >-
-              {{
-                terraform_environment_variables
-                | combine(terraform_variables, recursive=true)
-                | combine(
-                    terraform_contract_variables | default({}),
-                    recursive=true
-                  )
-                | combine(
-                    terraform_sensitive_variables | default({}),
-                    recursive=true
-                  )
-                | combine(
-                    dict(aws_region=assume_role_aws_region)
-                  )
-              }}
-          no_log: true
+            file: tasks/terraform_prepare.yml
 
         - name: Write temporary Terraform runtime variable file
+
           ansible.builtin.copy:
             content: "{{ terraform_effective_variables | to_nice_json }}"
             dest: "{{ terraform_temp_dir.path }}/terraform.auto.tfvars.json"
