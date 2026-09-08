@@ -1,6 +1,6 @@
 ---
 - name: Apply remote-access Terraform stack
-  import_playbook: ../../terraform_deploy.yml
+  import_playbook: ../common/deploy.yml
   vars:
     terraform_stack: remote-access
     terraform_operation: apply

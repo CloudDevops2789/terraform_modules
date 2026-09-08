@@ -1,6 +1,6 @@
 ---
 - name: Destroy platform Terraform stack
-  import_playbook: ../../terraform_destroy.yml
+  import_playbook: ../common/destroy.yml
   vars:
     terraform_stack: platform
     terraform_operation: destroy

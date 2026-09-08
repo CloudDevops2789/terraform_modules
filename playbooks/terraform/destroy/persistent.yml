@@ -1,6 +1,6 @@
 ---
 - name: Destroy persistent Terraform stack
-  import_playbook: ../../terraform_destroy.yml
+  import_playbook: ../common/destroy.yml
   vars:
     terraform_stack: persistent
     terraform_operation: destroy

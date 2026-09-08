@@ -159,7 +159,7 @@
       block:
         - name: Build Terraform runtime variables
           ansible.builtin.include_tasks:
-            file: tasks/terraform_runtime_variables.yml
+            file: "{{ terraform_repository_root }}/playbooks/terraform/tasks/runtime_variables.yml"
 
         - name: Write temporary Terraform runtime variable file
           ansible.builtin.copy:
@@ -253,7 +253,7 @@
 
         - name: Guard Identity plan against deletion or replacement
           ansible.builtin.include_tasks:
-            file: tasks/terraform_guard_identity_deploy_plan.yml
+            file: "{{ terraform_repository_root }}/playbooks/terraform/tasks/guard_identity_plan.yml"
           when:
             - terraform_stack == 'identity'
             - terraform_operation == 'apply'

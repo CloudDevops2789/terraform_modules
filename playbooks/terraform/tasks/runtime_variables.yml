@@ -65,7 +65,7 @@
 
 - name: Read upstream lifecycle outputs
   ansible.builtin.include_tasks:
-    file: terraform_read_dependency.yml
+    file: "{{ terraform_repository_root }}/playbooks/terraform/tasks/read_dependency.yml"
   loop: "{{ terraform_managed_dependencies }}"
   loop_control:
     loop_var: terraform_dependency

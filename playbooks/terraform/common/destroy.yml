@@ -144,7 +144,7 @@
       block:
         - name: Build Terraform runtime variables
           ansible.builtin.include_tasks:
-            file: tasks/terraform_runtime_variables.yml
+            file: "{{ terraform_repository_root }}/playbooks/terraform/tasks/runtime_variables.yml"
 
         - name: Write temporary Terraform runtime variable file
           ansible.builtin.copy:

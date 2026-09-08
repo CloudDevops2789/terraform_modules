@@ -1,6 +1,6 @@
 ---
 - name: Apply recovery Terraform stack
-  import_playbook: ../../terraform_deploy.yml
+  import_playbook: ../common/deploy.yml
   vars:
     terraform_stack: recovery
     terraform_operation: apply

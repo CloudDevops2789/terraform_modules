@@ -1,15 +1,18 @@
 # AAP Job Template Design
 
-AAP uses two reusable lifecycle playbooks:
+AAP exposes fixed stack-specific lifecycle entry points:
 
-| Playbook | Purpose |
+| Entry point | Purpose |
 |---|---|
-| `playbooks/terraform_deploy.yml` | Terraform plan and approved apply |
-| `playbooks/terraform_destroy.yml` | Destroy plan and explicitly authorized destroy |
+| `playbooks/terraform/plan/<stack>.yml` | Terraform plan only |
+| `playbooks/terraform/apply/<stack>.yml` | Terraform plan followed by approved apply |
+| `playbooks/terraform/destroy/<stack>.yml` | Destroy plan, with apply only when explicitly authorized |
 
-Keep the deploy and destroy playbooks separate. Fixed stack-specific Job
-Templates (JTs) provide clear RBAC, audit history, troubleshooting, and
-protection from selecting the wrong stack at launch.
+The stack and lifecycle operation are encoded in the selected playbook. Fixed
+stack-specific Job Templates (JTs) provide clear RBAC, audit history,
+troubleshooting, and protection from selecting the wrong stack or operation at
+launch. The reusable execution engines under `playbooks/terraform/common/` are
+implementation details and are not selected directly by AAP Job Templates.
 
 ## Environment inventory
 
@@ -54,8 +57,9 @@ this Terraform state.
 
 ## Recommended fixed Job Templates
 
-Create four JTs per lifecycle stack. This gives 20 predictable templates backed by the
-two reusable playbooks and one shared environment inventory.
+Create four JTs per lifecycle stack. This gives 20 predictable templates
+backed by fixed stack-specific lifecycle entry points and one shared environment
+inventory.
 
 | Stack | Plan | Apply | Destroy plan | Destroy |
 |---|---|---|---|---|
@@ -70,26 +74,39 @@ Every JT selects the approved SCM inventory. Do not expose
 configuration, account identity, or contract source as free-form survey
 variables.
 
-## Deploy Job Template variables
+## Plan and Apply Job Template variables
 
-Persistent plan:
+Plan and Apply Job Templates select different SCM playbook entry points rather
+than changing a lifecycle flag.
+
+For example:
+
+~~~text
+IRE-Persistent-Plan
+  -> playbooks/terraform/plan/persistent.yml
+
+IRE-Persistent-Apply
+  -> playbooks/terraform/apply/persistent.yml
+
+IRE-Platform-Plan
+  -> playbooks/terraform/plan/platform.yml
+
+IRE-Platform-Apply
+  -> playbooks/terraform/apply/platform.yml
+~~~
+
+Do not define `terraform_stack` or `terraform_apply_enabled` in Job Template
+variables. The selected entry point fixes both the stack and the operation.
+
+Runtime Terraform inputs remain narrow and allowlisted. Use an empty map when a
+stack requires no runtime values:
 
 ~~~yaml
-terraform_stack: persistent
-terraform_apply_enabled: false
 terraform_variables: {}
 ~~~
 
-Persistent apply changes only the fixed lifecycle flag:
-
-~~~yaml
-terraform_stack: persistent
-terraform_apply_enabled: true
-terraform_variables: {}
-~~~
-
-When Git enables managed logging-KMS creation, both Persistent JTs supply the
-same approved administrator binding:
+When Git enables managed logging-KMS creation, Persistent Plan and Apply supply
+the same approved administrator binding:
 
 ~~~yaml
 terraform_variables:
@@ -97,49 +114,10 @@ terraform_variables:
     - "arn:aws:iam::<ACCOUNT_ID>:role/<STABLE_KMS_ADMIN_ROLE>"
 ~~~
 
-Platform plan:
+When `managed_ad_enabled = false`, Identity uses:
 
 ~~~yaml
-terraform_stack: platform
-terraform_apply_enabled: false
 terraform_variables: {}
-~~~
-
-Platform apply:
-
-~~~yaml
-terraform_stack: platform
-terraform_apply_enabled: true
-terraform_variables: {}
-~~~
-
-Identity plan and apply use:
-
-~~~yaml
-terraform_stack: identity
-terraform_apply_enabled: false  # true only in the fixed Apply JT
-terraform_variables: {}
-~~~
-
-When `managed_ad_enabled = false`, the example above is complete and no Managed
-AD credential is required.
-
-Remote Access plan and apply run only after Platform, Identity and the Managed
-AD user/group bootstrap workflow. Git controls enablement and authentication
-mode. AAP supplies the existing certificate ARN and group SID:
-
-~~~yaml
-terraform_stack: remote-access
-terraform_apply_enabled: false  # true only in the fixed Apply JT
-terraform_variables:
-  client_vpn_access_group_id: "<MANAGED_AD_VPN_GROUP_SID>"
-  server_certificate_arn: "<APPROVED_ACM_SERVER_CERTIFICATE_ARN>"
-~~~
-
-Future `directory_and_mutual` mode additionally supplies:
-
-~~~yaml
-  client_root_certificate_chain_arn: "<APPROVED_ACM_CLIENT_ROOT_CA_ARN>"
 ~~~
 
 Before Git enables Managed AD, create an approved custom credential type with a
@@ -168,6 +146,37 @@ the password is resolved separately by the playbooks under `no_log`.
 
 Do not place the password or the injected environment variable value in Job
 Template YAML, surveys, inventory, SCM, or shell commands.
+
+Remote Access Plan and Apply run only after Platform, Identity and the Managed
+AD user/group bootstrap workflow. Git controls enablement and authentication
+mode. AAP supplies only the approved runtime bindings required by that mode:
+
+~~~yaml
+terraform_variables:
+  client_vpn_access_group_id: "<MANAGED_AD_VPN_GROUP_SID>"
+  server_certificate_arn: "<APPROVED_ACM_SERVER_CERTIFICATE_ARN>"
+~~~
+
+Future `directory_and_mutual` mode additionally supplies:
+
+~~~yaml
+terraform_variables:
+  client_vpn_access_group_id: "<MANAGED_AD_VPN_GROUP_SID>"
+  server_certificate_arn: "<APPROVED_ACM_SERVER_CERTIFICATE_ARN>"
+  client_root_certificate_chain_arn: "<APPROVED_ACM_CLIENT_ROOT_CA_ARN>"
+~~~
+
+Recovery Plan and Apply use the reviewed Git configuration plus only approved
+runtime exercise intent when required:
+
+~~~yaml
+terraform_variables:
+  demo_ec2_enabled: true
+~~~
+
+The reviewed `recovery.tfvars` file owns each workload's AMI, access method,
+placement, security groups, backup intent, and optional SSH key-pair reference.
+Use an empty runtime map when temporary Recovery compute is not required.
 
 ## Managed AD Client VPN user provisioning
 
@@ -205,87 +214,66 @@ password-enrollment interface. Enterprise onboarding should therefore replace
 the shared password promptly through an approved individual password or
 self-service identity process before broad access is granted.
 
-Recovery plan and apply use:
-
-~~~yaml
-terraform_stack: recovery
-terraform_apply_enabled: false  # true only in the fixed Apply JT
-terraform_variables:
-  demo_ec2_enabled: true
-~~~
-
-The reviewed `recovery.tfvars` file owns each workload's AMI, access method,
-placement, security groups, backup intent, and optional SSH key-pair reference.
-Use an empty runtime map when temporary Recovery compute is not required.
-
 ## Destroy Job Template variables
 
-Every destroy-plan JT uses:
+Destroy-plan and Destroy Job Templates use the same stack-specific destroy
+entry point. The difference is whether destructive execution is explicitly
+enabled.
+
+For example, Platform Destroy Plan and Platform Destroy both select:
+
+~~~text
+playbooks/terraform/destroy/platform.yml
+~~~
+
+A destroy-plan JT keeps execution disabled:
 
 ~~~yaml
-terraform_stack: "<fixed-stack>"
 terraform_variables: {}
 terraform_destroy_enabled: false
 terraform_destroy_confirmation: ""
 ~~~
 
-Supply the same allowlisted runtime bindings used by the matching deploy JTs so
-Terraform evaluates the same configuration.
-
-Actual Recovery destroy:
+An actual destroy requires explicit enablement and the exact stack confirmation:
 
 ~~~yaml
-terraform_stack: recovery
 terraform_variables: {}
 terraform_destroy_enabled: true
-terraform_allow_recovery_destroy: true
-terraform_destroy_confirmation: "DESTROY RECOVERY"
+terraform_destroy_confirmation: "DESTROY PLATFORM"
 ~~~
 
-Actual Identity destroy:
+The expected confirmation is defined by the stack configuration under
+`playbooks/terraform/config/<stack>.yml`.
 
-~~~yaml
-terraform_stack: identity
-terraform_variables: {}
-terraform_destroy_enabled: true
-terraform_allow_identity_destroy: true
-terraform_destroy_confirmation: "DESTROY IDENTITY"
+The current confirmations are:
+
+~~~text
+Persistent    DESTROY PERSISTENT
+Platform      DESTROY PLATFORM
+Identity      DESTROY IDENTITY
+Remote Access DESTROY REMOTE ACCESS
+Recovery      DESTROY RECOVERY
 ~~~
 
-Actual Remote Access destroy:
+Do not define `terraform_stack` or legacy per-stack destroy flags such as
+`terraform_allow_platform_destroy` in Job Templates. Stack identity comes from
+the selected playbook, and destroy authorization is enforced by
+`terraform_destroy_enabled` plus the exact stack confirmation.
+
+Supply the same allowlisted runtime bindings used by the matching Plan and Apply
+Job Templates so Terraform evaluates the same configuration. For example,
+Remote Access destroy may require:
 
 ~~~yaml
-terraform_stack: remote-access
 terraform_variables:
   client_vpn_access_group_id: "<MANAGED_AD_VPN_GROUP_SID>"
   server_certificate_arn: "<APPROVED_ACM_SERVER_CERTIFICATE_ARN>"
 terraform_destroy_enabled: true
-terraform_allow_remote_access_destroy: true
 terraform_destroy_confirmation: "DESTROY REMOTE ACCESS"
 ~~~
 
-Actual Platform destroy:
-
-~~~yaml
-terraform_stack: platform
-terraform_variables: {}
-terraform_destroy_enabled: true
-terraform_allow_platform_destroy: true
-terraform_destroy_confirmation: "DESTROY PLATFORM"
-~~~
-
-Actual Persistent destroy:
-
-~~~yaml
-terraform_stack: persistent
-terraform_variables: {}
-terraform_destroy_enabled: true
-terraform_allow_persistent_destroy: true
-terraform_destroy_confirmation: "DESTROY PERSISTENT"
-~~~
-
 Persistent destroy is break-glass. External contract mode never runs the
-Persistent stack and cannot delete externally owned KMS keys or vaults.
+Persistent stack and cannot delete externally owned KMS keys or Backup vaults.
 
 ## Workflow order
 
