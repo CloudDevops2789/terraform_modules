@@ -1,0 +1,17 @@
+---
+terraform_stack: inspection
+
+terraform_var_files: []
+
+terraform_environment_variable_allowlist: []
+
+terraform_runtime_variable_allowlist: []
+
+terraform_dependencies:
+  persistent:
+    - network_firewall_logging_kms_key_arn
+
+  platform:
+    - inspection_contract
+
+terraform_expected_destroy_confirmation: "DESTROY INSPECTION"
