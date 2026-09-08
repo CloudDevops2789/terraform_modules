@@ -14,7 +14,7 @@ flowchart LR
 
 | Stack | Primary ownership | Main composition files |
 |---|---|---|
-| Persistent | Backup vaults and optional logging KMS | `backup-vaults.tf`, `network-firewall-logging-kms.tf` |
+| Persistent | Backup vaults and optional logging KMS | `main.tf` |
 | Platform | VPC, TGW, routing, security, SSM, endpoints and firewall | `networking.tf`, `routing.tf`, `security.tf`, service-specific files |
 | Identity | AWS Managed Microsoft AD | `identity.tf` |
 | Remote Access | Client VPN, endpoint SG, routes and authorization | `main.tf` |
@@ -32,7 +32,7 @@ flowchart LR
 | Network Firewall | `network-firewall*` | Platform firewall and routing files |
 | IAM | `iam` | Platform SSM and Recovery backup composition |
 | KMS | `kms` | Persistent logging-KMS composition |
-| Backup vaults | `backup-*-vault` | Persistent `backup-vaults.tf` |
+| Backup vaults | `backup-*-vault` | Persistent `main.tf` |
 | Backup plan/role/selection | `backup-plan`, `backup-role`, `backup-selection` | Recovery `backup.tf` |
 | EC2/key registration | `ec2`, `key-pair` | Recovery `compute.tf` |
 | Managed Microsoft AD | `managed-microsoft-ad` | Identity `identity.tf` |
