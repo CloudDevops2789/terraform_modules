@@ -149,3 +149,115 @@ output "platform_contract" {
     )
   }
 }
+
+
+##################################################################################################
+# Inspection Topology Contract
+##################################################################################################
+#
+# Purpose
+# -------
+# Exposes only the Platform-owned topology required by the independently
+# lifecycle-managed Inspection stack.
+#
+# Ownership boundary
+# ------------------
+# Platform continues to own:
+#   - Inspection VPC and subnets
+#   - Transit Gateway
+#   - Transit Gateway VPC attachments
+#   - Transit Gateway route tables
+#
+# Inspection consumes this contract to own:
+#   - AWS Network Firewall
+#   - Firewall policy and rule groups
+#   - Firewall logging
+#   - Routes whose next hop depends on Network Firewall endpoints
+#
+# The contract deliberately avoids exposing complete Platform implementation
+# details. Downstream stacks must not reconstruct identifiers by AWS resource
+# names or query Platform resources independently.
+##################################################################################################
+
+output "inspection_contract" {
+  description = "Platform-owned topology contract consumed by the Inspection lifecycle stack."
+
+  value = {
+    transit_gateway_id = module.transit_gateway.id
+
+    inspection_vpc = (
+      local.inspection_vpc_key == null
+      ? null
+      : {
+        key = local.inspection_vpc_key
+
+        vpc_id = module.vpc[
+          local.inspection_vpc_key
+        ].vpc_id
+
+        cidr_block = module.vpc[
+          local.inspection_vpc_key
+        ].vpc_cidr
+
+        transit_gateway_attachment_id = try(
+          module.transit_gateway.attachment_ids[
+            local.inspection_vpc_key
+          ],
+          null
+        )
+
+        firewall_subnets_by_az = {
+          for subnet_key, subnet in module.vpc[
+            local.inspection_vpc_key
+          ].subnets :
+
+          subnet.availability_zone => {
+            subnet_id      = subnet.id
+            cidr_block     = subnet.cidr_block
+            route_table_id = subnet.route_table_id
+          }
+
+          if subnet.group == local.inspection_firewall_subnet_group
+        }
+
+        transit_gateway_subnets_by_az = {
+          for subnet_key, subnet in module.vpc[
+            local.inspection_vpc_key
+          ].subnets :
+
+          subnet.availability_zone => {
+            subnet_id      = subnet.id
+            cidr_block     = subnet.cidr_block
+            route_table_id = subnet.route_table_id
+          }
+
+          if subnet.group == local.inspection_transit_gateway_subnet_group
+        }
+      }
+    )
+
+    spoke_vpcs = {
+      for vpc_key, vpc in local.transit_gateway_vpcs :
+
+      vpc_key => {
+        vpc_id = module.vpc[
+          vpc_key
+        ].vpc_id
+
+        cidr_block = module.vpc[
+          vpc_key
+        ].vpc_cidr
+
+        transit_gateway_attachment_id = module.transit_gateway.attachment_ids[
+          vpc_key
+        ]
+
+        transit_gateway_route_table_id = module.transit_gateway.route_table_ids[
+          vpc_key
+        ]
+      }
+
+      if vpc_key != local.inspection_vpc_key
+    }
+  }
+}
