@@ -11,8 +11,6 @@ terraform_environment_variable_allowlist: []
 terraform_runtime_variable_allowlist:
   - ssm_instance_profile_name
 
-terraform_dependencies:
-  persistent:
-    - network_firewall_logging_kms_key_arn
+terraform_dependencies: {}
 
 terraform_expected_destroy_confirmation: "DESTROY PLATFORM"

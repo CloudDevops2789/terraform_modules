@@ -720,7 +720,6 @@ ssm_instance_profile_mode = "terraform"
 #   External Persistent Resources resource identifiers are AAP environment bindings.
 ################################################################################
 
-network_firewall_logging_enabled = false
 
 
 ################################################################################
