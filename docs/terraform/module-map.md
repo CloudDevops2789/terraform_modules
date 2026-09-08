@@ -33,8 +33,8 @@ flowchart LR
 | IAM | `iam` | Platform SSM and Recovery backup composition |
 | KMS | `kms` | Persistent logging-KMS composition |
 | Backup vaults | `backup-*-vault` | Persistent `main.tf` |
-| Backup plan/role/selection | `backup-plan`, `backup-role`, `backup-selection` | Recovery `backup.tf` |
-| EC2/key registration | `ec2`, `key-pair` | Recovery `compute.tf` |
+| Backup plan/role/selection | `backup-plan`, `backup-role`, `backup-selection` | Recovery `main.tf` |
+| EC2/key registration | `ec2`, `key-pair` | Recovery `main.tf` |
 | Managed Microsoft AD | `managed-microsoft-ad` | Identity `main.tf` |
 | Private DNS forwarding | `route53-resolver` | Identity `main.tf` when enabled |
 
