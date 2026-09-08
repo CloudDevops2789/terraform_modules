@@ -17,7 +17,7 @@ flowchart TD
 | Reusable implementation | `terraform/modules` | Generic AWS capabilities |
 | Lifecycle composition | `terraform/stacks` | Resource and state ownership |
 | Sandbox desired state | `terraform/environments/sandbox/config` | Non-sensitive environment values |
-| Execution binding | `playbooks/vars/terraform_stack_bindings.yml` | Stack, var-file and dependency contracts |
+| Stack execution config | `playbooks/terraform/config/<stack>.yml` | Stack var-files, dependencies, approved runtime inputs and destroy confirmation |
 | Runtime/secret binding | AAP inventory and credentials | Region, role, backend and sensitive values |
 
 ## Stack configuration
