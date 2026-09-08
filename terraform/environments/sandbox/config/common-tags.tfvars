@@ -1,7 +1,7 @@
 ##################################################################################################
 # Sandbox Common Organization Tags
 #
-# Shared by Platform, Identity, and Recovery stacks.
+# Shared by Platform, Inspection, Identity, and Recovery stacks.
 ##################################################################################################
 organization_tag_key_prefix = "fv:"
 

@@ -185,6 +185,8 @@ output "inspection_contract" {
   value = {
     transit_gateway_id = module.transit_gateway.id
 
+    account_cidr_block = var.network_config.account_cidr_block
+
     # Approved directional connectivity required by Inspection to construct
     # TGW routes through the Inspection attachment. Platform retains ownership
     # of the complete network_config and VPC route-table placement policy.

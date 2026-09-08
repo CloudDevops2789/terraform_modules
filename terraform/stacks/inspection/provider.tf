@@ -2,12 +2,14 @@
 # AWS Provider
 ##################################################################################################
 #
-# The Region is supplied by the lifecycle environment. The Inspection stack
-# intentionally owns no resources yet; provider configuration is established
-# now so the root follows the same execution model as the other lifecycle
-# stacks before Network Firewall ownership is transferred.
+# aws_region is injected by the lifecycle runtime.
+# Organization default tags are Git-controlled through common-tags.tfvars.
 ##################################################################################################
 
 provider "aws" {
   region = var.aws_region
+
+  default_tags {
+    tags = local.org_tags
+  }
 }
