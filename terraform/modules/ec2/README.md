@@ -158,9 +158,9 @@ Every output is keyed by the stable map key used in the `instances` input, so ca
 
 | Concept | Where | Why it is used |
 |---|---|---|
-| `for_each` over a map | `ec2.tf` | One instance per named entry, addressed by key |
-| `dynamic` block | `ec2.tf` | Emit `root_block_device` zero or one times based on whether it was supplied |
-| `try()` | `ec2.tf` | Resolve optional attributes to `null` so the provider leaves them unset |
+| `for_each` over a map | `main.tf` | One instance per named entry, addressed by key |
+| `dynamic` block | `main.tf` | Emit `root_block_device` zero or one times based on whether it was supplied |
+| `try()` | `main.tf` | Resolve optional attributes to `null` so the provider leaves them unset |
 | `optional()` in object types | `variables.tf` | Optional attributes, some with defaults, including a nested optional object |
 | Map comprehension + `merge()` | `locals.tf` | Precompute per-instance tags with clear precedence |
 | `for` comprehension in outputs | `outputs.tf` | Return maps keyed by instance name |
