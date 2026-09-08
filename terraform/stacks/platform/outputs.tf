@@ -185,6 +185,17 @@ output "inspection_contract" {
   value = {
     transit_gateway_id = module.transit_gateway.id
 
+    # Approved directional connectivity required by Inspection to construct
+    # TGW routes through the Inspection attachment. Platform retains ownership
+    # of the complete network_config and VPC route-table placement policy.
+    connectivity = {
+      for edge_key, edge in var.network_config.connectivity :
+      edge_key => {
+        source_vpc_key      = edge.source_vpc_key
+        destination_vpc_key = edge.destination_vpc_key
+      }
+    }
+
     inspection_vpc = (
       local.inspection_vpc_key == null
       ? null

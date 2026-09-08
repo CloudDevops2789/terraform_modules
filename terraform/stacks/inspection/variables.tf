@@ -33,6 +33,11 @@ variable "inspection_contract" {
   type = object({
     transit_gateway_id = string
 
+    connectivity = map(object({
+      source_vpc_key      = string
+      destination_vpc_key = string
+    }))
+
     inspection_vpc = object({
       key                           = string
       vpc_id                        = string
