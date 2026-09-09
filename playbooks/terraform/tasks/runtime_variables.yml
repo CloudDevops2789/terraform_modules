@@ -157,7 +157,7 @@
           | intersect(terraform_contract_variables.keys() | list)
           | length
         ) == 0
-      - managed_ad_password not in terraform_variables
+      - "'managed_ad_password' not in terraform_variables"
     fail_msg: >-
       Terraform lifecycle contracts and credential-owned values cannot be
       overridden through terraform_variables.
