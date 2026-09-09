@@ -196,25 +196,33 @@
 ################################################################################
 # 6. Remote Access Contracts
 #
-# Remote Access consumes Platform networking and Identity directory outputs.
+# Platform networking is always required by Remote Access.
+# Identity is added only when an Identity contract is available. This allows
+# mutual-certificate-only deployments to operate without Managed AD.
 ################################################################################
 
-- name: Build Remote Access lifecycle contracts
+- name: Build Remote Access Platform contract
   ansible.builtin.set_fact:
     terraform_contract_variables:
-      platform_contract: >-
-        {{ terraform_dependency_outputs.platform.platform_contract }}
-
-      identity_contract: >-
-        {{
-          (
-            terraform_dependency_outputs.identity
-            | default({})
-          ).identity_contract
-          | default(none)
-        }}
+      platform_contract: "{{ terraform_dependency_outputs.platform.platform_contract }}"
   when:
     - terraform_stack == 'remote-access'
+  no_log: true
+
+- name: Add Remote Access Identity contract when available
+  ansible.builtin.set_fact:
+    terraform_contract_variables: >-
+      {{
+        terraform_contract_variables
+        | combine({
+            'identity_contract':
+              terraform_dependency_outputs.identity.identity_contract
+          })
+      }}
+  when:
+    - terraform_stack == 'remote-access'
+    - terraform_dependency_outputs.identity is defined
+    - terraform_dependency_outputs.identity.identity_contract is defined
   no_log: true
 
 
