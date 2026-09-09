@@ -156,26 +156,15 @@
 ################################################################################
 # 4. Inspection Contracts
 #
-# Platform:
-#   inspection_contract
-#
-# Persistent:
-#   optional Network Firewall logging KMS key
+# Inspection always consumes the Platform inspection topology.
+# Persistent resources are passed only when they actually exist.
 ################################################################################
 
 - name: Build Inspection lifecycle contracts
   ansible.builtin.set_fact:
     terraform_contract_variables:
-      inspection_contract: >-
-        {{ terraform_dependency_outputs.platform.inspection_contract }}
-
-      persistent_resources:
-        network_firewall_logging_kms_key_arn: >-
-          {{
-            terraform_effective_persistent_resources
-            .network_firewall_logging_kms_key_arn
-            | default(none, true)
-          }}
+      inspection_contract: "{{ terraform_dependency_outputs.platform.inspection_contract }}"
+      persistent_resources: "{{ terraform_effective_persistent_resources }}"
   when:
     - terraform_stack == 'inspection'
   no_log: true
