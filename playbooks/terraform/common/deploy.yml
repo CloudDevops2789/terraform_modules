@@ -121,20 +121,26 @@
       loop_control:
         label: "{{ item.item }}"
 
+    - name: Initialize Terraform variable-file arguments
+      ansible.builtin.set_fact:
+        terraform_git_var_file_args: []
+
     - name: Build Terraform variable-file arguments
       ansible.builtin.set_fact:
         terraform_git_var_file_args: >-
           {{
-            terraform_var_files
-            | map(
-                'regex_replace',
-                '^(.*)$',
-                '-var-file='
-                ~ terraform_effective_environment_config_root
-                ~ '/\\1'
-              )
-            | list
+            terraform_git_var_file_args
+            +
+            [
+              '-var-file='
+              ~ terraform_effective_environment_config_root
+              ~ '/'
+              ~ item
+            ]
           }}
+      loop: "{{ terraform_var_files }}"
+      loop_control:
+        label: "{{ item }}"
 
     - name: Report Terraform execution
       ansible.builtin.debug:
