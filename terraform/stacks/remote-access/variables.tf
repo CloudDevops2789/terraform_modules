@@ -294,7 +294,7 @@ variable "endpoint_egress_rules" {
 }
 
 variable "target_ingress_rules" {
-  description = "Approved Platform security groups and ports reachable from Client VPN association subnets."
+  description = "Approved Platform security groups and ports reachable through the Client VPN endpoint security group."
 
   type = map(object({
     security_group_key = string

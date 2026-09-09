@@ -7,8 +7,8 @@
 # Managed AD VPN-group SID at runtime.
 remote_access_enabled = true
 
-name                = "fv-ire-sandbox-remote-access"
-client_cidr_block   = "172.30.240.0/22"
+name              = "fv-ire-sandbox-remote-access"
+client_cidr_block = "172.30.240.0/22"
 # authentication_type = "directory"
 authentication_type = "mutual"
 
@@ -30,16 +30,17 @@ authorization_vpc_keys = [
   "recovery_access"
 ]
 
-# Client VPN IPv4 traffic is SNATed to an association-subnet ENI address.
-# These ingress rules therefore resolve source CIDRs from the selected Platform
-# subnet group, never from client_cidr_block.
+# Approved workload ingress from the Client VPN endpoint security group.
+# Remote Access resolves the target Platform security groups through the
+# Platform contract and uses its endpoint security group as the source.
+
 target_ingress_rules = {
   management-ssh = {
     security_group_key = "management"
     protocol           = "tcp"
     from_port          = 22
     to_port            = 22
-    description        = "SSH from Client VPN association subnets"
+    description        = "SSH from Client VPN endpoint"
   }
 
   management-rdp = {
@@ -47,7 +48,7 @@ target_ingress_rules = {
     protocol           = "tcp"
     from_port          = 3389
     to_port            = 3389
-    description        = "RDP from Client VPN association subnets"
+    description        = "RDP from Client VPN endpoint"
   }
 
   management-icmp = {
@@ -55,7 +56,7 @@ target_ingress_rules = {
     protocol           = "icmp"
     from_port          = 8
     to_port            = -1
-    description        = "ICMP echo from Client VPN association subnets"
+    description        = "ICMP echo from Client VPN endpoint"
   }
 }
 
