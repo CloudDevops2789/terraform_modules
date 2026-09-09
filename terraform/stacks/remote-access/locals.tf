@@ -45,9 +45,17 @@ locals {
   authorization_rules = !var.remote_access_enabled ? {} : {
     for vpc_key in var.authorization_vpc_keys :
     vpc_key => {
-      target_network_cidr  = var.platform_contract.vpc_cidrs[vpc_key]
-      authorize_all_groups = false
-      access_group_id      = var.client_vpn_access_group_id
+      target_network_cidr = var.platform_contract.vpc_cidrs[vpc_key]
+
+      authorize_all_groups = (
+        var.authentication_type == "mutual"
+      )
+
+      access_group_id = (
+        contains(["directory", "directory_and_mutual"], var.authentication_type)
+        ? var.client_vpn_access_group_id
+        : null
+      )
     }
   }
 
