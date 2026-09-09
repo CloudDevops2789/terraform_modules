@@ -42,7 +42,7 @@ resource_name_overrides = {}
 # }
 
 recovery_ssh_key_pairs = {
-  ire-lab-admin = {
+  ire-recovery-lab-admin = {
     source          = "managed"
     public_key_path = "../../environments/sandbox/keys/ire-lab-admin.pub"
   }
