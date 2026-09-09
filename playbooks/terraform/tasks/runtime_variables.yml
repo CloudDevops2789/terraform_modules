@@ -119,7 +119,14 @@
     terraform_dependency_stack: "{{ terraform_dependency.key }}"
     terraform_dependency_output_names: "{{ terraform_dependency.value }}"
     terraform_dependency_outputs_optional: >-
-      {{ terraform_dependency.key == 'persistent' }}
+      {{
+        terraform_dependency.key == 'persistent'
+        or
+        (
+          terraform_stack == 'remote-access'
+          and terraform_dependency.key == 'identity'
+        )
+      }}
 
 
 ################################################################################
@@ -199,7 +206,13 @@
         {{ terraform_dependency_outputs.platform.platform_contract }}
 
       identity_contract: >-
-        {{ terraform_dependency_outputs.identity.identity_contract }}
+        {{
+          (
+            terraform_dependency_outputs.identity
+            | default({})
+          ).identity_contract
+          | default(none)
+        }}
   when:
     - terraform_stack == 'remote-access'
   no_log: true
