@@ -1,6 +1,20 @@
-##################################################################################################
-# Recovery Outputs
-##################################################################################################
+################################################################################
+# Recovery Stack Outputs
+#
+# These outputs expose runtime results of the disposable Recovery lifecycle.
+#
+# Examples:
+#
+#   module.ec2.instance_ids
+#       -> output.instance_ids
+#
+#   module.backup_plan[0].id
+#       -> output.backup_plan_id
+#
+# Unlike Persistent and Platform, Recovery is primarily a lifecycle endpoint;
+# these outputs are operational results rather than a broad upstream platform
+# contract.
+################################################################################
 
 output "instance_ids" {
   description = "Recovery EC2 instance IDs keyed by logical workload name."

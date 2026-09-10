@@ -16,6 +16,7 @@ module "remote_access_security_group_rules" {
   source = "../../modules/security-group-rule"
 
   rules = var.remote_access_enabled ? merge(
+    local.dns_egress_security_group_rules,
     local.endpoint_egress_security_group_rules,
     local.target_ingress_security_group_rules
   ) : {}
@@ -25,13 +26,22 @@ module "client_vpn" {
   count  = var.remote_access_enabled ? 1 : 0
   source = "../../modules/client-vpn"
 
-  name                = var.name
-  authentication_type = var.authentication_type
-  active_directory_id = try(var.identity_contract.directory_id, null)
+  name = var.name
+  authentication_type = (
+    var.authentication_type == "mutual"
+    ? "certificate"
+    : var.authentication_type
+  )
+
+  active_directory_id = (
+    contains(["directory", "directory_and_mutual"], var.authentication_type)
+    ? try(var.identity_contract.directory_id, null)
+    : null
+  )
 
   server_certificate_arn = var.server_certificate_arn
   root_certificate_chain_arn = (
-    var.authentication_type == "directory_and_mutual"
+    contains(["mutual", "directory_and_mutual"], var.authentication_type)
     ? var.client_root_certificate_chain_arn
     : null
   )

@@ -95,7 +95,7 @@
 # reviewed through Terraform plan and Git approval.
 ################################################################################
 
-network_inspection_mode = "bypass"
+network_inspection_mode = "firewall"
 
 
 ################################################################################
@@ -720,7 +720,6 @@ ssm_instance_profile_mode = "terraform"
 #   External Persistent Resources resource identifiers are AAP environment bindings.
 ################################################################################
 
-network_firewall_logging_enabled = false
 
 
 ################################################################################
@@ -776,7 +775,7 @@ network_firewall_logging_enabled = false
 ################################################################################
 
 naming = {
-  organization             = "org"
+  organization             = "fv"
   project                  = "ire"
   project_display_name     = "IRE"
   environment              = "sandbox"

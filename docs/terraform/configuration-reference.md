@@ -17,7 +17,7 @@ flowchart TD
 | Reusable implementation | `terraform/modules` | Generic AWS capabilities |
 | Lifecycle composition | `terraform/stacks` | Resource and state ownership |
 | Sandbox desired state | `terraform/environments/sandbox/config` | Non-sensitive environment values |
-| Execution binding | `playbooks/vars/terraform_stack_bindings.yml` | Stack, var-file and dependency contracts |
+| Stack execution config | `playbooks/terraform/config/<stack>.yml` | Stack var-files, dependencies, approved runtime inputs and destroy confirmation |
 | Runtime/secret binding | AAP inventory and credentials | Region, role, backend and sensitive values |
 
 ## Stack configuration
@@ -31,6 +31,53 @@ flowchart TD
 
 Terraform does not auto-load these files from the environment directory. AAP
 passes the approved files explicitly to the selected lifecycle root.
+
+## Terraform reference resolution
+
+Terraform loads all `*.tf` files in one directory together as a single module.
+Files such as `main.tf`, `variables.tf`, `locals.tf`, and `outputs.tf` do not
+call one another and do not create execution order. Filenames exist primarily
+for maintainability.
+
+Use the reference itself to determine where a value comes from:
+
+| Reference | Resolution |
+|---|---|
+| `var.foo` | `variable "foo"` declared in the same Terraform module/root |
+| `local.foo` | value declared in a `locals` block in the same module/root |
+| `module.foo` | `module "foo"` block in the same module/root |
+| `module.foo.bar` | output `bar` exported by child module `foo` |
+| `data.type.name` | provider data source declared in the same module/root |
+| `resource.type.name` | managed resource declared in the same module/root |
+
+Typical same-root flow:
+
+```text
+environment tfvars / runtime input
+    -> variable
+    -> local
+    -> module input
+    -> child module
+    -> AWS resource
+    -> child output
+    -> root output
+```
+
+Cross-stack dependencies are different because lifecycle stacks use separate
+Terraform states.
+
+The supported cross-stack path is:
+
+```text
+upstream root output
+    -> upstream Terraform state
+    -> playbooks/terraform/tasks/read_dependency.yml
+    -> playbooks/terraform/tasks/runtime_variables.yml
+    -> approved downstream contract variable
+    -> downstream Terraform root
+```
+
+Do not manually duplicate cross-stack output values into downstream tfvars.
 
 ## Platform network trace
 

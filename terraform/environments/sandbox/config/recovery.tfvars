@@ -9,7 +9,7 @@
 backup_integration_enabled = false
 
 naming = {
-  organization             = "org"
+  organization             = "fv"
   project                  = "ire"
   project_display_name     = "IRE"
   environment              = "sandbox"
@@ -42,7 +42,7 @@ resource_name_overrides = {}
 # }
 
 recovery_ssh_key_pairs = {
-  ire-lab-admin = {
+  ire-recovery-lab-admin = {
     source          = "managed"
     public_key_path = "../../environments/sandbox/keys/ire-lab-admin.pub"
   }
@@ -54,8 +54,8 @@ recovery_workloads = {
   management = {
     server_name      = "A2NIREMGMT001"
     ami_id           = "ami-0332d564d76dbd8d6" # Replace with an approved AMI before enabling Recovery compute.
-    access_method    = "ssh_key"
-    ssh_key_pair_key = "ire-lab-admin"
+    access_method    = "ssm_with_ssh_fallback"
+    ssh_key_pair_key = "ire-recovery-lab-admin"
 
     vpc_key      = "recovery_access"
     subnet_group = "admin-tools"
@@ -71,8 +71,8 @@ recovery_workloads = {
   core = {
     server_name      = "A2NIRECORE001"
     ami_id           = "ami-0332d564d76dbd8d6" # Replace with an approved AMI before enabling Recovery compute.
-    access_method    = "ssh_key"
-    ssh_key_pair_key = "ire-lab-admin"
+    access_method    = "ssm_with_ssh_fallback"
+    ssh_key_pair_key = "ire-recovery-lab-admin"
 
     vpc_key      = "core_recovery"
     subnet_group = "recovery-services"
@@ -88,8 +88,8 @@ recovery_workloads = {
   protected = {
     server_name      = "A2NIREPROTDB001"
     ami_id           = "ami-0332d564d76dbd8d6" # Replace with an approved AMI before enabling Recovery compute.
-    access_method    = "ssh_key"
-    ssh_key_pair_key = "ire-lab-admin"
+    access_method    = "ssm_with_ssh_fallback"
+    ssh_key_pair_key = "ire-recovery-lab-admin"
 
     vpc_key      = "protected_data"
     subnet_group = "protected-workloads"

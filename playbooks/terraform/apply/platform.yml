@@ -1,0 +1,7 @@
+---
+- name: Apply platform Terraform stack
+  import_playbook: ../common/deploy.yml
+  vars:
+    terraform_stack: platform
+    terraform_operation: apply
+    terraform_repository_root: "{{ playbook_dir }}/../../.."

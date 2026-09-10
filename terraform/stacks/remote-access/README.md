@@ -13,13 +13,25 @@ AAP reads these outputs from approved upstream Terraform states:
 
 Operators cannot replace either contract through `terraform_variables`.
 
+## Managed AD authorization binding
+
+For directory-based authentication, the preceding Managed AD bootstrap workflow
+publishes the authorization-group SID as:
+
+```yaml
+managed_ad_group_sid: S-1-5-21-...
+```
+
+AAP maps that workflow artifact internally to the Terraform
+`client_vpn_access_group_id` variable. Operators do not copy or maintain the SID
+in Job Template variables.
+
 ## Runtime bindings
 
 When enabled, AAP supplies:
 
 ```yaml
 terraform_variables:
-  client_vpn_access_group_id: "<MANAGED_AD_GROUP_SID>"
   server_certificate_arn: "<ACM_SERVER_CERTIFICATE_ARN>"
 ```
 
@@ -38,6 +50,10 @@ AWS applies IPv4 SNAT to Client VPN traffic. Workload ingress is therefore
 created from the exact Platform association-subnet CIDRs selected by
 `network_binding`, not from `client_cidr_block` and not from the entire VPC by
 default.
+
+The endpoint security group automatically permits TCP and UDP port 53 only to
+the DNS server addresses selected by `dns_configuration`. Other endpoint
+egress and target ingress remain explicit environment policy.
 
 ## State
 
