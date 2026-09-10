@@ -189,7 +189,7 @@
       platform_contract: >-
         {{ terraform_dependency_outputs.platform.platform_contract }}
   when:
-    - terraform_stack in ['identity', 'identity-poc']
+    - terraform_stack == 'identity'
   no_log: true
 
 
