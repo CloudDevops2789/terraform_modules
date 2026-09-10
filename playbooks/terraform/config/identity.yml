@@ -1,0 +1,18 @@
+---
+terraform_stack: identity
+
+terraform_var_files:
+  - common-tags.tfvars
+  - identity.tfvars
+
+terraform_environment_variable_allowlist:
+  - managed_ad_enabled
+  - managed_ad_configuration
+
+terraform_runtime_variable_allowlist: []
+
+terraform_dependencies:
+  platform:
+    - platform_contract
+
+terraform_expected_destroy_confirmation: "DESTROY IDENTITY"

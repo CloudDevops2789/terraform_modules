@@ -41,3 +41,7 @@ tfplan.*
 # Runtime/local terraform.tfvars files remain ignored.
 !terraform/environments/*/config/
 !terraform/environments/*/config/*.tfvars
+
+# Reusable Terraform child modules are consumed by executable roots.
+# Provider dependency locks belong to those root configurations, not modules.
+terraform/modules/**/.terraform.lock.hcl

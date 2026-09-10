@@ -32,7 +32,6 @@ locals {
     var.naming.suffix == null ? "" : lower(trimspace(var.naming.suffix)),
   ]))
 
-  derived_network_firewall_name = "${local.name_prefix}-centralized-inspection"
 
   resource_names = {
     recovery_access_vpc = coalesce(
@@ -103,26 +102,6 @@ locals {
     backup_selection = coalesce(
       var.resource_name_overrides.backup_selection,
       "${local.name_prefix}-backup-selection"
-    )
-
-    network_firewall = coalesce(
-      var.resource_name_overrides.network_firewall,
-      local.derived_network_firewall_name
-    )
-
-    network_firewall_policy = coalesce(
-      var.resource_name_overrides.network_firewall_policy,
-      "${local.name_prefix}-centralized-inspection-policy"
-    )
-
-    network_firewall_rule_group = coalesce(
-      var.resource_name_overrides.network_firewall_rule_group,
-      "${local.name_prefix}-segmentation"
-    )
-
-    network_firewall_log_group_prefix = coalesce(
-      var.resource_name_overrides.network_firewall_log_group_prefix,
-      "/aws/network-firewall/${coalesce(var.resource_name_overrides.network_firewall, local.derived_network_firewall_name)}"
     )
   }
 

@@ -35,9 +35,9 @@ locals {
 
   tags = merge(
     {
-      org_environment  = "test"
-      org_managed_by   = "Terraform"
-      org_project_name = "AWS-IRE"
+      "org_environment"  = "test"
+      "org_managed_by"   = "Terraform"
+      "org_project_name" = "AWS-IRE"
     },
     var.tags
   )

@@ -1,0 +1,7 @@
+---
+- name: Plan inspection Terraform stack
+  import_playbook: ../common/deploy.yml
+  vars:
+    terraform_stack: inspection
+    terraform_operation: plan
+    terraform_repository_root: "{{ playbook_dir }}/../../.."

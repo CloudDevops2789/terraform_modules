@@ -68,8 +68,9 @@ AWS drift.
 
 The authoritative AAP definitions are:
 
-- `playbooks/vars/terraform_stack_bindings.yml`;
-- the `Report derived Terraform execution binding` task;
+- `playbooks/terraform/config/<stack>.yml`;
+- the stack-specific Plan, Apply, or Destroy entry point under `playbooks/terraform/`;
+- the derived Terraform execution paths and backend key;
 - the Terraform initialization output; and
 - the STS caller-identity verification performed by the assume-role workflow.
 
@@ -89,12 +90,12 @@ Run from WSL and inspect the complete output before continuing:
   git status --short
   git log -1 --oneline
 
-  echo "=== ACTIVE STACK BINDINGS ==="
-  sed -n '1,180p' playbooks/vars/terraform_stack_bindings.yml
+  echo "=== STACK EXECUTION CONFIGURATION ==="
+  find playbooks/terraform/config -maxdepth 1 -type f -name '*.yml' -print | sort
 
-  echo "=== EXECUTION-BINDING IMPLEMENTATION ==="
+  echo "=== EXECUTION IMPLEMENTATION ==="
   rg -n -C 4 \
-    'Report derived Terraform execution binding|terraform_root|terraform_config_root|terraform_backend_key|terraform_stack_var_files' \
+    'terraform_effective_root|terraform_effective_environment_config_root|terraform_effective_backend_key|terraform_var_files' \
     playbooks \
     --glob '*.yml' --glob '*.yaml'
 
