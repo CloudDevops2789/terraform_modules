@@ -58,3 +58,27 @@
 
   roles:
     - role: ire_platform.aws.managed_ad_bootstrap
+
+  post_tasks:
+
+    ##########################################################################
+    # Downstream Workflow Contract
+    #
+    # Remote Access requires the SID of the Managed AD authorization group.
+    # Publish only that non-secret operational identifier to downstream AAP
+    # workflow jobs.
+    ##########################################################################
+
+    - name: Validate Managed AD bootstrap workflow result
+      ansible.builtin.assert:
+        that:
+          - managed_ad_bootstrap_group_sid | default('') is match('^S-[0-9-]+$')
+        fail_msg: >-
+          Managed AD bootstrap completed without a valid authorization-group
+          SID for downstream Remote Access.
+
+    - name: Publish Managed AD bootstrap workflow artifacts
+      ansible.builtin.set_stats:
+        data:
+          managed_ad_group_sid: "{{ managed_ad_bootstrap_group_sid }}"
+        per_host: false

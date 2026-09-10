@@ -8,7 +8,6 @@ terraform_var_files:
 terraform_environment_variable_allowlist: []
 
 terraform_runtime_variable_allowlist:
-  - client_vpn_access_group_id
   - server_certificate_arn
   - client_root_certificate_chain_arn
 

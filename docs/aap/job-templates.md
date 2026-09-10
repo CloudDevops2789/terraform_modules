@@ -153,7 +153,6 @@ mode. AAP supplies only the approved runtime bindings required by that mode:
 
 ~~~yaml
 terraform_variables:
-  client_vpn_access_group_id: "<MANAGED_AD_VPN_GROUP_SID>"
   server_certificate_arn: "<APPROVED_ACM_SERVER_CERTIFICATE_ARN>"
 ~~~
 
@@ -161,7 +160,6 @@ Future `directory_and_mutual` mode additionally supplies:
 
 ~~~yaml
 terraform_variables:
-  client_vpn_access_group_id: "<MANAGED_AD_VPN_GROUP_SID>"
   server_certificate_arn: "<APPROVED_ACM_SERVER_CERTIFICATE_ARN>"
   client_root_certificate_chain_arn: "<APPROVED_ACM_CLIENT_ROOT_CA_ARN>"
 ~~~
@@ -178,41 +176,69 @@ The reviewed `recovery.tfvars` file owns each workload's AMI, access method,
 placement, security groups, backup intent, and optional SSH key-pair reference.
 Use an empty runtime map when temporary Recovery compute is not required.
 
-## Managed AD Client VPN user provisioning
+## Managed AD directory bootstrap
 
-Use `playbooks/managed_ad_client_vpn_users.yml` after Identity and before Remote
-Access. Supply a reviewed list of SAM account names and one authorization group:
+Run `playbooks/directory/bootstrap.yml` after Identity Apply and before Remote
+Access Plan or Apply.
+
+Identity Apply publishes the directory ID as an AAP workflow artifact. The
+bootstrap job consumes that artifact and accepts only the requested operational
+bootstrap intent:
 
 ~~~yaml
-managed_ad_directory_name: "<APPROVED_DIRECTORY_FQDN>"
-managed_ad_client_vpn_group_name: "IRE-Client-VPN-Users"
-managed_ad_client_vpn_user_names:
+directory_environment: sandbox
+aws_region: us-east-1
+
+managed_ad_bootstrap_group_name: IRE_ClientVPN_Users
+
+managed_ad_bootstrap_users:
   - user001
   - user002
-managed_ad_reset_existing_user_passwords: false
+
+managed_ad_bootstrap_reset_existing_passwords: false
 ~~~
 
-Create a secret AAP credential whose injector is:
+Do not supply the directory ID manually when the job runs as part of the
+approved workflow.
+
+The reusable `ire_platform.aws.managed_ad_bootstrap` role uses boto3-backed
+collection modules to:
+
+- create the authorization group when absent;
+- create requested users when absent;
+- reconcile group membership;
+- generate a unique bootstrap password for each newly created user;
+- store each credential in an individual AWS Secrets Manager secret; and
+- return the Managed AD group SID.
+
+Secrets use the environment-specific path:
+
+~~~text
+ire/<environment>/ad-users/<username>
+~~~
+
+Normal idempotent execution does not reset existing passwords or rewrite
+credentials. Existing passwords are changed only when
+`managed_ad_bootstrap_reset_existing_passwords` is explicitly enabled.
+
+After successful bootstrap, the job publishes:
 
 ~~~yaml
-env:
-  IRE_MANAGED_AD_USER_BOOTSTRAP_PASSWORD: "{{ managed_ad_user_bootstrap_password }}"
+managed_ad_group_sid: S-1-5-21-...
 ~~~
 
-One credential supplies the shared bootstrap password for the whole controlled
-batch; do not create one AAP credential per AD user.
+The downstream Remote Access lifecycle consumes this workflow artifact as
+`client_vpn_access_group_id`. Operators do not manually copy the SID into the
+Remote Access Job Template.
 
-The workflow creates only missing users, sets the password only for newly
-created users, adds users to the VPN group and publishes its SID. Removing a
-name from the input list does not delete or disable an AD account. Normal
-offboarding requires a separate approved identity process.
+The intended workflow is:
 
-A shared bootstrap password is suitable only for a controlled initial rollout.
-Directory Service Data password reset does not provide this workflow with a
-reliable force-change-at-next-VPN-login control, and Client VPN is not a
-password-enrollment interface. Enterprise onboarding should therefore replace
-the shared password promptly through an approved individual password or
-self-service identity process before broad access is granted.
+~~~text
+Platform
+  -> Identity
+  -> Managed AD Bootstrap
+  -> Remote Access
+~~~
 
 ## Destroy Job Template variables
 
@@ -266,7 +292,6 @@ Remote Access destroy may require:
 
 ~~~yaml
 terraform_variables:
-  client_vpn_access_group_id: "<MANAGED_AD_VPN_GROUP_SID>"
   server_certificate_arn: "<APPROVED_ACM_SERVER_CERTIFICATE_ARN>"
 terraform_destroy_enabled: true
 terraform_destroy_confirmation: "DESTROY REMOTE ACCESS"

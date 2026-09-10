@@ -119,7 +119,7 @@ is a consumer binding and never manages external resources.
 | Persistent | `kms_key_administrators` | Required only when managed logging KMS creation is enabled |
 | Platform | `ssm_instance_profile_name` | Required only for externally owned SSM profile mode |
 | Identity | None | Supply `{}` |
-| Remote Access | `client_vpn_access_group_id`, `server_certificate_arn`, `client_root_certificate_chain_arn` | Root CA ARN is required only for Git-selected combined mutual mode |
+| Remote Access | `server_certificate_arn`, `client_root_certificate_chain_arn` | Managed AD group SID is workflow-owned; Root CA ARN is required only for Git-selected combined mutual mode |
 | Recovery | `demo_ec2_enabled` | Enables only the workloads already reviewed in Git |
 
 Examples:
@@ -166,6 +166,39 @@ ordinary extra variables.
 
 See ADR-002 and the Managed Microsoft AD module README for the bootstrap
 password and Terraform-state limitation.
+
+## Managed AD bootstrap workflow contract
+
+Managed AD operational users and groups are not Terraform configuration.
+
+Identity Apply publishes the directory ID to the downstream Managed AD
+bootstrap job. The bootstrap job then publishes:
+
+~~~yaml
+managed_ad_group_sid: S-1-5-21-...
+~~~
+
+Remote Access consumes this artifact internally as
+`client_vpn_access_group_id`.
+
+The group SID is therefore not an operator-provided
+`terraform_variables` binding. Remote Access runtime variables remain limited
+to externally managed certificate references required by the selected
+authentication mode.
+
+The separation is:
+
+~~~text
+Identity Terraform state
+    -> directory identity
+
+Managed AD bootstrap
+    -> users, group, memberships, bootstrap credentials
+    -> authorization-group SID
+
+Remote Access Terraform
+    -> Client VPN authentication and authorization
+~~~
 
 ## Recovery workload compute contract
 
