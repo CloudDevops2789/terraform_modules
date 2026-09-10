@@ -1,0 +1,18 @@
+---
+- name: Validate chained AWS role access
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  pre_tasks:
+    - name: Require both role-chain account guards
+      ansible.builtin.assert:
+        that:
+          - role_expected_account_id | default('') | length == 12
+          - target_role_expected_account_id | default('') | length == 12
+        fail_msg: >-
+          role_expected_account_id and target_role_expected_account_id are
+          required for the role-chain validation playbook.
+
+  roles:
+    - role: ire_platform.aws.assume_role_chain

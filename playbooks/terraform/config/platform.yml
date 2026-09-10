@@ -1,0 +1,16 @@
+---
+terraform_stack: platform
+
+terraform_var_files:
+  - common-tags.tfvars
+  - platform.tfvars
+  - platform-network-policy.tfvars
+
+terraform_environment_variable_allowlist: []
+
+terraform_runtime_variable_allowlist:
+  - ssm_instance_profile_name
+
+terraform_dependencies: {}
+
+terraform_expected_destroy_confirmation: "DESTROY PLATFORM"

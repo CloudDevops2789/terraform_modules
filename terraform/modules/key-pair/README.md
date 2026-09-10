@@ -121,7 +121,7 @@ operator laptop cannot be read by AAP.
 
 | Concept | Where | Why it is used |
 |---|---|---|
-| `for_each` over a map | `key-pair.tf` | One key pair per named entry |
+| `for_each` over a map | `main.tf` | One key pair per named entry |
 | `optional()` in object types | `variables.tf` | `tags` may be omitted entirely |
 | Map comprehension + `merge()` | `locals.tf` | Precompute per-key tags with clear precedence |
 | `for` comprehension in outputs | `outputs.tf` | Return names and IDs keyed by the caller's own names |

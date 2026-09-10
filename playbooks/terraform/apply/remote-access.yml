@@ -1,0 +1,7 @@
+---
+- name: Apply remote-access Terraform stack
+  import_playbook: ../common/deploy.yml
+  vars:
+    terraform_stack: remote-access
+    terraform_operation: apply
+    terraform_repository_root: "{{ playbook_dir }}/../../.."

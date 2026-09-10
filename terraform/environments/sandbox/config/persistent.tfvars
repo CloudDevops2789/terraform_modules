@@ -5,7 +5,7 @@
 # ARNs are supplied by the approved AAP runtime contract when required.
 
 # Retain the established AWS naming prefix during the stack rename.
-name_prefix = "ire-sandbox-foundation"
+name_prefix = "ire-sandbox-persistent"
 
 # Safe home-lab defaults. Enable independently to exercise managed resources.
 backup_vaults_enabled                = false

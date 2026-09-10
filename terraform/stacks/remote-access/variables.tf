@@ -52,13 +52,24 @@ variable "identity_contract" {
   nullable = true
 
   validation {
-    condition = !var.remote_access_enabled || try(
-      var.identity_contract != null &&
-      var.identity_contract.managed_ad_enabled &&
-      length(trimspace(var.identity_contract.directory_id)) > 0,
-      false
+    condition = (
+      !var.remote_access_enabled ||
+      !contains(
+        [
+          "directory",
+          "directory_and_mutual"
+        ],
+        var.authentication_type
+      ) ||
+      try(
+        var.identity_contract != null &&
+        var.identity_contract.managed_ad_enabled &&
+        length(trimspace(var.identity_contract.directory_id)) > 0,
+        false
+      )
     )
-    error_message = "Enabled Remote Access requires an enabled Managed AD identity contract with a directory ID."
+
+    error_message = "Directory-based Remote Access requires an enabled Managed AD identity contract with a directory ID."
   }
 }
 
@@ -111,13 +122,21 @@ variable "client_cidr_block" {
 }
 
 variable "authentication_type" {
-  description = "Authentication mode: directory initially or directory_and_mutual later."
+  description = "Client VPN authentication mode: directory, mutual, or directory_and_mutual."
   type        = string
   default     = "directory"
 
   validation {
-    condition     = contains(["directory", "directory_and_mutual"], var.authentication_type)
-    error_message = "authentication_type must be directory or directory_and_mutual."
+    condition = contains(
+      [
+        "directory",
+        "mutual",
+        "directory_and_mutual"
+      ],
+      var.authentication_type
+    )
+
+    error_message = "authentication_type must be directory, mutual, or directory_and_mutual."
   }
 }
 
@@ -146,29 +165,47 @@ variable "client_root_certificate_chain_arn" {
   validation {
     condition = (
       !var.remote_access_enabled ||
-      var.authentication_type != "directory_and_mutual" ||
+      !contains(
+        [
+          "mutual",
+          "directory_and_mutual"
+        ],
+        var.authentication_type
+      ) ||
       try(
         can(regex("^arn:[^:]+:acm:[^:]+:[0-9]{12}:certificate/.+$", var.client_root_certificate_chain_arn)) &&
         split(":", var.client_root_certificate_chain_arn)[3] == var.aws_region,
         false
       )
     )
-    error_message = "directory_and_mutual mode requires an ACM client root certificate-chain ARN in the deployment Region."
+
+    error_message = "Mutual authentication requires an ACM client root certificate-chain ARN in the deployment Region."
   }
 }
 
 variable "client_vpn_access_group_id" {
-  description = "Managed AD VPN authorization-group SID returned by the AAP user bootstrap workflow."
+  description = "Managed AD VPN authorization-group SID required when directory authentication is enabled."
   type        = string
   default     = null
   nullable    = true
 
   validation {
-    condition = !var.remote_access_enabled || try(
-      can(regex("^S-[0-9-]+$", var.client_vpn_access_group_id)),
-      false
+    condition = (
+      !var.remote_access_enabled ||
+      !contains(
+        [
+          "directory",
+          "directory_and_mutual"
+        ],
+        var.authentication_type
+      ) ||
+      try(
+        can(regex("^S-[0-9-]+$", var.client_vpn_access_group_id)),
+        false
+      )
     )
-    error_message = "Enabled Remote Access requires a Managed AD group SID."
+
+    error_message = "Directory-based Remote Access requires a Managed AD group SID."
   }
 }
 
@@ -257,7 +294,7 @@ variable "endpoint_egress_rules" {
 }
 
 variable "target_ingress_rules" {
-  description = "Approved Platform security groups and ports reachable from Client VPN association subnets."
+  description = "Approved Platform security groups and ports reachable through the Client VPN endpoint security group."
 
   type = map(object({
     security_group_key = string
