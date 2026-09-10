@@ -1,0 +1,89 @@
+---
+################################################################################
+# Managed AD Bootstrap - Group
+#
+# Ensures the requested directory group exists and publishes its SID.
+#
+# AWS authentication is intentionally not handled by this role. The calling
+# AAP Job Template or execution environment supplies the AWS credential chain.
+################################################################################
+
+- name: Check whether Managed AD bootstrap group exists
+  ansible.builtin.command:
+    argv:
+      - aws
+      - ds-data
+      - describe-group
+      - --directory-id
+      - "{{ managed_ad_bootstrap_directory_id }}"
+      - --sam-account-name
+      - "{{ managed_ad_bootstrap_group_name }}"
+      - --region
+      - "{{ managed_ad_bootstrap_region }}"
+      - --output
+      - json
+  register: managed_ad_bootstrap_group_lookup
+  changed_when: false
+  failed_when:
+    - managed_ad_bootstrap_group_lookup.rc != 0
+    - >-
+      'ResourceNotFoundException'
+      not in managed_ad_bootstrap_group_lookup.stderr
+
+- name: Create Managed AD bootstrap group when absent
+  ansible.builtin.command:
+    argv:
+      - aws
+      - ds-data
+      - create-group
+      - --directory-id
+      - "{{ managed_ad_bootstrap_directory_id }}"
+      - --sam-account-name
+      - "{{ managed_ad_bootstrap_group_name }}"
+      - --group-scope
+      - Global
+      - --group-type
+      - Security
+      - --region
+      - "{{ managed_ad_bootstrap_region }}"
+      - --output
+      - json
+  register: managed_ad_bootstrap_group_create
+  changed_when: true
+  when:
+    - managed_ad_bootstrap_group_lookup.rc != 0
+
+- name: Read Managed AD bootstrap group
+  ansible.builtin.command:
+    argv:
+      - aws
+      - ds-data
+      - describe-group
+      - --directory-id
+      - "{{ managed_ad_bootstrap_directory_id }}"
+      - --sam-account-name
+      - "{{ managed_ad_bootstrap_group_name }}"
+      - --region
+      - "{{ managed_ad_bootstrap_region }}"
+      - --output
+      - json
+  register: managed_ad_bootstrap_group_result
+  changed_when: false
+
+- name: Parse Managed AD bootstrap group
+  ansible.builtin.set_fact:
+    managed_ad_bootstrap_group: >-
+      {{ managed_ad_bootstrap_group_result.stdout | from_json }}
+
+- name: Validate Managed AD bootstrap group SID
+  ansible.builtin.assert:
+    that:
+      - managed_ad_bootstrap_group.SID is defined
+      - managed_ad_bootstrap_group.SID is match('^S-[0-9-]+$')
+    fail_msg: >-
+      Managed AD group exists but Directory Service Data did not return a valid
+      SID.
+
+- name: Publish Managed AD bootstrap group SID
+  ansible.builtin.set_fact:
+    managed_ad_bootstrap_group_sid: "{{ managed_ad_bootstrap_group.SID }}"

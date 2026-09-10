@@ -286,6 +286,74 @@
             - terraform_plan.rc == 2
           changed_when: true
 
+        ########################################################################
+        # Identity Workflow Contract
+        #
+        # Publish only the small operational contract required by downstream
+        # AAP jobs. The reusable directory role never reads Terraform state.
+        ########################################################################
+
+        - name: Read Identity contract for downstream workflow jobs
+          ansible.builtin.command:
+            argv:
+              - terraform
+              - output
+              - -json
+              - identity_contract
+          args:
+            chdir: "{{ terraform_effective_root }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+            TF_IN_AUTOMATION: "true"
+          register: terraform_identity_contract_read
+          changed_when: false
+          when:
+            - terraform_stack == 'identity'
+            - terraform_operation == 'apply'
+
+        - name: Parse Identity workflow contract
+          ansible.builtin.set_fact:
+            terraform_identity_workflow_contract: >-
+              {{ terraform_identity_contract_read.stdout | from_json }}
+          when:
+            - terraform_stack == 'identity'
+            - terraform_operation == 'apply'
+
+        - name: Validate enabled Managed AD workflow contract
+          ansible.builtin.assert:
+            that:
+              - >-
+                terraform_identity_workflow_contract.directory_id
+                | default('')
+                | length > 0
+              - >-
+                terraform_identity_workflow_contract.directory_id
+                is match('^d-[0-9a-f]{10}$')
+            fail_msg: >-
+              Managed AD is enabled but Identity did not expose a valid
+              directory ID for downstream directory bootstrap.
+          when:
+            - terraform_stack == 'identity'
+            - terraform_operation == 'apply'
+            - terraform_identity_workflow_contract.managed_ad_enabled | bool
+
+        - name: Publish Identity workflow artifacts
+          ansible.builtin.set_stats:
+            data:
+              managed_ad_directory_id: >-
+                {{ terraform_identity_workflow_contract.directory_id }}
+              managed_ad_directory_name: >-
+                {{ terraform_identity_workflow_contract.directory_name }}
+            per_host: false
+          when:
+            - terraform_stack == 'identity'
+            - terraform_operation == 'apply'
+            - terraform_identity_workflow_contract.managed_ad_enabled | bool
+
         - name: Report Terraform result
           ansible.builtin.debug:
             msg: >-

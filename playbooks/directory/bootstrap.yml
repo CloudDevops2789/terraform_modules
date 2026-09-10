@@ -1,0 +1,60 @@
+---
+################################################################################
+# Managed AD Directory Bootstrap
+#
+# AAP entry point for operational AWS Managed Microsoft AD bootstrap.
+#
+# Runtime inputs:
+#   managed_ad_bootstrap_group_name
+#   managed_ad_bootstrap_users
+#   managed_ad_bootstrap_reset_existing_passwords
+#
+# Derived/orchestrated inputs:
+#   managed_ad_bootstrap_directory_id
+#   managed_ad_bootstrap_region
+#   managed_ad_bootstrap_secret_prefix
+#
+# The reusable role itself contains no AAP, Terraform-state, credential, or
+# environment-specific assumptions.
+################################################################################
+
+- name: Bootstrap AWS Managed Microsoft AD users and groups
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  pre_tasks:
+
+    ##########################################################################
+    # Runtime Request
+    ##########################################################################
+
+    - name: Validate directory bootstrap runtime request
+      ansible.builtin.assert:
+        that:
+          - directory_environment | default('') | length > 0
+          - managed_ad_directory_id | default('') is match('^d-[0-9a-f]{10}$')
+          - managed_ad_bootstrap_group_name | default('') | length > 0
+          - managed_ad_bootstrap_users is defined
+          - managed_ad_bootstrap_users is sequence
+          - managed_ad_bootstrap_users is not string
+          - managed_ad_bootstrap_users | length > 0
+        fail_msg: >-
+          Supply the directory environment, target group and requested user
+          list through AAP runtime variables.
+
+    ##########################################################################
+    # Environment-Derived Values
+    #
+    # The directory ID is supplied by the upstream Identity workflow artifact.
+    ##########################################################################
+
+    - name: Derive Managed AD bootstrap environment values
+      ansible.builtin.set_fact:
+        managed_ad_bootstrap_directory_id: "{{ managed_ad_directory_id }}"
+        managed_ad_bootstrap_region: "{{ aws_region }}"
+        managed_ad_bootstrap_secret_prefix: >-
+          ire/{{ directory_environment }}/ad-users
+
+  roles:
+    - role: ire_platform.aws.managed_ad_bootstrap

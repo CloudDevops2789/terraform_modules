@@ -1,0 +1,74 @@
+---
+################################################################################
+# Managed AD Bootstrap
+#
+# Reusable operational lifecycle for AWS Managed Microsoft AD.
+#
+# Ownership:
+#   Terraform                -> directory infrastructure
+#   managed_ad_bootstrap     -> users, groups, memberships and bootstrap secrets
+#
+# AWS credentials are supplied by the caller through the normal AWS credential
+# chain. This role does not assume IAM roles or contain AAP-specific auth logic.
+################################################################################
+
+- name: Validate Managed AD bootstrap inputs
+  ansible.builtin.assert:
+    that:
+      - managed_ad_bootstrap_directory_id is string
+      - managed_ad_bootstrap_directory_id is match('^d-[0-9a-f]{10}$')
+
+      - managed_ad_bootstrap_region is string
+      - managed_ad_bootstrap_region | length > 0
+
+      - managed_ad_bootstrap_group_name is string
+      - managed_ad_bootstrap_group_name | trim | length > 0
+      - managed_ad_bootstrap_group_name | length <= 64
+      - managed_ad_bootstrap_group_name is match('^[^:;|=+"*?<>/\\,\[\]@]+$')
+
+      - managed_ad_bootstrap_users is sequence
+      - managed_ad_bootstrap_users is not string
+      - managed_ad_bootstrap_users | length > 0
+      - >-
+        managed_ad_bootstrap_users
+        | map('lower')
+        | unique
+        | list
+        | length
+        == managed_ad_bootstrap_users | length
+
+      - managed_ad_bootstrap_secret_prefix is string
+      - managed_ad_bootstrap_secret_prefix | trim | length > 0
+
+      - managed_ad_bootstrap_reset_existing_passwords is boolean
+    fail_msg: >-
+      Managed AD bootstrap inputs are invalid. Supply a valid Managed AD
+      directory ID, AWS Region, group name, unique user list and Secrets
+      Manager prefix.
+
+- name: Validate Managed AD bootstrap user names
+  ansible.builtin.assert:
+    that:
+      - item is string
+      - item | length >= 1
+      - item | length <= 20
+      - item is match('^[A-Za-z0-9._-]+$')
+    fail_msg: >-
+      Managed AD SAM account names must contain only letters, numbers,
+      periods, underscores or hyphens and must be between 1 and 20 characters.
+  loop: "{{ managed_ad_bootstrap_users }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: Ensure Managed AD bootstrap group
+  ansible.builtin.include_tasks:
+    file: group.yml
+
+- name: Report Managed AD bootstrap group result
+  ansible.builtin.debug:
+    msg:
+      - "Directory ID: {{ managed_ad_bootstrap_directory_id }}"
+      - "Group: {{ managed_ad_bootstrap_group_name }}"
+      - "Group SID: {{ managed_ad_bootstrap_group_sid }}"
+      - "Requested users: {{ managed_ad_bootstrap_users | join(', ') }}"
+      - "User provisioning has not been enabled yet."
