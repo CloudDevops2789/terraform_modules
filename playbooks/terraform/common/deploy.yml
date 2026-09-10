@@ -312,7 +312,7 @@
           register: terraform_identity_contract_read
           changed_when: false
           when:
-            - terraform_stack == 'identity'
+            - terraform_stack in ['identity', 'identity-poc']
             - terraform_operation == 'apply'
 
         - name: Parse Identity workflow contract
@@ -320,7 +320,7 @@
             terraform_identity_workflow_contract: >-
               {{ terraform_identity_contract_read.stdout | from_json }}
           when:
-            - terraform_stack == 'identity'
+            - terraform_stack in ['identity', 'identity-poc']
             - terraform_operation == 'apply'
 
         - name: Validate enabled Managed AD workflow contract
@@ -337,7 +337,7 @@
               Managed AD is enabled but Identity did not expose a valid
               directory ID for downstream directory bootstrap.
           when:
-            - terraform_stack == 'identity'
+            - terraform_stack in ['identity', 'identity-poc']
             - terraform_operation == 'apply'
             - terraform_identity_workflow_contract.managed_ad_enabled | bool
 
@@ -350,7 +350,7 @@
                 {{ terraform_identity_workflow_contract.directory_name }}
             per_host: false
           when:
-            - terraform_stack == 'identity'
+            - terraform_stack in ['identity', 'identity-poc']
             - terraform_operation == 'apply'
             - terraform_identity_workflow_contract.managed_ad_enabled | bool
 
