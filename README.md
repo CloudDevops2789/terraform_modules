@@ -379,7 +379,7 @@ AWS Client VPN is owned by the independent Remote Access stack so Platform can
 create networking before Managed AD exists. Enterprise enablement follows:
 
 ~~~text
-Platform -> Identity -> Managed AD users/group -> Remote Access
+Platform -> Identity -> Managed AD Bootstrap -> Remote Access
 ~~~
 
 Initial Remote Access uses Managed AD username/password authentication and an

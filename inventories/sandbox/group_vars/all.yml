@@ -1,0 +1,17 @@
+---
+################################################################################
+# Sandbox AAP environment inventory
+################################################################################
+
+terraform_environment: sandbox
+
+assume_role_role_arn: "<APPROVED_TERRAFORM_ROLE_ARN>"
+assume_role_aws_region: "<APPROVED_DEPLOYMENT_REGION>"
+assume_role_application_name: ire-terraform
+assume_role_expected_account_id: "<12_DIGIT_ACCOUNT_ID>"
+
+terraform_backend_bucket: "<APPROVED_STATE_BUCKET>"
+terraform_backend_region: "<BACKEND_BUCKET_REGION>"
+
+terraform_persistent_contract_source: managed
+terraform_external_persistent_resources: {}

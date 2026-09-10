@@ -1,0 +1,34 @@
+---
+################################################################################
+# Managed AD Bootstrap - Principals
+#
+# Creates and reconciles:
+#
+#   Security group
+#   Directory users
+#   Group memberships
+#
+# Password lifecycle is intentionally separate and handled by credentials.yml.
+################################################################################
+
+- name: Bootstrap Managed AD users and group
+  ire_platform.aws.managed_ad_principals:
+    directory_id: "{{ managed_ad_bootstrap_directory_id }}"
+    group_name: "{{ managed_ad_bootstrap_group_name }}"
+    user_names: "{{ managed_ad_bootstrap_users }}"
+    region: "{{ managed_ad_bootstrap_region }}"
+  register: managed_ad_bootstrap_principal_result
+
+- name: Publish Managed AD principal lifecycle facts
+  ansible.builtin.set_fact:
+    managed_ad_bootstrap_group_sid: >-
+      {{ managed_ad_bootstrap_principal_result.group_sid }}
+
+    managed_ad_bootstrap_new_users: >-
+      {{ managed_ad_bootstrap_principal_result.users_created | default([]) }}
+
+    managed_ad_bootstrap_existing_users: >-
+      {{ managed_ad_bootstrap_principal_result.users_existing | default([]) }}
+
+    managed_ad_bootstrap_memberships_added: >-
+      {{ managed_ad_bootstrap_principal_result.memberships_added | default([]) }}
