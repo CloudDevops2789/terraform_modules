@@ -1,0 +1,23 @@
+---
+################################################################################
+# Managed AD Bootstrap - Defaults
+#
+# This role manages directory-level bootstrap objects after AWS Managed
+# Microsoft AD infrastructure has been provisioned.
+#
+# Passwords are never supplied through these defaults. New-user passwords will
+# be generated at runtime and stored individually in AWS Secrets Manager.
+################################################################################
+
+managed_ad_bootstrap_directory_id: ""
+managed_ad_bootstrap_region: ""
+
+managed_ad_bootstrap_group_name: ""
+
+managed_ad_bootstrap_users: []
+
+managed_ad_bootstrap_secret_prefix: ""
+
+# Existing users are not password-reset during ordinary idempotent runs.
+# A later explicit reset workflow may override this value.
+managed_ad_bootstrap_reset_existing_passwords: false

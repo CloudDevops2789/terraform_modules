@@ -4,9 +4,6 @@
   connection: local
   gather_facts: false
 
-  vars_files:
-    - vars/terraform_stack_bindings.yml
-
   vars:
     terraform_environment: "sandbox"
     terraform_stack: ""
@@ -30,11 +27,9 @@
             (assume_role_expected_account_id | default(''))
             is match('^[0-9]{12}$')
 
-          - terraform_environment | default('') | length > 0
-          - terraform_environment in terraform_allowed_environments
+          - terraform_environment | default('') == 'sandbox'
 
-          - terraform_stack | default('') | length > 0
-          - terraform_stack in terraform_active_stacks
+          - terraform_stack | default('') is match('^[a-z0-9][a-z0-9-]*$')
 
           - terraform_backend_bucket | default('') | length > 2
           - terraform_backend_region | default('') | length > 0
@@ -59,6 +54,21 @@
           the exact Terraform lock ID, unlock enablement, and confirmation
           UNLOCK <environment>/<stack>. Backend key and Terraform root are
           derived internally and must not be supplied.
+
+    - name: Check approved Terraform stack configuration
+      ansible.builtin.stat:
+        path: >-
+          {{ playbook_dir }}/terraform/config/{{ terraform_stack }}.yml
+      register: terraform_unlock_stack_config
+
+    - name: Validate approved Terraform stack
+      ansible.builtin.assert:
+        that:
+          - terraform_unlock_stack_config.stat.exists
+          - terraform_unlock_stack_config.stat.isreg
+        fail_msg: >-
+          Terraform stack {{ terraform_stack }} does not have an approved
+          lifecycle configuration under playbooks/terraform/config.
 
     - name: Derive Terraform state unlock binding
       ansible.builtin.set_fact:

@@ -1,0 +1,193 @@
+---
+- name: Validate role-chain inputs
+  ansible.builtin.assert:
+    that:
+      - role_arn | length > 0
+      - aws_region | length > 0
+      - >-
+        role_session_duration_seconds | string | length == 0
+        or (
+          role_session_duration_seconds | int >= 900
+          and role_session_duration_seconds | int <= 43200
+        )
+      - >-
+        target_role_arn | length == 0
+        or role_session_duration_seconds | string | length == 0
+        or role_session_duration_seconds | int <= 3600
+      - >-
+        role_expected_account_id | length == 0
+        or role_expected_account_id is match('^[0-9]{12}$')
+      - >-
+        target_role_expected_account_id | length == 0
+        or target_role_expected_account_id is match('^[0-9]{12}$')
+    fail_msg: >-
+      role_arn and aws_region are required. Account guards must contain
+      12-digit account IDs. A chained session cannot exceed 3,600 seconds.
+
+- name: Build role-chain session name
+  vars:
+    assume_role_chain_application_slug: >-
+      {{
+        (
+          application_name
+          | default('ire-terraform')
+          | lower
+          | regex_replace('[^a-z0-9+=,.@-]', '-')
+        )[:24]
+      }}
+    assume_role_chain_job_id: >-
+      {{ tower_job_id | default(awx_job_id | default('unknown')) }}
+  ansible.builtin.set_fact:
+    assume_role_chain_session_name: >-
+      {{ assume_role_chain_application_slug }}-job-{{ assume_role_chain_job_id }}-{{
+        lookup('pipe', 'date +%Y%m%d-%H%M%S')
+      }}
+
+- name: Assume base AWS role
+  amazon.aws.sts_assume_role:
+    role_arn: "{{ role_arn }}"
+    role_session_name: "{{ assume_role_chain_session_name }}"
+    region: "{{ aws_region }}"
+    external_id: "{{ role_external_id | default(omit, true) }}"
+    duration_seconds: >-
+      {{ role_session_duration_seconds | default(omit, true) }}
+  register: assume_role_chain_base_result
+  changed_when: false
+  no_log: true
+
+- name: Validate base assumed-role response
+  ansible.builtin.assert:
+    that:
+      - assume_role_chain_base_result.sts_creds is defined
+      - assume_role_chain_base_result.sts_creds.access_key is defined
+      - assume_role_chain_base_result.sts_creds.secret_key is defined
+      - assume_role_chain_base_result.sts_creds.session_token is defined
+      - assume_role_chain_base_result.sts_creds.expiration is defined
+      - assume_role_chain_base_result.sts_user.arn is defined
+    quiet: true
+
+- name: Store base temporary credentials
+  ansible.builtin.set_fact:
+    assume_role_chain_base_auth:
+      access_key: "{{ assume_role_chain_base_result.sts_creds.access_key }}"
+      secret_key: "{{ assume_role_chain_base_result.sts_creds.secret_key }}"
+      session_token: "{{ assume_role_chain_base_result.sts_creds.session_token }}"
+      region: "{{ aws_region }}"
+    assume_role_chain_base_assumed_arn: "{{ assume_role_chain_base_result.sts_user.arn }}"
+    assume_role_chain_base_expiration: >-
+      {{ assume_role_chain_base_result.sts_creds.expiration }}
+  no_log: true
+
+- name: Verify base assumed AWS identity
+  amazon.aws.aws_caller_info:
+    access_key: "{{ assume_role_chain_base_auth.access_key }}"
+    secret_key: "{{ assume_role_chain_base_auth.secret_key }}"
+    session_token: "{{ assume_role_chain_base_auth.session_token }}"
+    region: "{{ assume_role_chain_base_auth.region }}"
+  register: assume_role_chain_base_identity
+  changed_when: false
+  no_log: true
+
+- name: Validate base assumed AWS account
+  ansible.builtin.assert:
+    that:
+      - assume_role_chain_base_identity.account == role_expected_account_id
+    fail_msg: >-
+      Base role account {{ assume_role_chain_base_identity.account }} does not match
+      expected account {{ role_expected_account_id }}.
+    quiet: true
+  when:
+    - role_expected_account_id | length > 0
+
+- name: Assume target deployment role
+  amazon.aws.sts_assume_role:
+    role_arn: "{{ target_role_arn }}"
+    role_session_name: "{{ assume_role_chain_session_name }}"
+    region: "{{ aws_region }}"
+    access_key: "{{ assume_role_chain_base_auth.access_key }}"
+    secret_key: "{{ assume_role_chain_base_auth.secret_key }}"
+    session_token: "{{ assume_role_chain_base_auth.session_token }}"
+    duration_seconds: >-
+      {{ role_session_duration_seconds | default(omit, true) }}
+  register: assume_role_chain_dr_result
+  changed_when: false
+  no_log: true
+  when:
+    - target_role_arn | length > 0
+
+- name: Validate target assumed-role response
+  ansible.builtin.assert:
+    that:
+      - assume_role_chain_dr_result.sts_creds is defined
+      - assume_role_chain_dr_result.sts_creds.access_key is defined
+      - assume_role_chain_dr_result.sts_creds.secret_key is defined
+      - assume_role_chain_dr_result.sts_creds.session_token is defined
+      - assume_role_chain_dr_result.sts_creds.expiration is defined
+      - assume_role_chain_dr_result.sts_user.arn is defined
+    quiet: true
+  when:
+    - target_role_arn | length > 0
+
+- name: Publish final target temporary credentials # noqa var-naming[no-role-prefix]
+  ansible.builtin.set_fact:
+    aws_access_key_id: "{{ assume_role_chain_dr_result.sts_creds.access_key }}"
+    aws_secret_access_key: "{{ assume_role_chain_dr_result.sts_creds.secret_key }}"
+    aws_session_token: "{{ assume_role_chain_dr_result.sts_creds.session_token }}"
+    aws_role_expiration: "{{ assume_role_chain_dr_result.sts_creds.expiration }}"
+    aws_assumed_role_arn: "{{ assume_role_chain_dr_result.sts_user.arn }}"
+    aws_auth:
+      access_key: "{{ assume_role_chain_dr_result.sts_creds.access_key }}"
+      secret_key: "{{ assume_role_chain_dr_result.sts_creds.secret_key }}"
+      session_token: "{{ assume_role_chain_dr_result.sts_creds.session_token }}"
+      region: "{{ aws_region }}"
+  no_log: true
+  when:
+    - target_role_arn | length > 0
+
+- name: Publish final base temporary credentials # noqa var-naming[no-role-prefix]
+  ansible.builtin.set_fact:
+    aws_access_key_id: "{{ assume_role_chain_base_auth.access_key }}"
+    aws_secret_access_key: "{{ assume_role_chain_base_auth.secret_key }}"
+    aws_session_token: "{{ assume_role_chain_base_auth.session_token }}"
+    aws_role_expiration: "{{ assume_role_chain_base_expiration }}"
+    aws_assumed_role_arn: "{{ assume_role_chain_base_assumed_arn }}"
+    aws_auth: "{{ assume_role_chain_base_auth }}"
+  no_log: true
+  when:
+    - target_role_arn | length == 0
+
+- name: Publish Terraform lifecycle credential contract # noqa var-naming[no-role-prefix]
+  ansible.builtin.set_fact:
+    assume_role_aws_auth: "{{ aws_auth }}"
+    assume_role_assumed_arn: "{{ aws_assumed_role_arn }}"
+    assume_role_expiration: "{{ aws_role_expiration }}"
+  no_log: true
+
+- name: Verify final assumed AWS identity
+  amazon.aws.aws_caller_info:
+    access_key: "{{ assume_role_aws_auth.access_key }}"
+    secret_key: "{{ assume_role_aws_auth.secret_key }}"
+    session_token: "{{ assume_role_aws_auth.session_token }}"
+    region: "{{ assume_role_aws_auth.region }}"
+  register: assume_role_chain_final_identity
+  changed_when: false
+  no_log: true
+
+- name: Validate final target AWS account
+  ansible.builtin.assert:
+    that:
+      - assume_role_chain_final_identity.account == target_role_expected_account_id
+    fail_msg: >-
+      Final role account {{ assume_role_chain_final_identity.account }} does not match
+      expected DR account {{ target_role_expected_account_id }}.
+    quiet: true
+  when:
+    - target_role_arn | length > 0
+    - target_role_expected_account_id | length > 0
+
+- name: Display role-chain identities
+  ansible.builtin.debug:
+    msg:
+      - "Base role: {{ assume_role_chain_base_identity.arn }}"
+      - "Final role: {{ assume_role_chain_final_identity.arn }}"
+      - "Final credentials expire: {{ assume_role_expiration }}"
