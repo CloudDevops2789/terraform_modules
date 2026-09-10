@@ -1,0 +1,122 @@
+##################################################################################################
+# Upstream Dependency Resolution
+##################################################################################################
+
+locals {
+  inspection_topology = var.inspection_contract
+
+  network_firewall_logging_kms_key_arn = try(
+    var.persistent_resources.network_firewall_logging_kms_key_arn,
+    null
+  )
+}
+
+##################################################################################################
+# Portable Naming
+##################################################################################################
+#
+# This algorithm intentionally matches the current Platform naming algorithm.
+# Maintaining identical names is required before existing firewall resources
+# can be transferred between Terraform states without replacement.
+##################################################################################################
+
+locals {
+  region_code_by_region = {
+    "us-east-1"  = "use1"
+    "us-east-2"  = "use2"
+    "us-west-1"  = "usw1"
+    "us-west-2"  = "usw2"
+    "ap-south-1" = "aps1"
+    "ap-south-2" = "aps2"
+    "eu-west-1"  = "euw1"
+    "eu-west-2"  = "euw2"
+  }
+
+  effective_region_code = coalesce(
+    var.naming.region_code,
+    lookup(
+      local.region_code_by_region,
+      var.aws_region,
+      replace(lower(trimspace(var.aws_region)), "-", "")
+    )
+  )
+
+  name_prefix = join("-", compact([
+    lower(trimspace(var.naming.organization)),
+    lower(trimspace(var.naming.project)),
+    lower(trimspace(var.naming.environment)),
+    local.effective_region_code,
+    var.naming.suffix == null ? "" : lower(trimspace(var.naming.suffix)),
+  ]))
+
+  derived_network_firewall_name = "${local.name_prefix}-centralized-inspection"
+
+  resource_names = {
+    network_firewall = coalesce(
+      var.resource_name_overrides.network_firewall,
+      local.derived_network_firewall_name
+    )
+
+    network_firewall_policy = coalesce(
+      var.resource_name_overrides.network_firewall_policy,
+      "${local.name_prefix}-centralized-inspection-policy"
+    )
+
+    network_firewall_rule_group = coalesce(
+      var.resource_name_overrides.network_firewall_rule_group,
+      "${local.name_prefix}-segmentation"
+    )
+
+    network_firewall_log_group_prefix = coalesce(
+      var.resource_name_overrides.network_firewall_log_group_prefix,
+      "/aws/network-firewall/${coalesce(var.resource_name_overrides.network_firewall, local.derived_network_firewall_name)}"
+    )
+  }
+}
+
+##################################################################################################
+# Network CIDRs
+##################################################################################################
+#
+# Platform owns allocation. Inspection reconstructs only the logical lookup map
+# needed by the firewall policy from the explicit Platform contract.
+##################################################################################################
+
+locals {
+  network_cidrs = merge(
+    {
+      account = var.inspection_contract.account_cidr_block
+    },
+    {
+      for vpc_key, vpc in var.inspection_contract.spoke_vpcs :
+      vpc_key => vpc.cidr_block
+    },
+    {
+      (var.inspection_contract.inspection_vpc.key) = (
+        var.inspection_contract.inspection_vpc.cidr_block
+      )
+    }
+  )
+}
+
+##################################################################################################
+# Organization Tags
+##################################################################################################
+
+locals {
+  org_required_tags = {
+    "${var.organization_tag_key_prefix}it_cost_center"       = var.org_it_cost_center
+    "${var.organization_tag_key_prefix}department"           = var.org_department
+    "${var.organization_tag_key_prefix}cmdb_calculated_app"  = var.org_cmdb_calculated_app
+    "${var.organization_tag_key_prefix}business_criticality" = var.org_business_criticality
+    "${var.organization_tag_key_prefix}environment"          = var.org_environment
+    "${var.organization_tag_key_prefix}data_classification"  = var.org_data_classification
+    "${var.organization_tag_key_prefix}project_name"         = var.org_project_name
+    "${var.organization_tag_key_prefix}managed_by"           = var.org_managed_by
+  }
+
+  org_tags = merge(
+    var.org_additional_tags,
+    local.org_required_tags
+  )
+}

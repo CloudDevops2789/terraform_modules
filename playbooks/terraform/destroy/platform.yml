@@ -1,0 +1,7 @@
+---
+- name: Destroy platform Terraform stack
+  import_playbook: ../common/destroy.yml
+  vars:
+    terraform_stack: platform
+    terraform_operation: destroy
+    terraform_repository_root: "{{ playbook_dir }}/../../.."
