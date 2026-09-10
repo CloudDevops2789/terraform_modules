@@ -60,11 +60,11 @@ managed_ad_bootstrap_reset_existing_passwords: false
 
 ```text
 New user
-  -> generate unique password
   -> create user
+  -> generate unique password
+  -> store credential in Secrets Manager
   -> set password
   -> add group membership
-  -> store credential in Secrets Manager
 
 Existing user
   -> preserve password

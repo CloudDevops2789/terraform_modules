@@ -64,6 +64,18 @@
   ansible.builtin.include_tasks:
     file: group.yml
 
+- name: Ensure Managed AD bootstrap users
+  ansible.builtin.include_tasks:
+    file: users.yml
+
+- name: Provision Managed AD bootstrap credentials
+  ansible.builtin.include_tasks:
+    file: credentials.yml
+
+- name: Ensure Managed AD bootstrap group memberships
+  ansible.builtin.include_tasks:
+    file: membership.yml
+
 - name: Report Managed AD bootstrap group result
   ansible.builtin.debug:
     msg:
@@ -71,4 +83,18 @@
       - "Group: {{ managed_ad_bootstrap_group_name }}"
       - "Group SID: {{ managed_ad_bootstrap_group_sid }}"
       - "Requested users: {{ managed_ad_bootstrap_users | join(', ') }}"
-      - "User provisioning has not been enabled yet."
+      - >-
+        Existing users:
+        {{ managed_ad_bootstrap_existing_users | join(', ') }}
+      - >-
+        Newly created users:
+        {{ managed_ad_bootstrap_new_users | join(', ') }}
+      - >-
+        Memberships added:
+        {{ managed_ad_bootstrap_memberships_to_add | join(', ') }}
+      - >-
+        Credentials provisioned:
+        {{ managed_ad_bootstrap_credential_users | join(', ') }}
+      - >-
+        Credential location:
+        {{ managed_ad_bootstrap_secret_prefix }}/<username>
