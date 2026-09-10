@@ -60,21 +60,13 @@
   loop_control:
     label: "{{ item }}"
 
-- name: Ensure Managed AD bootstrap group
+- name: Bootstrap Managed AD principals
   ansible.builtin.include_tasks:
-    file: group.yml
-
-- name: Ensure Managed AD bootstrap users
-  ansible.builtin.include_tasks:
-    file: users.yml
+    file: principals.yml
 
 - name: Provision Managed AD bootstrap credentials
   ansible.builtin.include_tasks:
     file: credentials.yml
-
-- name: Ensure Managed AD bootstrap group memberships
-  ansible.builtin.include_tasks:
-    file: membership.yml
 
 - name: Report Managed AD bootstrap group result
   ansible.builtin.debug:
@@ -91,7 +83,7 @@
         {{ managed_ad_bootstrap_new_users | join(', ') }}
       - >-
         Memberships added:
-        {{ managed_ad_bootstrap_memberships_to_add | join(', ') }}
+        {{ managed_ad_bootstrap_memberships_added | join(', ') }}
       - >-
         Credentials provisioned:
         {{ managed_ad_bootstrap_credential_users | join(', ') }}
