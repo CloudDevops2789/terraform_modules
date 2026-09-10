@@ -1,0 +1,9 @@
+---
+galaxy_info:
+  author: Yoganand
+  description: Assume a base AWS role and an optional DR deployment role.
+  license: MIT
+
+  min_ansible_version: "2.16"
+
+dependencies: []

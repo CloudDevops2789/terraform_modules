@@ -1,3 +1,27 @@
+################################################################################
+# Persistent Stack Contract Outputs
+#
+# These outputs form the supported cross-stack contract.
+#
+# Local Terraform flow:
+#   module.<name>.<output>
+#       -> output blocks below
+#
+# Cross-stack flow:
+#   output
+#       -> ire/<environment>/persistent/terraform.tfstate
+#       -> playbooks/terraform/tasks/read_dependency.yml
+#       -> playbooks/terraform/tasks/runtime_variables.yml
+#       -> approved downstream contract input
+#
+# Current consumers:
+#   Platform -> network_firewall_logging_kms_key_arn
+#   Recovery -> standard_backup_vault_name
+#               air_gapped_backup_vault_arn
+#
+# Do not bypass this contract by manually copying state values into tfvars.
+################################################################################
+
 output "standard_backup_vault_name" {
   description = "Persistent standard AWS Backup vault name, or null when vault management is disabled."
   value       = try(module.backup_standard_vault[0].name, null)

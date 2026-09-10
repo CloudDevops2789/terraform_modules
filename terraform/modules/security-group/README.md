@@ -128,7 +128,7 @@ module "security_group_rule" {
 
 | Concept | Where | Why it is used |
 |---|---|---|
-| `for_each` over a map | `security-group.tf` | One group per named entry |
+| `for_each` over a map | `main.tf` | One group per named entry |
 | `optional()` in object types | `variables.tf` | `name` and `tags` may be omitted entirely |
 | Map comprehension + `merge()` | `locals.tf` | Precompute per-group tags with clear precedence |
 | `for` comprehension in outputs | `outputs.tf` | Return IDs keyed by stable logical identity |

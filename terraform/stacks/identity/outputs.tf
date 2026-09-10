@@ -1,6 +1,22 @@
-##################################################################################################
-# Identity Contract Outputs
-##################################################################################################
+################################################################################
+# Identity Stack Contract Outputs
+#
+# These outputs expose the supported Identity contract.
+#
+# Local flow:
+#   main.tf module outputs
+#       -> outputs below
+#
+# Downstream flow:
+#   Identity outputs
+#       -> ire/<environment>/identity/terraform.tfstate
+#       -> playbooks/terraform/tasks/read_dependency.yml
+#       -> playbooks/terraform/tasks/runtime_variables.yml
+#       -> approved downstream consumer contract
+#
+# The primary downstream contract is identity_contract, currently consumed by
+# Remote Access when that lifecycle is enabled.
+################################################################################
 
 output "managed_ad_enabled" {
   description = "Whether this Identity stack manages an AWS Managed Microsoft AD directory."

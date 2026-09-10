@@ -1,0 +1,348 @@
+---
+################################################################################
+# Terraform Runtime Variable Broker
+#
+# Purpose:
+#   Build the small runtime-variable document passed to Terraform.
+#
+# Variable precedence:
+#
+#   approved environment values
+#       -> approved operator runtime values
+#       -> lifecycle dependency contracts
+#       -> credential-owned sensitive values
+#       -> AWS Region
+#
+# Lifecycle outputs are read from upstream Terraform state. Operators must not
+# manually provide or override those contracts through terraform_variables.
+################################################################################
+
+
+################################################################################
+# 1. Approved Environment Variables
+################################################################################
+
+- name: Read common private environment variables
+  ansible.builtin.set_fact:
+    terraform_common_environment_variables: >-
+      {{
+        (
+          terraform_environment_variables_by_stack
+          | default({})
+        ).get('common', {})
+      }}
+  no_log: true
+
+- name: Read stack private environment variables
+  ansible.builtin.set_fact:
+    terraform_stack_environment_variables: >-
+      {{
+        (
+          terraform_environment_variables_by_stack
+          | default({})
+        ).get(terraform_stack, {})
+      }}
+  no_log: true
+
+- name: Build approved private environment variables
+  ansible.builtin.set_fact:
+    terraform_environment_variables: >-
+      {{
+        terraform_common_environment_variables
+        | combine(terraform_stack_environment_variables)
+      }}
+  no_log: true
+
+- name: Validate private environment variable keys
+  ansible.builtin.assert:
+    that:
+      - >-
+        (
+          terraform_environment_variables.keys()
+          | list
+          | difference(
+              terraform_common_environment_variable_allowlist
+              + terraform_environment_variable_allowlist
+            )
+          | length
+        ) == 0
+
+      - >-
+        (
+          terraform_environment_variables.keys()
+          | list
+          | intersect(terraform_variables.keys() | list)
+          | length
+        ) == 0
+
+    fail_msg: >-
+      Private environment variables contain an unapproved key or overlap
+      operator runtime variables.
+  no_log: true
+
+
+################################################################################
+# 2. Lifecycle Dependency Selection
+################################################################################
+
+- name: Initialize lifecycle dependency data
+  ansible.builtin.set_fact:
+    terraform_dependency_outputs: {}
+    terraform_contract_variables: {}
+    terraform_managed_dependencies: []
+  no_log: true
+
+- name: Select managed lifecycle dependencies
+  ansible.builtin.set_fact:
+    terraform_managed_dependencies: >-
+      {{
+        terraform_managed_dependencies
+        +
+        [item]
+      }}
+  loop: "{{ terraform_dependencies | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when:
+    - >-
+      terraform_persistent_contract_source == 'managed'
+      or item.key != 'persistent'
+
+- name: Read managed lifecycle dependencies
+  ansible.builtin.include_tasks:
+    file: "{{ terraform_repository_root }}/playbooks/terraform/tasks/read_dependency.yml"
+  loop: "{{ terraform_managed_dependencies }}"
+  loop_control:
+    loop_var: terraform_dependency
+    label: "{{ terraform_dependency.key }}"
+  vars:
+    terraform_dependency_stack: "{{ terraform_dependency.key }}"
+    terraform_dependency_output_names: "{{ terraform_dependency.value }}"
+    terraform_dependency_outputs_optional: >-
+      {{
+        terraform_dependency.key == 'persistent'
+        or
+        (
+          terraform_stack == 'remote-access'
+          and terraform_dependency.key == 'identity'
+        )
+      }}
+
+
+################################################################################
+# 3. Persistent Resource Source
+#
+# Managed mode:
+#   Read approved values from Persistent Terraform state.
+#
+# External mode:
+#   Consume values supplied by the approved environment inventory.
+#
+# Only stacks that actually consume Persistent resources resolve this object.
+################################################################################
+
+- name: Select managed Persistent Resources
+  ansible.builtin.set_fact:
+    terraform_effective_persistent_resources: >-
+      {{ terraform_dependency_outputs.persistent | default({}) }}
+  when:
+    - terraform_stack in ['inspection', 'recovery']
+    - terraform_persistent_contract_source == 'managed'
+  no_log: true
+
+- name: Select external Persistent Resources
+  ansible.builtin.set_fact:
+    terraform_effective_persistent_resources: >-
+      {{ terraform_external_persistent_resources }}
+  when:
+    - terraform_stack in ['inspection', 'recovery']
+    - terraform_persistent_contract_source == 'external'
+  no_log: true
+
+
+################################################################################
+# 4. Inspection Contracts
+#
+# Inspection always consumes the Platform inspection topology.
+# Persistent resources are passed only when they actually exist.
+################################################################################
+
+- name: Build Inspection lifecycle contracts
+  ansible.builtin.set_fact:
+    terraform_contract_variables:
+      inspection_contract: "{{ terraform_dependency_outputs.platform.inspection_contract }}"
+      persistent_resources: "{{ terraform_effective_persistent_resources }}"
+  when:
+    - terraform_stack == 'inspection'
+  no_log: true
+
+
+################################################################################
+# 5. Identity Contract
+#
+# Identity consumes the Platform service contract.
+################################################################################
+
+- name: Build Identity lifecycle contract
+  ansible.builtin.set_fact:
+    terraform_contract_variables:
+      platform_contract: >-
+        {{ terraform_dependency_outputs.platform.platform_contract }}
+  when:
+    - terraform_stack == 'identity'
+  no_log: true
+
+
+################################################################################
+# 6. Remote Access Contracts
+#
+# Platform networking is always required by Remote Access.
+# Identity is added only when an Identity contract is available. This allows
+# mutual-certificate-only deployments to operate without Managed AD.
+################################################################################
+
+- name: Build Remote Access Platform contract
+  ansible.builtin.set_fact:
+    terraform_contract_variables:
+      platform_contract: "{{ terraform_dependency_outputs.platform.platform_contract }}"
+  when:
+    - terraform_stack == 'remote-access'
+  no_log: true
+
+- name: Add Remote Access Identity contract when available
+  ansible.builtin.set_fact:
+    terraform_contract_variables: >-
+      {{
+        terraform_contract_variables
+        | combine({
+            'identity_contract':
+              terraform_dependency_outputs.identity.identity_contract
+          })
+      }}
+  when:
+    - terraform_stack == 'remote-access'
+    - terraform_dependency_outputs.identity is defined
+    - terraform_dependency_outputs.identity.identity_contract is defined
+  no_log: true
+
+
+- name: Add Managed AD authorization group to Remote Access contract
+  ansible.builtin.set_fact:
+    terraform_contract_variables: >-
+      {{
+        terraform_contract_variables
+        | combine({
+            'client_vpn_access_group_id': managed_ad_group_sid
+          })
+      }}
+  when:
+    - terraform_stack == 'remote-access'
+    - managed_ad_group_sid | default('') | length > 0
+  no_log: true
+
+
+################################################################################
+# 7. Recovery Contracts
+#
+# Recovery consumes Platform placement information plus approved Persistent
+# backup resources.
+################################################################################
+
+- name: Build Recovery lifecycle contracts
+  ansible.builtin.set_fact:
+    terraform_contract_variables:
+      platform_contract: >-
+        {{ terraform_dependency_outputs.platform.platform_contract }}
+
+      persistent_resources:
+        standard_backup_vault_name: >-
+          {{
+            terraform_effective_persistent_resources
+            .standard_backup_vault_name
+            | default(none, true)
+          }}
+
+        air_gapped_backup_vault_arn: >-
+          {{
+            terraform_effective_persistent_resources
+            .air_gapped_backup_vault_arn
+            | default(none, true)
+          }}
+  when:
+    - terraform_stack == 'recovery'
+  no_log: true
+
+
+################################################################################
+# 8. Contract Protection
+################################################################################
+
+- name: Prevent runtime override of lifecycle contracts
+  ansible.builtin.assert:
+    that:
+      - >-
+        (
+          terraform_variables.keys()
+          | list
+          | intersect(terraform_contract_variables.keys() | list)
+          | length
+        ) == 0
+
+      - "'managed_ad_password' not in terraform_variables"
+
+    fail_msg: >-
+      Terraform lifecycle contracts and credential-owned values cannot be
+      overridden through terraform_variables.
+
+
+################################################################################
+# 9. Credential-Owned Sensitive Variables
+#
+# Sensitive values are supplied only through approved AAP credential injection.
+# They are never accepted through ordinary Job Template runtime variables.
+################################################################################
+
+- name: Initialize sensitive Terraform variables
+  ansible.builtin.set_fact:
+    terraform_sensitive_variables: {}
+  no_log: true
+
+- name: Read Managed AD password from AAP credential
+  ansible.builtin.set_fact:
+    terraform_managed_ad_password: >-
+      {{
+        lookup(
+          'ansible.builtin.env',
+          'IRE_TERRAFORM_MANAGED_AD_PASSWORD',
+          default=''
+        )
+      }}
+  when:
+    - terraform_stack == 'identity'
+  no_log: true
+
+- name: Add Managed AD password to Terraform variables
+  ansible.builtin.set_fact:
+    terraform_sensitive_variables:
+      managed_ad_password: "{{ terraform_managed_ad_password }}"
+  when:
+    - terraform_stack == 'identity'
+    - terraform_managed_ad_password | default('') | length > 0
+  no_log: true
+
+
+################################################################################
+# 10. Final Terraform Runtime Variables
+################################################################################
+
+- name: Build effective Terraform runtime variables
+  ansible.builtin.set_fact:
+    terraform_effective_variables: >-
+      {{
+        terraform_environment_variables
+        | combine(terraform_variables, recursive=true)
+        | combine(terraform_contract_variables, recursive=true)
+        | combine(terraform_sensitive_variables, recursive=true)
+        | combine({'aws_region': assume_role_aws_region})
+      }}
+  no_log: true

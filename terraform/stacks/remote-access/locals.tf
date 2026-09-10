@@ -45,9 +45,17 @@ locals {
   authorization_rules = !var.remote_access_enabled ? {} : {
     for vpc_key in var.authorization_vpc_keys :
     vpc_key => {
-      target_network_cidr  = var.platform_contract.vpc_cidrs[vpc_key]
-      authorize_all_groups = false
-      access_group_id      = var.client_vpn_access_group_id
+      target_network_cidr = var.platform_contract.vpc_cidrs[vpc_key]
+
+      authorize_all_groups = (
+        var.authentication_type == "mutual"
+      )
+
+      access_group_id = (
+        contains(["directory", "directory_and_mutual"], var.authentication_type)
+        ? var.client_vpn_access_group_id
+        : null
+      )
     }
   }
 
@@ -60,6 +68,30 @@ locals {
     }
     if vpc_key != var.network_binding.vpc_key
   }
+
+  dns_egress_security_group_rules = !var.remote_access_enabled ? {} : merge([
+    for index, address in local.dns_servers : {
+      "dns-udp-${index}" = {
+        type              = "egress"
+        security_group_id = module.remote_access_security_group.security_group_ids["endpoint"]
+        description       = "DNS over UDP to approved resolver ${address}"
+        ip_protocol       = "udp"
+        from_port         = 53
+        to_port           = 53
+        cidr_ipv4         = "${address}/32"
+      }
+
+      "dns-tcp-${index}" = {
+        type              = "egress"
+        security_group_id = module.remote_access_security_group.security_group_ids["endpoint"]
+        description       = "DNS over TCP to approved resolver ${address}"
+        ip_protocol       = "tcp"
+        from_port         = 53
+        to_port           = 53
+        cidr_ipv4         = "${address}/32"
+      }
+    }
+  ]...)
 
   endpoint_egress_security_group_rules = !var.remote_access_enabled ? {} : {
     for rule_key, rule in var.endpoint_egress_rules :
@@ -74,28 +106,22 @@ locals {
     }
   }
 
+  # Allow traffic from the Client VPN endpoint security group to approved
+  # Platform-managed target security groups.
+  #
+  # Security-group references avoid coupling access policy to the number or
+  # CIDRs of Client VPN association subnets.
   target_ingress_security_group_rules = !var.remote_access_enabled ? {} : {
-    for item in flatten([
-      for rule_key, rule in var.target_ingress_rules : [
-        for index, cidr in local.association_subnet_cidrs : {
-          key                = "target-${rule_key}-${index}"
-          security_group_key = rule.security_group_key
-          protocol           = rule.protocol
-          from_port          = rule.from_port
-          to_port            = rule.to_port
-          description        = rule.description
-          cidr               = cidr
-        }
-      ]
-    ]) :
-    item.key => {
+    for rule_key, rule in var.target_ingress_rules :
+    "target-${rule_key}" => {
       type              = "ingress"
-      security_group_id = var.platform_contract.security_group_ids[item.security_group_key]
-      description       = item.description
-      ip_protocol       = item.protocol
-      from_port         = item.from_port
-      to_port           = item.to_port
-      cidr_ipv4         = item.cidr
+      security_group_id = var.platform_contract.security_group_ids[rule.security_group_key]
+      description       = rule.description
+      ip_protocol       = rule.protocol
+      from_port         = rule.from_port
+      to_port           = rule.to_port
+
+      referenced_security_group_id = module.remote_access_security_group.security_group_ids["endpoint"]
     }
   }
 }
