@@ -1,0 +1,39 @@
+---
+################################################################################
+# Managed AD Unbootstrap - Principals
+#
+# Removes requested group memberships and optionally deletes directory users.
+################################################################################
+
+- name: Remove Managed AD users and memberships
+  ire_platform.aws.managed_ad_principal_cleanup:
+    directory_id: "{{ managed_ad_unbootstrap_directory_id }}"
+    group_name: "{{ managed_ad_unbootstrap_group_name }}"
+    user_names: "{{ managed_ad_unbootstrap_users }}"
+    delete_users: "{{ managed_ad_unbootstrap_delete_users }}"
+    region: "{{ managed_ad_unbootstrap_region }}"
+  register: managed_ad_unbootstrap_principal_result
+
+- name: Publish Managed AD principal cleanup facts
+  ansible.builtin.set_fact:
+    managed_ad_unbootstrap_memberships_removed: >-
+      {{
+        managed_ad_unbootstrap_principal_result.memberships_removed
+        | default([])
+      }}
+
+    managed_ad_unbootstrap_users_deleted: >-
+      {{
+        managed_ad_unbootstrap_principal_result.users_deleted
+        | default([])
+      }}
+
+    managed_ad_unbootstrap_users_missing: >-
+      {{
+        managed_ad_unbootstrap_principal_result.users_missing
+        | default([])
+      }}
+    managed_ad_unbootstrap_group_missing: >-
+      {{ managed_ad_unbootstrap_principal_result.group_missing
+        | default(false)
+      }}
