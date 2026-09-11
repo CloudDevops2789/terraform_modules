@@ -1,0 +1,51 @@
+---
+################################################################################
+# Managed AD Directory Unbootstrap
+#
+# AAP entry point for revoking or fully deprovisioning selected AWS Managed
+# Microsoft AD bootstrap users.
+#
+# Runtime inputs:
+#   managed_ad_unbootstrap_group_name
+#   managed_ad_unbootstrap_users
+#   managed_ad_unbootstrap_delete_users
+#   managed_ad_unbootstrap_delete_secrets
+#   managed_ad_unbootstrap_secret_recovery_days
+#   managed_ad_unbootstrap_confirmation
+#
+# Derived/orchestrated inputs:
+#   managed_ad_unbootstrap_directory_id
+#   managed_ad_unbootstrap_region
+#   managed_ad_unbootstrap_secret_prefix
+################################################################################
+
+- name: Unbootstrap AWS Managed Microsoft AD users
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  pre_tasks:
+
+    - name: Validate directory unbootstrap runtime request
+      ansible.builtin.assert:
+        that:
+          - directory_environment | default('') | length > 0
+          - managed_ad_directory_id | default('') is match('^d-[0-9a-f]{10}$')
+          - managed_ad_unbootstrap_group_name | default('') | length > 0
+          - managed_ad_unbootstrap_users is defined
+          - managed_ad_unbootstrap_users is sequence
+          - managed_ad_unbootstrap_users is not string
+          - managed_ad_unbootstrap_users | length > 0
+        fail_msg: >-
+          Supply the directory environment, target group and explicit user list
+          through AAP runtime variables.
+
+    - name: Derive Managed AD unbootstrap environment values
+      ansible.builtin.set_fact:
+        managed_ad_unbootstrap_directory_id: "{{ managed_ad_directory_id }}"
+        managed_ad_unbootstrap_region: "{{ aws_region }}"
+        managed_ad_unbootstrap_secret_prefix: >-
+          ire/{{ directory_environment }}/ad-users
+
+  roles:
+    - role: ire_platform.aws.managed_ad_unbootstrap
