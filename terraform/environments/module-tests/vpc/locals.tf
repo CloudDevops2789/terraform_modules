@@ -5,7 +5,7 @@ locals {
   ##################################################################################################
   # Applied on top of the provider's default_tags so resources created by
   # this test are identifiable as throwaway module-validation infrastructure.
-  org_required_tags = {
+  org_default_tags = {
     "org_it_cost_center"       = var.org_it_cost_center
     "org_department"           = var.org_department
     "org_cmdb_calculated_app"  = var.org_cmdb_calculated_app
@@ -17,8 +17,8 @@ locals {
   }
 
   org_tags = merge(
-    var.org_additional_tags,
-    local.org_required_tags
+    local.org_default_tags,
+    var.org_additional_tags
   )
 
   ##################################################################################################

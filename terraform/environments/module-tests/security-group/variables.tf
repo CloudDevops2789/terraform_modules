@@ -97,30 +97,28 @@ variable "org_managed_by" {
 }
 
 variable "org_additional_tags" {
-  description = "Additional organization-approved tags that do not redefine mandatory organization tags."
+  description = "Optional additional AWS resource tags. Keys do not require the standard organization prefix and may override standard test-harness tags."
   type        = map(string)
   default     = {}
   nullable    = false
 
   validation {
-    condition = length(setintersection(
-      toset(keys(var.org_additional_tags)),
-      toset([
-        "org_it_cost_center",
-        "org_department",
-        "org_cmdb_calculated_app",
-        "org_business_criticality",
-        "org_environment",
-        "org_data_classification",
-        "org_project_name",
-        "org_managed_by",
-      ])
-    )) == 0
-    error_message = "org_additional_tags must not redefine mandatory organization tag keys."
+    condition = alltrue([
+      for key in keys(var.org_additional_tags) :
+      length(key) > 0 &&
+      length(key) <= 128 &&
+      !startswith(lower(key), "aws:")
+    ])
+
+    error_message = "Additional tag keys must be 1-128 characters and must not use the reserved aws: prefix."
   }
 
   validation {
-    condition     = alltrue([for key in keys(var.org_additional_tags) : startswith(key, "org_")])
-    error_message = "Every org_additional_tags key must start with org_."
+    condition = alltrue([
+      for value in values(var.org_additional_tags) :
+      length(value) <= 256
+    ])
+
+    error_message = "Additional tag values must not exceed 256 characters."
   }
 }
