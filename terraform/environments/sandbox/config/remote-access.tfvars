@@ -1,5 +1,5 @@
 ################################################################################
-# Fairview Remote Access desired state
+# Sandbox Remote Access desired state
 ################################################################################
 
 # Creation still requires Platform, Identity and AD user/group bootstrap to
@@ -7,7 +7,7 @@
 # Managed AD VPN-group SID at runtime.
 remote_access_enabled = true
 
-name              = "fv-ire-sandbox-remote-access"
+name              = "ire-sandbox-remote-access"
 client_cidr_block = "172.30.240.0/22"
 # authentication_type = "directory"
 authentication_type = "mutual"

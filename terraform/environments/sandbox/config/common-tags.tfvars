@@ -1,16 +1,18 @@
 ##################################################################################################
 # Sandbox Common Organization Tags
 #
-# Shared by Platform, Inspection, Identity, and Recovery stacks.
+# Shared by Platform, Inspection, Identity, Recovery, and Remote Access stacks.
+# These values are customer-neutral reference values for Sandbox validation.
 ##################################################################################################
-organization_tag_key_prefix = "fv:"
 
-org_it_cost_center       = "10000-70100-8281"
-org_department           = "Cybersecurity_Resilience_and_Recovery"
-org_cmdb_calculated_app  = "Cybersecurity_Resilience_and_Recovery"
+organization_tag_key_prefix = "org:"
+
+org_it_cost_center       = "00000"
+org_department           = "Cyber_Resilience"
+org_cmdb_calculated_app  = "Isolated_Recovery_Environment"
 org_business_criticality = "4"
 org_environment          = "dev"
 org_data_classification  = "Internal"
-org_project_name         = "CyberRecoveryBlueprint"
+org_project_name         = "IsolatedRecoveryEnvironment"
 org_managed_by           = "Terraform"
 org_additional_tags      = {}
