@@ -240,6 +240,87 @@ Platform
   -> Remote Access
 ~~~
 
+## Managed AD directory unbootstrap
+
+Run `playbooks/directory/unbootstrap.yml` when previously bootstrapped Managed
+AD users no longer require IRE access.
+
+The unbootstrap lifecycle is intentionally separate from the ordinary bootstrap
+path. It supports either access revocation or full user deprovisioning.
+
+The directory ID is an orchestration-derived value. When Unbootstrap executes
+as part of an AAP workflow, consume `managed_ad_directory_id` from the upstream
+Identity lifecycle artifact. Operators must not manually copy directory IDs
+into Job Template variables.
+
+### Revoke access only
+
+Use access revocation when the directory identity and stored bootstrap
+credential should be retained:
+
+~~~yaml
+directory_environment: sandbox
+aws_region: us-east-1
+
+managed_ad_unbootstrap_group_name: IRE_ClientVPN_Users
+
+managed_ad_unbootstrap_users:
+  - user001
+
+managed_ad_unbootstrap_delete_users: false
+managed_ad_unbootstrap_delete_secrets: false
+
+managed_ad_unbootstrap_confirmation: REVOKE MANAGED AD ACCESS
+~~~
+
+This removes the requested users from the authorization group while retaining
+their directory users and Secrets Manager credentials.
+
+### Full deprovision
+
+Use full deprovision only when the directory users themselves are no longer
+required:
+
+~~~yaml
+directory_environment: sandbox
+aws_region: us-east-1
+
+managed_ad_unbootstrap_group_name: IRE_ClientVPN_Users
+
+managed_ad_unbootstrap_users:
+  - user001
+
+managed_ad_unbootstrap_delete_users: true
+managed_ad_unbootstrap_delete_secrets: true
+managed_ad_unbootstrap_secret_recovery_days: 7
+
+managed_ad_unbootstrap_confirmation: REMOVE MANAGED AD USERS
+~~~
+
+Full deprovision:
+
+- removes existing authorization-group memberships;
+- deletes the requested Managed AD users;
+- schedules their bootstrap secrets for deletion; and
+- retains the authorization group itself.
+
+Secrets are scheduled for deletion using the configured 7-30 day AWS Secrets
+Manager recovery window. Immediate force deletion is intentionally unsupported.
+
+The operation is idempotent. Already absent users, groups, memberships and
+secrets do not require manual cleanup, and secrets that are already scheduled
+for deletion are reported separately.
+
+The deterministic secret location remains:
+
+~~~text
+ire/<environment>/ad-users/<username>
+~~~
+
+Secret names and directory IDs are derived by orchestration rather than copied
+manually by operators.
+
+
 ## Destroy Job Template variables
 
 Destroy-plan and Destroy Job Templates use the same stack-specific destroy

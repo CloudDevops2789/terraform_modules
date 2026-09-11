@@ -1,0 +1,128 @@
+---
+################################################################################
+# Managed AD Unbootstrap
+#
+# Reusable operational cleanup lifecycle for AWS Managed Microsoft AD.
+#
+# Order of operations:
+#
+#   1. Validate explicit operator request
+#   2. Remove requested users from the authorization group
+#   3. Optionally delete requested directory users
+#   4. Optionally schedule their Secrets Manager secrets for deletion
+#
+# The group itself is intentionally retained.
+################################################################################
+
+- name: Validate Managed AD unbootstrap inputs
+  ansible.builtin.assert:
+    that:
+      - managed_ad_unbootstrap_directory_id is string
+      - managed_ad_unbootstrap_directory_id is match('^d-[0-9a-f]{10}$')
+
+      - managed_ad_unbootstrap_region is string
+      - managed_ad_unbootstrap_region | length > 0
+
+      - managed_ad_unbootstrap_group_name is string
+      - managed_ad_unbootstrap_group_name | trim | length > 0
+      - managed_ad_unbootstrap_group_name | length <= 64
+      - managed_ad_unbootstrap_group_name is match('^[^:;|=+"*?<>/\\,\[\]@]+$')
+
+      - managed_ad_unbootstrap_users is sequence
+      - managed_ad_unbootstrap_users is not string
+      - managed_ad_unbootstrap_users | length > 0
+      - >-
+        managed_ad_unbootstrap_users
+        | map('lower')
+        | unique
+        | list
+        | length
+        == managed_ad_unbootstrap_users | length
+
+      - managed_ad_unbootstrap_secret_prefix is string
+      - managed_ad_unbootstrap_secret_prefix | trim | length > 0
+
+      - managed_ad_unbootstrap_delete_users is boolean
+      - managed_ad_unbootstrap_delete_secrets is boolean
+
+      - managed_ad_unbootstrap_secret_recovery_days is number
+      - managed_ad_unbootstrap_secret_recovery_days | int >= 7
+      - managed_ad_unbootstrap_secret_recovery_days | int <= 30
+
+      - >-
+        not managed_ad_unbootstrap_delete_secrets
+        or managed_ad_unbootstrap_delete_users
+
+      - >-
+        (
+          managed_ad_unbootstrap_delete_users
+          and
+          managed_ad_unbootstrap_confirmation
+          == managed_ad_unbootstrap_delete_confirmation
+        )
+        or
+        (
+          not managed_ad_unbootstrap_delete_users
+          and
+          managed_ad_unbootstrap_confirmation
+          == managed_ad_unbootstrap_revoke_confirmation
+        )
+
+    fail_msg: >-
+      Managed AD unbootstrap inputs are invalid. Supply a valid directory,
+      group and unique user list. Access revocation requires the exact
+      REVOKE MANAGED AD ACCESS confirmation. Directory-user deletion requires
+      the exact REMOVE MANAGED AD USERS confirmation. Secret deletion requires
+      directory-user deletion and uses a 7-30 day recovery window.
+
+- name: Validate Managed AD unbootstrap user names
+  ansible.builtin.assert:
+    that:
+      - item is string
+      - item | length >= 1
+      - item | length <= 20
+      - item is match('^[A-Za-z0-9._-]+$')
+    fail_msg: >-
+      Managed AD SAM account names must contain only letters, numbers,
+      periods, underscores or hyphens and must be between 1 and 20 characters.
+  loop: "{{ managed_ad_unbootstrap_users }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: Remove Managed AD principals and memberships
+  ansible.builtin.include_tasks:
+    file: principals.yml
+
+- name: Schedule Managed AD bootstrap secrets for deletion
+  ansible.builtin.include_tasks:
+    file: secrets.yml
+  when:
+    - managed_ad_unbootstrap_delete_secrets
+
+- name: Report Managed AD unbootstrap result
+  ansible.builtin.debug:
+    msg:
+      - "Directory ID: {{ managed_ad_unbootstrap_directory_id }}"
+      - "Group: {{ managed_ad_unbootstrap_group_name }}"
+      - "Requested users: {{ managed_ad_unbootstrap_users | join(', ') }}"
+      - >-
+        Group already absent:
+        {{ managed_ad_unbootstrap_group_missing | default(false) }}
+      - >-
+        Memberships removed:
+        {{ managed_ad_unbootstrap_memberships_removed | default([]) | join(', ') }}
+      - >-
+        Users deleted:
+        {{ managed_ad_unbootstrap_users_deleted | default([]) | join(', ') }}
+      - >-
+        Users already absent:
+        {{ managed_ad_unbootstrap_users_missing | default([]) | join(', ') }}
+      - >-
+        Secrets scheduled for deletion:
+        {{ managed_ad_unbootstrap_secrets_scheduled | default([]) | join(', ') }}
+      - >-
+        Secrets already scheduled:
+        {{ managed_ad_unbootstrap_secrets_already_scheduled | default([]) | join(', ') }}
+      - >-
+        Secrets missing:
+        {{ managed_ad_unbootstrap_secrets_missing | default([]) | join(', ') }}

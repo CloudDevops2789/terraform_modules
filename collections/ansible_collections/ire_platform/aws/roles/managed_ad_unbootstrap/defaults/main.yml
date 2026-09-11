@@ -1,0 +1,30 @@
+---
+################################################################################
+# Managed AD Unbootstrap - Defaults
+#
+# This role revokes selected AWS Managed Microsoft AD access and can optionally
+# remove the corresponding directory users and bootstrap secrets.
+#
+# Directory-user deletion and secret deletion are explicitly opt-in.
+################################################################################
+
+managed_ad_unbootstrap_directory_id: ""
+managed_ad_unbootstrap_region: ""
+
+managed_ad_unbootstrap_group_name: ""
+managed_ad_unbootstrap_users: []
+
+managed_ad_unbootstrap_secret_prefix: ""
+
+# Default operation revokes group membership while retaining the directory user
+# and its stored bootstrap credential.
+managed_ad_unbootstrap_delete_users: false
+managed_ad_unbootstrap_delete_secrets: false
+
+# AWS Secrets Manager recovery window for secrets scheduled for deletion.
+managed_ad_unbootstrap_secret_recovery_days: 7
+
+managed_ad_unbootstrap_confirmation: ""
+
+managed_ad_unbootstrap_revoke_confirmation: "REVOKE MANAGED AD ACCESS"
+managed_ad_unbootstrap_delete_confirmation: "REMOVE MANAGED AD USERS"
