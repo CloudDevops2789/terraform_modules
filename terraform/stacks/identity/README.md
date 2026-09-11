@@ -261,7 +261,7 @@ common-tags.tfvars / approved environment inventory
 variables.tf
     |
     v
-local.org_required_tags
+local.org_default_tags
     +
 var.org_additional_tags
     |

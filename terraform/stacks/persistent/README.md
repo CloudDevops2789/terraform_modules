@@ -244,7 +244,7 @@ variables.tf
     v
 locals.tf
     |
-    +--> local.org_required_tags
+    +--> local.org_default_tags
     |
     v
 local.org_tags
