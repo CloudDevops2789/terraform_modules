@@ -200,6 +200,76 @@ Remote Access Terraform
     -> Client VPN authentication and authorization
 ~~~
 
+## Managed AD unbootstrap workflow contract
+
+Managed AD user cleanup is an operational lifecycle and is not represented as
+Terraform configuration.
+
+The Unbootstrap entry point is:
+
+~~~text
+playbooks/directory/unbootstrap.yml
+~~~
+
+The operator-facing request contains:
+
+~~~yaml
+managed_ad_unbootstrap_group_name: IRE_ClientVPN_Users
+
+managed_ad_unbootstrap_users:
+  - user001
+
+managed_ad_unbootstrap_delete_users: false
+managed_ad_unbootstrap_delete_secrets: false
+
+managed_ad_unbootstrap_secret_recovery_days: 7
+
+managed_ad_unbootstrap_confirmation: REVOKE MANAGED AD ACCESS
+~~~
+
+The playbook derives the following values from the environment and workflow
+contract:
+
+~~~text
+managed_ad_unbootstrap_directory_id
+managed_ad_unbootstrap_region
+managed_ad_unbootstrap_secret_prefix
+~~~
+
+The directory ID is not an ordinary operator-provided variable. When the job
+runs within an AAP workflow, it consumes the Identity lifecycle artifact:
+
+~~~yaml
+managed_ad_directory_id: d-xxxxxxxxxx
+~~~
+
+The secret prefix is derived as:
+
+~~~text
+ire/<environment>/ad-users
+~~~
+
+Two confirmation modes are supported:
+
+~~~text
+REVOKE MANAGED AD ACCESS
+    -> remove group membership
+    -> retain directory user
+    -> retain secret
+
+REMOVE MANAGED AD USERS
+    -> remove group membership
+    -> delete directory user
+    -> optionally schedule secret deletion
+~~~
+
+`managed_ad_unbootstrap_delete_secrets` cannot be enabled unless
+`managed_ad_unbootstrap_delete_users` is also enabled.
+
+Secrets use a recovery window from 7 through 30 days. Immediate force deletion
+is intentionally unsupported.
+
+
 ## Recovery workload compute contract
 
 `terraform/environments/sandbox/config/recovery.tfvars` owns every workload's
