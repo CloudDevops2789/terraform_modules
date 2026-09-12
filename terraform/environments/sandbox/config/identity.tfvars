@@ -21,8 +21,8 @@ managed_ad_enabled = true
 
 # Define the approved domain and edition before enabling the directory.
 managed_ad_configuration = {
-  domain_name                  = "ad.ire.example"
-  short_name                   = "IRE"
+  domain_name                  = "ad.fairview-ire.org"
+  short_name                   = "FVIRE"
   edition                      = "Standard"
   enable_directory_data_access = true
 }
@@ -32,9 +32,9 @@ managed_ad_configuration = {
 managed_ad_dns_resolver = {
   enabled = true
 
-  endpoint_name       = "ire-sandbox-managed-ad-dns-outbound"
-  rule_name           = "ire-sandbox-managed-ad-domain"
-  security_group_name = "ire-sandbox-managed-ad-dns-sg"
+  endpoint_name       = "fv-ire-sandbox-managed-ad-dns-outbound"
+  rule_name           = "fv-ire-sandbox-managed-ad-domain"
+  security_group_name = "fv-ire-sandbox-managed-ad-dns-sg"
 
   vpc_key               = "core_recovery"
   subnet_group          = "endpoints"
