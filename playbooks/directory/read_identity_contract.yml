@@ -1,0 +1,128 @@
+---
+################################################################################
+# Managed AD Identity Contract Reader
+#
+# Read-only workflow helper used when a workflow needs the existing Managed AD
+# identity contract without running a Terraform plan or apply.
+#
+# This is especially important for a fresh destroy workflow. AWX workflow
+# artifacts published during a previous deployment workflow are not used as a
+# durable cross-workflow contract.
+#
+# Operations:
+#   - assumes the normal deployment role
+#   - initializes the existing Identity Terraform backend
+#   - reads the identity_contract Terraform output
+#   - publishes the Managed AD directory identifiers with set_stats
+#
+# This playbook does not modify Terraform state or AWS infrastructure.
+################################################################################
+
+- name: Read Managed AD Identity workflow contract
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    terraform_backend_use_lockfile: true
+    terraform_backend_encrypt: true
+
+  pre_tasks:
+
+    - name: Validate Identity contract reader inputs
+      ansible.builtin.assert:
+        that:
+          - terraform_environment | default('') == 'sandbox'
+          - terraform_repository_root | default('') | length > 0
+          - terraform_backend_bucket | default('') | length > 2
+          - terraform_backend_region | default('') | length > 0
+          - assume_role_role_arn | default('') | length > 0
+          - assume_role_aws_region | default('') | length > 0
+        fail_msg: >-
+          Identity contract reader backend, repository, environment, or
+          authentication inputs are missing or invalid.
+
+    - name: Derive Identity Terraform paths
+      ansible.builtin.set_fact:
+        terraform_identity_root: >-
+          {{ terraform_repository_root }}/terraform/stacks/identity
+        terraform_identity_backend_key: >-
+          ire/{{ terraform_environment }}/identity/terraform.tfstate
+
+  roles:
+    - role: ire_platform.aws.assume_role
+
+  tasks:
+
+    - name: Initialize Identity Terraform backend
+      ansible.builtin.command:
+        argv:
+          - terraform
+          - init
+          - -input=false
+          - -reconfigure
+          - "-backend-config=bucket={{ terraform_backend_bucket }}"
+          - "-backend-config=key={{ terraform_identity_backend_key }}"
+          - "-backend-config=region={{ terraform_backend_region }}"
+          - "-backend-config=encrypt={{ terraform_backend_encrypt | lower }}"
+          - "-backend-config=use_lockfile={{ terraform_backend_use_lockfile | lower }}"
+      args:
+        chdir: "{{ terraform_identity_root }}"
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+        AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+        AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+        AWS_REGION: "{{ assume_role_aws_auth.region }}"
+        AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+        TF_IN_AUTOMATION: "true"
+      changed_when: false
+      no_log: true
+
+    - name: Read Identity Terraform contract
+      ansible.builtin.command:
+        argv:
+          - terraform
+          - output
+          - -json
+          - identity_contract
+      args:
+        chdir: "{{ terraform_identity_root }}"
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+        AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+        AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+        AWS_REGION: "{{ assume_role_aws_auth.region }}"
+        AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+        TF_IN_AUTOMATION: "true"
+      register: terraform_identity_contract_read
+      changed_when: false
+
+    - name: Parse Identity workflow contract
+      ansible.builtin.set_fact:
+        terraform_identity_workflow_contract: >-
+          {{ terraform_identity_contract_read.stdout | from_json }}
+
+    - name: Validate Managed AD Identity workflow contract
+      ansible.builtin.assert:
+        that:
+          - terraform_identity_workflow_contract.managed_ad_enabled | bool
+          - >-
+            terraform_identity_workflow_contract.directory_id
+            | default('')
+            is match('^d-[0-9a-f]{10}$')
+          - >-
+            terraform_identity_workflow_contract.directory_name
+            | default('')
+            | length > 0
+        fail_msg: >-
+          Existing Identity state does not expose an enabled Managed AD
+          workflow contract with a valid directory ID and directory name.
+
+    - name: Publish Identity workflow artifacts
+      ansible.builtin.set_stats:
+        data:
+          managed_ad_directory_id: >-
+            {{ terraform_identity_workflow_contract.directory_id }}
+          managed_ad_directory_name: >-
+            {{ terraform_identity_workflow_contract.directory_name }}
+        per_host: false

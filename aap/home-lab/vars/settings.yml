@@ -1,0 +1,67 @@
+---
+################################################################################
+# Home Lab AWX Settings
+#
+# This Configuration-as-Code is used only for the local/home-lab AWX instance.
+#
+# Organization AAP configuration remains managed through the organization's
+# separate AAP Configuration-as-Code repository.
+################################################################################
+
+awx_organization_name: "Default"
+awx_inventory_name: "IRE-Sandbox"
+
+################################################################################
+# Dedicated Home-Lab SCM Project
+################################################################################
+
+awx_project_name: "IRE Home Lab IaC"
+awx_project_scm_url: "https://github.com/CloudDevops2789/terraform_modules"
+awx_project_scm_branch: "feature/home-lab-aap-cac"
+awx_project_scm_credential_name: "githubrepo"
+
+# Refresh the project before Job Template execution so AWX uses the current
+# reviewed revision from the configured branch.
+awx_project_update_on_launch: true
+
+################################################################################
+# Execution Environment
+################################################################################
+
+awx_execution_environment_name: "custom-ee"
+
+################################################################################
+# Existing AWX Credentials
+################################################################################
+
+# AWS credential used by the repository assume-role workflow.
+awx_terraform_credential_name: "fhs-main-test-ire-redhataap-user"
+
+# Custom credential that injects IRE_TERRAFORM_MANAGED_AD_PASSWORD.
+awx_managed_ad_password_credential_name: "IRE Sandbox Managed AD Bootstrap"
+
+################################################################################
+# Managed AD Operational Bootstrap
+#
+# Populate these with the home-lab authorization group and explicit bootstrap
+# users before executing the complete deploy/destroy workflows.
+################################################################################
+
+awx_managed_ad_bootstrap_group_name: ""
+awx_managed_ad_bootstrap_users: []
+
+################################################################################
+# Client VPN Mutual Authentication
+#
+# Populate these with existing us-east-1 ACM certificate ARNs before executing
+# Remote Access Plan/Apply.
+################################################################################
+
+awx_client_vpn_server_certificate_arn: ""
+awx_client_vpn_client_root_certificate_chain_arn: ""
+
+################################################################################
+# Recovery Exercise
+################################################################################
+
+awx_recovery_demo_ec2_enabled: true

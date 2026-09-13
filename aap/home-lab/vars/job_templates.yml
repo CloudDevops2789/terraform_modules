@@ -1,0 +1,254 @@
+---
+# Home-lab-only AWX Job Templates.
+#
+# The organization environment uses its own AAP Configuration-as-Code repo.
+#
+# Inspection / AWS Network Firewall is intentionally excluded from this
+# home-lab lifecycle.
+
+awx_job_templates:
+
+  ##############################################################################
+  # Persistent
+  ##############################################################################
+
+  - name: "IRE-Persistent-Plan"
+    playbook: "playbooks/terraform/plan/persistent.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_variables: {}
+    ask_variables_on_launch: false
+
+  - name: "IRE-Persistent-Apply"
+    playbook: "playbooks/terraform/apply/persistent.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_variables: {}
+    ask_variables_on_launch: false
+
+  - name: "IRE-Persistent-Destroy-Plan"
+    playbook: "playbooks/terraform/destroy/persistent.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_destroy_enabled: false
+      terraform_destroy_confirmation: ""
+      terraform_variables: {}
+    ask_variables_on_launch: false
+
+  - name: "IRE-Persistent-Destroy"
+    playbook: "playbooks/terraform/destroy/persistent.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_destroy_enabled: false
+      terraform_destroy_confirmation: ""
+      terraform_variables: {}
+    ask_variables_on_launch: false
+
+  ##############################################################################
+  # Platform
+  ##############################################################################
+
+  - name: "IRE-Platform-Plan"
+    playbook: "playbooks/terraform/plan/platform.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_variables: {}
+    ask_variables_on_launch: false
+
+  - name: "IRE-Platform-Apply"
+    playbook: "playbooks/terraform/apply/platform.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_variables: {}
+    ask_variables_on_launch: false
+
+  - name: "IRE-Platform-Destroy-Plan"
+    playbook: "playbooks/terraform/destroy/platform.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_destroy_enabled: false
+      terraform_destroy_confirmation: ""
+      terraform_variables: {}
+    ask_variables_on_launch: false
+
+  - name: "IRE-Platform-Destroy"
+    playbook: "playbooks/terraform/destroy/platform.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_destroy_enabled: false
+      terraform_destroy_confirmation: ""
+      terraform_variables: {}
+    ask_variables_on_launch: false
+
+  ##############################################################################
+  # Identity
+  ##############################################################################
+
+  - name: "IRE-Identity-Plan"
+    playbook: "playbooks/terraform/plan/identity.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+      - "{{ awx_managed_ad_password_credential_name }}"
+    extra_vars:
+      terraform_variables: {}
+    ask_variables_on_launch: false
+
+  - name: "IRE-Identity-Apply"
+    playbook: "playbooks/terraform/apply/identity.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+      - "{{ awx_managed_ad_password_credential_name }}"
+    extra_vars:
+      terraform_variables: {}
+    ask_variables_on_launch: false
+
+  - name: "IRE-Identity-Destroy-Plan"
+    playbook: "playbooks/terraform/destroy/identity.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+      - "{{ awx_managed_ad_password_credential_name }}"
+    extra_vars:
+      terraform_destroy_enabled: false
+      terraform_destroy_confirmation: ""
+      terraform_variables: {}
+    ask_variables_on_launch: false
+
+  - name: "IRE-Identity-Destroy"
+    playbook: "playbooks/terraform/destroy/identity.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+      - "{{ awx_managed_ad_password_credential_name }}"
+    extra_vars:
+      terraform_destroy_enabled: false
+      terraform_destroy_confirmation: ""
+      terraform_variables: {}
+    ask_variables_on_launch: false
+
+  ##############################################################################
+  # Managed AD bootstrap / cleanup
+  ##############################################################################
+
+  - name: "IRE-Managed-AD-Bootstrap"
+    playbook: "playbooks/directory/bootstrap.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      directory_environment: "sandbox"
+      managed_ad_bootstrap_reset_existing_passwords: false
+    ask_variables_on_launch: true
+
+  - name: "IRE-Managed-AD-Unbootstrap"
+    playbook: "playbooks/directory/unbootstrap.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      directory_environment: "sandbox"
+    ask_variables_on_launch: true
+
+  ##############################################################################
+  # Remote Access
+  #
+  # Current Sandbox mode is mutual certificate authentication.
+  # Certificate ARNs are intentionally supplied at launch/workflow runtime.
+  ##############################################################################
+
+  - name: "IRE-Remote-Access-Plan"
+    playbook: "playbooks/terraform/plan/remote-access.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_variables: {}
+    ask_variables_on_launch: true
+
+  - name: "IRE-Remote-Access-Apply"
+    playbook: "playbooks/terraform/apply/remote-access.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_variables: {}
+    ask_variables_on_launch: true
+
+  - name: "IRE-Remote-Access-Destroy-Plan"
+    playbook: "playbooks/terraform/destroy/remote-access.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_destroy_enabled: false
+      terraform_destroy_confirmation: ""
+      terraform_variables: {}
+    ask_variables_on_launch: true
+
+  - name: "IRE-Remote-Access-Destroy"
+    playbook: "playbooks/terraform/destroy/remote-access.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_destroy_enabled: false
+      terraform_destroy_confirmation: ""
+      terraform_variables: {}
+    ask_variables_on_launch: true
+
+  ##############################################################################
+  # Recovery
+  #
+  # demo_ec2_enabled is supplied at lifecycle runtime. This lets the same Job
+  # Template support an empty Recovery stack and the full three-node Sandbox
+  # recovery exercise without changing the template definition.
+  ##############################################################################
+
+  - name: "IRE-Recovery-Plan"
+    playbook: "playbooks/terraform/plan/recovery.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_variables: {}
+    ask_variables_on_launch: true
+
+  - name: "IRE-Recovery-Apply"
+    playbook: "playbooks/terraform/apply/recovery.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_variables: {}
+    ask_variables_on_launch: true
+
+  - name: "IRE-Recovery-Destroy-Plan"
+    playbook: "playbooks/terraform/destroy/recovery.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_destroy_enabled: false
+      terraform_destroy_confirmation: ""
+      terraform_variables: {}
+    ask_variables_on_launch: true
+
+  - name: "IRE-Recovery-Destroy"
+    playbook: "playbooks/terraform/destroy/recovery.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_destroy_enabled: false
+      terraform_destroy_confirmation: ""
+      terraform_variables: {}
+    ask_variables_on_launch: true
+
+  ##############################################################################
+  # Identity State Contract
+  #
+  # Read-only helper for workflows that start independently from deployment.
+  ##############################################################################
+
+  - name: "IRE-Identity-Contract-Read"
+    playbook: "playbooks/directory/read_identity_contract.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars: {}
+    ask_variables_on_launch: false
