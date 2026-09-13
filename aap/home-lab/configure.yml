@@ -7,8 +7,7 @@
 # Required shell environment:
 #
 #   CONTROLLER_HOST
-#   CONTROLLER_USERNAME
-#   CONTROLLER_PASSWORD
+#   CONTROLLER_OAUTH_TOKEN
 #
 # No controller credentials are stored in Git.
 ################################################################################
@@ -27,11 +26,8 @@
     controller_host_value: >-
       {{ lookup('ansible.builtin.env', 'CONTROLLER_HOST') }}
 
-    controller_username_value: >-
-      {{ lookup('ansible.builtin.env', 'CONTROLLER_USERNAME') }}
-
-    controller_password_value: >-
-      {{ lookup('ansible.builtin.env', 'CONTROLLER_PASSWORD') }}
+    controller_token_value: >-
+      {{ lookup('ansible.builtin.env', 'CONTROLLER_OAUTH_TOKEN') }}
 
     controller_validate_certs_value: >-
       {{
@@ -50,11 +46,10 @@
       ansible.builtin.assert:
         that:
           - controller_host_value | length > 0
-          - controller_username_value | length > 0
-          - controller_password_value | length > 0
+          - controller_token_value | length > 0
         fail_msg: >-
-          Set CONTROLLER_HOST, CONTROLLER_USERNAME and CONTROLLER_PASSWORD
-          before running the home-lab AWX Configuration-as-Code playbook.
+          Set CONTROLLER_HOST and CONTROLLER_OAUTH_TOKEN before running
+          the home-lab AWX Configuration-as-Code playbook.
 
     - name: Validate home-lab lifecycle configuration
       ansible.builtin.assert:
@@ -89,8 +84,7 @@
         state: present
 
         controller_host: "{{ controller_host_value }}"
-        controller_username: "{{ controller_username_value }}"
-        controller_password: "{{ controller_password_value }}"
+        controller_oauthtoken: "{{ controller_token_value }}"
         validate_certs: "{{ controller_validate_certs_value }}"
 
     ##########################################################################
@@ -117,8 +111,7 @@
         state: present
 
         controller_host: "{{ controller_host_value }}"
-        controller_username: "{{ controller_username_value }}"
-        controller_password: "{{ controller_password_value }}"
+        controller_oauthtoken: "{{ controller_token_value }}"
         validate_certs: "{{ controller_validate_certs_value }}"
       loop: "{{ awx_job_templates }}"
       loop_control:
@@ -142,8 +135,7 @@
         state: present
 
         controller_host: "{{ controller_host_value }}"
-        controller_username: "{{ controller_username_value }}"
-        controller_password: "{{ controller_password_value }}"
+        controller_oauthtoken: "{{ controller_token_value }}"
         validate_certs: "{{ controller_validate_certs_value }}"
       loop: "{{ awx_workflows }}"
       loop_control:
@@ -169,8 +161,7 @@
         state: present
 
         controller_host: "{{ controller_host_value }}"
-        controller_username: "{{ controller_username_value }}"
-        controller_password: "{{ controller_password_value }}"
+        controller_oauthtoken: "{{ controller_token_value }}"
         validate_certs: "{{ controller_validate_certs_value }}"
       loop: "{{ awx_workflow_nodes }}"
       loop_control:
@@ -191,8 +182,7 @@
         state: present
 
         controller_host: "{{ controller_host_value }}"
-        controller_username: "{{ controller_username_value }}"
-        controller_password: "{{ controller_password_value }}"
+        controller_oauthtoken: "{{ controller_token_value }}"
         validate_certs: "{{ controller_validate_certs_value }}"
       loop: "{{ awx_workflow_nodes }}"
       loop_control:

@@ -25,11 +25,10 @@ AWS Network Firewall / the Inspection Terraform stack is intentionally not inclu
 Supply AWX connection credentials through shell environment variables:
 
     export CONTROLLER_HOST="http://172.22.216.253:31079"
-    export CONTROLLER_USERNAME="<awx-username>"
-    export CONTROLLER_PASSWORD="<awx-password>"
+    export CONTROLLER_OAUTH_TOKEN="<awx-token>"
     export CONTROLLER_VERIFY_SSL="false"
 
-Do not commit the AWX password.
+Do not commit the AWX token.
 
 ## Collections
 
