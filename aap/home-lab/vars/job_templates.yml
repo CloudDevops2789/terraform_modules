@@ -46,7 +46,7 @@ awx_job_templates:
       terraform_destroy_enabled: false
       terraform_destroy_confirmation: ""
       terraform_variables: {}
-    ask_variables_on_launch: false
+    ask_variables_on_launch: true
 
   ##############################################################################
   # Platform
@@ -86,7 +86,7 @@ awx_job_templates:
       terraform_destroy_enabled: false
       terraform_destroy_confirmation: ""
       terraform_variables: {}
-    ask_variables_on_launch: false
+    ask_variables_on_launch: true
 
   ##############################################################################
   # Identity
@@ -130,7 +130,7 @@ awx_job_templates:
       terraform_destroy_enabled: false
       terraform_destroy_confirmation: ""
       terraform_variables: {}
-    ask_variables_on_launch: false
+    ask_variables_on_launch: true
 
   ##############################################################################
   # Managed AD bootstrap / cleanup
