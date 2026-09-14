@@ -1,28 +1,32 @@
 # Home Lab AWX Configuration as Code
 
-This directory manages the IRE lifecycle objects in the local/home-lab AWX instance.
+This directory manages the IRE lifecycle objects in the local/home-lab AWX
+instance.
 
-It is not the source of truth for organizational AAP configuration. The organization uses its own AAP Configuration-as-Code repository.
+It is not the source of truth for organizational AAP configuration. The
+organization uses its own AAP Configuration-as-Code repository.
 
-## Managed AWX objects
+## Scope
 
 The home-lab CaC manages:
 
 - one dedicated SCM Project: `IRE Home Lab IaC`
 - 23 Job Templates
 - two Workflow Job Templates
-- workflow approval and success-node relationships
+- workflow node relationships
+- removal of obsolete approval nodes from the earlier gated test model
 
-The two lifecycle workflows are:
+The lifecycle workflows are:
 
 - `IRE-Sandbox-Full-Deploy`
 - `IRE-Sandbox-Full-Destroy`
 
-AWS Network Firewall / the Inspection Terraform stack is intentionally not included in these workflows.
+AWS Network Firewall / the Inspection Terraform stack is intentionally excluded
+from these workflows.
 
 ## Controller authentication
 
-Supply AWX connection credentials through shell environment variables:
+Supply AWX connection information through shell environment variables:
 
     export CONTROLLER_HOST="http://172.22.216.253:31079"
     export CONTROLLER_OAUTH_TOKEN="<awx-token>"
@@ -36,52 +40,110 @@ Install the required collection with:
 
     ansible-galaxy collection install -r aap/home-lab/requirements.yml
 
-The current home-lab implementation uses `awx.awx` directly.
+The home-lab implementation uses `awx.awx` directly.
 
 ## Repository collection path
 
-When running from a Windows-mounted WSL path, the repository ansible.cfg may be ignored because the directory is world writable.
-Expose the repository collection explicitly when performing local validation:
+When running from a Windows-mounted WSL path, the repository `ansible.cfg` may
+be ignored because the directory is world writable.
+
+Expose the repository collection explicitly during local validation:
 
     export ANSIBLE_COLLECTIONS_PATH="$PWD/collections:$HOME/.ansible/collections:/usr/share/ansible/collections"
 
-## Environment-specific lifecycle inputs
+## Runtime lifecycle inputs
 
-Do not commit home-lab certificate identifiers or operational AD principals into the structural CaC.
+Environment-specific lifecycle values are stored outside Git.
 
-Create an untracked file named `aap/home-lab/runtime.yml` from `runtime.example.yml` and provide:
+Copy:
 
-- Managed AD authorization group name
+    aap/home-lab/runtime.example.yml
+
+to:
+
+    aap/home-lab/runtime.yml
+
+The runtime file supplies:
+
+- Managed AD authorization group
 - Managed AD bootstrap users
 - Client VPN server ACM certificate ARN
 - Client VPN client/root ACM certificate ARN
 
-Run the CaC with:
+`runtime.yml` is ignored by Git.
 
-    ansible-playbook aap/home-lab/configure.yml -e @aap/home-lab/runtime.yml
+Apply the CaC with:
 
-## Safety model
+    ansible-playbook \
+      aap/home-lab/configure.yml \
+      -e @aap/home-lab/runtime.yml
 
-Standalone Terraform Destroy Job Templates are non-destructive by default.
-The Full Destroy workflow injects the destroy-enable flag and exact confirmation only after the corresponding approval node.
+Running the CaC configures AWX objects only. It does not launch either
+lifecycle workflow.
 
-Managed AD user and secret cleanup has its own explicit approval node before unbootstrap.
+## Complete deployment workflow
 
-## Deployment order
+The complete home-lab deployment test runs without approval nodes:
 
-    Persistent Plan -> Approval -> Persistent Apply
-    Platform Plan   -> Approval -> Platform Apply
-    Identity Plan   -> Approval -> Identity Apply
-    Managed AD Bootstrap
-    Remote Access Plan -> Approval -> Remote Access Apply
-    Recovery Plan      -> Approval -> Recovery Apply
+    Persistent Plan
+    -> Persistent Apply
+    -> Platform Plan
+    -> Platform Apply
+    -> Identity Plan
+    -> Identity Apply
+    -> Managed AD Bootstrap
+    -> Remote Access Plan
+    -> Remote Access Apply
+    -> Recovery Plan
+    -> Recovery Apply
 
-## Destruction order
+Each Terraform Plan therefore runs immediately before its corresponding Apply.
 
-    Recovery Destroy Plan -> Approval -> Recovery Destroy
-    Remote Access Destroy Plan -> Approval -> Remote Access Destroy
-    Identity Contract Read
-    Managed AD Cleanup Approval -> Managed AD Unbootstrap
-    Identity Destroy Plan -> Approval -> Identity Destroy
-    Platform Destroy Plan -> Approval -> Platform Destroy
-    Persistent Destroy Plan -> Approval -> Persistent Destroy
+## Complete destruction workflow
+
+The complete destruction workflow runs in reverse dependency order:
+
+    Recovery Destroy Plan
+    -> Recovery Destroy
+    -> Remote Access Destroy Plan
+    -> Remote Access Destroy
+    -> Identity Contract Read
+    -> Managed AD Unbootstrap
+    -> Identity Destroy Plan
+    -> Identity Destroy
+    -> Platform Destroy Plan
+    -> Platform Destroy
+    -> Persistent Destroy Plan
+    -> Persistent Destroy
+
+Launching `IRE-Sandbox-Full-Destroy` is intentionally destructive.
+
+## Destroy safety model
+
+The individual Terraform Destroy Job Templates remain non-destructive by
+default:
+
+    terraform_destroy_enabled: false
+    terraform_destroy_confirmation: ""
+
+The Full Destroy workflow injects the destructive enable flag and exact
+confirmation string into the actual destroy nodes.
+
+This means a normal direct launch of an individual Destroy Job Template produces
+a destroy plan but does not apply the destruction unless the required
+authorization variables are deliberately supplied.
+
+Managed AD unbootstrap during the complete destroy test removes the configured
+bootstrap users and schedules their bootstrap secrets for deletion using the
+configured recovery window.
+
+## Identity contract handling
+
+Identity Apply publishes the Managed AD directory contract for downstream jobs
+during deployment.
+
+A separate read-only `IRE-Identity-Contract-Read` Job Template resolves the
+existing Identity Terraform output at the start of the identity-cleanup portion
+of a separately launched destroy workflow.
+
+The reader does not modify Terraform state or AWS infrastructure.

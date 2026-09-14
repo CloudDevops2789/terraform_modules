@@ -2,32 +2,71 @@
 ################################################################################
 # Home Lab AWX Workflow Job Templates
 #
-# Exactly two lifecycle workflows are managed:
+# Complete end-to-end lifecycle test workflows.
 #
-#   IRE-Sandbox-Full-Deploy
-#   IRE-Sandbox-Full-Destroy
+# Approval nodes are intentionally disabled for the complete home-lab test.
 #
-# AWS Network Firewall / Inspection is intentionally excluded.
+# AWS Network Firewall / Inspection remains intentionally excluded.
 ################################################################################
 
 awx_workflows:
 
   - name: "IRE-Sandbox-Full-Deploy"
     description: >-
-      Complete home-lab IRE deployment with per-stack plan approval gates.
+      Complete unattended home-lab IRE deployment. Each Terraform stack is
+      planned immediately before its corresponding apply.
     ask_variables_on_launch: false
 
   - name: "IRE-Sandbox-Full-Destroy"
     description: >-
-      Complete home-lab IRE destruction in reverse dependency order with
-      per-stack approval gates and explicit Managed AD cleanup approval.
+      Complete unattended home-lab IRE destruction in reverse dependency order.
+      Launching this workflow is destructive.
     ask_variables_on_launch: false
 
 ################################################################################
-# Workflow Nodes
+# Obsolete Approval Nodes
 #
-# Nodes are created first without graph relationships. A second CaC pass adds
-# success_nodes after every referenced identifier exists.
+# These nodes existed in the gated test workflow and must be removed from AWX
+# when reconciling the new unattended lifecycle model.
+################################################################################
+
+awx_workflow_nodes_absent:
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-persistent-approval"
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-platform-approval"
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-identity-approval"
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-remote-access-approval"
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-recovery-approval"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-recovery-approval"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-remote-access-approval"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-managed-ad-cleanup-approval"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-identity-approval"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-platform-approval"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-persistent-approval"
+
+################################################################################
+# Active Workflow Nodes
 ################################################################################
 
 awx_workflow_nodes:
@@ -39,15 +78,6 @@ awx_workflow_nodes:
   - workflow: "IRE-Sandbox-Full-Deploy"
     identifier: "deploy-persistent-plan"
     unified_job_template: "IRE-Persistent-Plan"
-    success_nodes:
-      - "deploy-persistent-approval"
-
-  - workflow: "IRE-Sandbox-Full-Deploy"
-    identifier: "deploy-persistent-approval"
-    approval_node:
-      name: "Approve Persistent Apply"
-      description: "Review the Persistent Terraform plan before apply."
-      timeout: 86400
     success_nodes:
       - "deploy-persistent-apply"
 
@@ -61,15 +91,6 @@ awx_workflow_nodes:
     identifier: "deploy-platform-plan"
     unified_job_template: "IRE-Platform-Plan"
     success_nodes:
-      - "deploy-platform-approval"
-
-  - workflow: "IRE-Sandbox-Full-Deploy"
-    identifier: "deploy-platform-approval"
-    approval_node:
-      name: "Approve Platform Apply"
-      description: "Review the Platform Terraform plan before apply."
-      timeout: 86400
-    success_nodes:
       - "deploy-platform-apply"
 
   - workflow: "IRE-Sandbox-Full-Deploy"
@@ -81,15 +102,6 @@ awx_workflow_nodes:
   - workflow: "IRE-Sandbox-Full-Deploy"
     identifier: "deploy-identity-plan"
     unified_job_template: "IRE-Identity-Plan"
-    success_nodes:
-      - "deploy-identity-approval"
-
-  - workflow: "IRE-Sandbox-Full-Deploy"
-    identifier: "deploy-identity-approval"
-    approval_node:
-      name: "Approve Identity Apply"
-      description: "Review the Identity Terraform plan before apply."
-      timeout: 86400
     success_nodes:
       - "deploy-identity-apply"
 
@@ -122,15 +134,6 @@ awx_workflow_nodes:
         client_root_certificate_chain_arn: >-
           {{ awx_client_vpn_client_root_certificate_chain_arn }}
     success_nodes:
-      - "deploy-remote-access-approval"
-
-  - workflow: "IRE-Sandbox-Full-Deploy"
-    identifier: "deploy-remote-access-approval"
-    approval_node:
-      name: "Approve Remote Access Apply"
-      description: "Review the Remote Access Terraform plan before apply."
-      timeout: 86400
-    success_nodes:
       - "deploy-remote-access-apply"
 
   - workflow: "IRE-Sandbox-Full-Deploy"
@@ -152,15 +155,6 @@ awx_workflow_nodes:
       terraform_variables:
         demo_ec2_enabled: "{{ awx_recovery_demo_ec2_enabled }}"
     success_nodes:
-      - "deploy-recovery-approval"
-
-  - workflow: "IRE-Sandbox-Full-Deploy"
-    identifier: "deploy-recovery-approval"
-    approval_node:
-      name: "Approve Recovery Apply"
-      description: "Review the Recovery Terraform plan before apply."
-      timeout: 86400
-    success_nodes:
       - "deploy-recovery-apply"
 
   - workflow: "IRE-Sandbox-Full-Deploy"
@@ -174,11 +168,10 @@ awx_workflow_nodes:
   ##############################################################################
   # FULL DESTROY
   #
-  # Destruction proceeds in reverse dependency order.
+  # Launching this workflow performs real destruction.
   #
-  # Standalone Destroy Job Templates remain non-destructive. The destructive
-  # enable flag and exact confirmation are supplied only on nodes reached after
-  # their corresponding approval nodes.
+  # The underlying Destroy Job Templates remain non-destructive by default.
+  # Destructive authorization is supplied only here.
   ##############################################################################
 
   - workflow: "IRE-Sandbox-Full-Destroy"
@@ -189,15 +182,6 @@ awx_workflow_nodes:
       terraform_destroy_confirmation: ""
       terraform_variables:
         demo_ec2_enabled: "{{ awx_recovery_demo_ec2_enabled }}"
-    success_nodes:
-      - "destroy-recovery-approval"
-
-  - workflow: "IRE-Sandbox-Full-Destroy"
-    identifier: "destroy-recovery-approval"
-    approval_node:
-      name: "Approve Recovery Destroy"
-      description: "Review the Recovery destroy plan before destruction."
-      timeout: 86400
     success_nodes:
       - "destroy-recovery"
 
@@ -224,15 +208,6 @@ awx_workflow_nodes:
         client_root_certificate_chain_arn: >-
           {{ awx_client_vpn_client_root_certificate_chain_arn }}
     success_nodes:
-      - "destroy-remote-access-approval"
-
-  - workflow: "IRE-Sandbox-Full-Destroy"
-    identifier: "destroy-remote-access-approval"
-    approval_node:
-      name: "Approve Remote Access Destroy"
-      description: "Review the Remote Access destroy plan before destruction."
-      timeout: 86400
-    success_nodes:
       - "destroy-remote-access"
 
   - workflow: "IRE-Sandbox-Full-Destroy"
@@ -252,17 +227,6 @@ awx_workflow_nodes:
   - workflow: "IRE-Sandbox-Full-Destroy"
     identifier: "destroy-identity-contract-read"
     unified_job_template: "IRE-Identity-Contract-Read"
-    success_nodes:
-      - "destroy-managed-ad-cleanup-approval"
-
-  - workflow: "IRE-Sandbox-Full-Destroy"
-    identifier: "destroy-managed-ad-cleanup-approval"
-    approval_node:
-      name: "Approve Managed AD Cleanup"
-      description: >-
-        Approve deletion of the selected Managed AD bootstrap users and
-        scheduling of their bootstrap secrets for deletion.
-      timeout: 86400
     success_nodes:
       - "destroy-managed-ad-unbootstrap"
 
@@ -289,15 +253,6 @@ awx_workflow_nodes:
       terraform_destroy_enabled: false
       terraform_destroy_confirmation: ""
     success_nodes:
-      - "destroy-identity-approval"
-
-  - workflow: "IRE-Sandbox-Full-Destroy"
-    identifier: "destroy-identity-approval"
-    approval_node:
-      name: "Approve Identity Destroy"
-      description: "Review the Identity destroy plan before destruction."
-      timeout: 86400
-    success_nodes:
       - "destroy-identity"
 
   - workflow: "IRE-Sandbox-Full-Destroy"
@@ -316,15 +271,6 @@ awx_workflow_nodes:
       terraform_destroy_enabled: false
       terraform_destroy_confirmation: ""
     success_nodes:
-      - "destroy-platform-approval"
-
-  - workflow: "IRE-Sandbox-Full-Destroy"
-    identifier: "destroy-platform-approval"
-    approval_node:
-      name: "Approve Platform Destroy"
-      description: "Review the Platform destroy plan before destruction."
-      timeout: 86400
-    success_nodes:
       - "destroy-platform"
 
   - workflow: "IRE-Sandbox-Full-Destroy"
@@ -342,15 +288,6 @@ awx_workflow_nodes:
     extra_data:
       terraform_destroy_enabled: false
       terraform_destroy_confirmation: ""
-    success_nodes:
-      - "destroy-persistent-approval"
-
-  - workflow: "IRE-Sandbox-Full-Destroy"
-    identifier: "destroy-persistent-approval"
-    approval_node:
-      name: "Approve Persistent Destroy"
-      description: "Review the Persistent destroy plan before destruction."
-      timeout: 86400
     success_nodes:
       - "destroy-persistent"
 

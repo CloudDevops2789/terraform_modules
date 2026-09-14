@@ -142,6 +142,25 @@
         label: "{{ item.name }}"
 
     ##########################################################################
+    # Remove obsolete workflow approval nodes
+    ##########################################################################
+
+    - name: Remove obsolete home-lab AWX workflow approval nodes
+      awx.awx.workflow_job_template_node:
+        workflow_job_template: "{{ item.workflow }}"
+        identifier: "{{ item.identifier }}"
+        organization: "{{ awx_organization_name }}"
+
+        state: absent
+
+        controller_host: "{{ controller_host_value }}"
+        controller_oauthtoken: "{{ controller_token_value }}"
+        validate_certs: "{{ controller_validate_certs_value }}"
+      loop: "{{ awx_workflow_nodes_absent | default([]) }}"
+      loop_control:
+        label: "{{ item.workflow }} :: {{ item.identifier }}"
+
+    ##########################################################################
     # Workflow Nodes - Pass 1
     ##########################################################################
 
