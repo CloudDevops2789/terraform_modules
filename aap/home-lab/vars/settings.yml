@@ -11,6 +11,9 @@
 awx_organization_name: "Default"
 awx_inventory_name: "IRE-Sandbox"
 
+# AWS Region used by home-lab operational directory automation.
+awx_aws_region: "us-east-1"
+
 ################################################################################
 # Dedicated Home-Lab SCM Project
 ################################################################################

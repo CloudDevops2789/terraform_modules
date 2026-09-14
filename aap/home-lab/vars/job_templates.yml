@@ -142,6 +142,7 @@ awx_job_templates:
       - "{{ awx_terraform_credential_name }}"
     extra_vars:
       directory_environment: "sandbox"
+      directory_aws_region: "{{ awx_aws_region }}"
       managed_ad_bootstrap_reset_existing_passwords: false
     ask_variables_on_launch: true
 
@@ -151,6 +152,7 @@ awx_job_templates:
       - "{{ awx_terraform_credential_name }}"
     extra_vars:
       directory_environment: "sandbox"
+      directory_aws_region: "{{ awx_aws_region }}"
     ask_variables_on_launch: true
 
   ##############################################################################
