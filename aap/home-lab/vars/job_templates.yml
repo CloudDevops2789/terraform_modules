@@ -254,3 +254,102 @@ awx_job_templates:
       - "{{ awx_terraform_credential_name }}"
     extra_vars: {}
     ask_variables_on_launch: false
+
+  ##############################################################################
+  # Terraform State Refresh
+  #
+  # Used only to reconcile Terraform remote state after infrastructure was
+  # changed or deleted outside Terraform.
+  #
+  # Refresh Plan is read-only.
+  # Refresh Apply updates Terraform state only through a saved -refresh-only
+  # plan; it does not recreate or destroy AWS infrastructure.
+  ##############################################################################
+
+  - name: "IRE-Recovery-Refresh-Plan"
+    playbook: "playbooks/terraform/refresh-plan/recovery.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_variables:
+        demo_ec2_enabled: "{{ awx_recovery_demo_ec2_enabled }}"
+    ask_variables_on_launch: true
+
+  - name: "IRE-Recovery-Refresh-Apply"
+    playbook: "playbooks/terraform/refresh-apply/recovery.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_variables:
+        demo_ec2_enabled: "{{ awx_recovery_demo_ec2_enabled }}"
+    ask_variables_on_launch: true
+
+  - name: "IRE-Remote-Access-Refresh-Plan"
+    playbook: "playbooks/terraform/refresh-plan/remote-access.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_variables:
+        server_certificate_arn: "{{ awx_client_vpn_server_certificate_arn }}"
+        client_root_certificate_chain_arn: "{{ awx_client_vpn_client_root_certificate_chain_arn }}"
+    ask_variables_on_launch: true
+
+  - name: "IRE-Remote-Access-Refresh-Apply"
+    playbook: "playbooks/terraform/refresh-apply/remote-access.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_variables:
+        server_certificate_arn: "{{ awx_client_vpn_server_certificate_arn }}"
+        client_root_certificate_chain_arn: "{{ awx_client_vpn_client_root_certificate_chain_arn }}"
+    ask_variables_on_launch: true
+
+  - name: "IRE-Identity-Refresh-Plan"
+    playbook: "playbooks/terraform/refresh-plan/identity.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+      - "{{ awx_managed_ad_password_credential_name }}"
+    extra_vars:
+      terraform_variables: {}
+    ask_variables_on_launch: true
+
+  - name: "IRE-Identity-Refresh-Apply"
+    playbook: "playbooks/terraform/refresh-apply/identity.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+      - "{{ awx_managed_ad_password_credential_name }}"
+    extra_vars:
+      terraform_variables: {}
+    ask_variables_on_launch: true
+
+  - name: "IRE-Platform-Refresh-Plan"
+    playbook: "playbooks/terraform/refresh-plan/platform.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_variables: {}
+    ask_variables_on_launch: true
+
+  - name: "IRE-Platform-Refresh-Apply"
+    playbook: "playbooks/terraform/refresh-apply/platform.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_variables: {}
+    ask_variables_on_launch: true
+
+  - name: "IRE-Persistent-Refresh-Plan"
+    playbook: "playbooks/terraform/refresh-plan/persistent.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_variables: {}
+    ask_variables_on_launch: true
+
+  - name: "IRE-Persistent-Refresh-Apply"
+    playbook: "playbooks/terraform/refresh-apply/persistent.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_variables: {}
+    ask_variables_on_launch: true
