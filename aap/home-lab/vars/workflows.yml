@@ -194,7 +194,7 @@ awx_workflow_nodes:
       terraform_variables:
         demo_ec2_enabled: "{{ awx_recovery_demo_ec2_enabled }}"
     success_nodes:
-      - "destroy-remote-access-plan"
+      - "destroy-identity-contract-read"
 
   - workflow: "IRE-Sandbox-Full-Destroy"
     identifier: "destroy-remote-access-plan"
@@ -222,13 +222,16 @@ awx_workflow_nodes:
         client_root_certificate_chain_arn: >-
           {{ awx_client_vpn_client_root_certificate_chain_arn }}
     success_nodes:
-      - "destroy-identity-contract-read"
+      - "destroy-managed-ad-unbootstrap"
 
   - workflow: "IRE-Sandbox-Full-Destroy"
     identifier: "destroy-identity-contract-read"
     unified_job_template: "IRE-Identity-Contract-Read"
+    extra_data:
+      managed_ad_group_name: >-
+        {{ awx_managed_ad_bootstrap_group_name }}
     success_nodes:
-      - "destroy-managed-ad-unbootstrap"
+      - "destroy-remote-access-plan"
 
   - workflow: "IRE-Sandbox-Full-Destroy"
     identifier: "destroy-managed-ad-unbootstrap"

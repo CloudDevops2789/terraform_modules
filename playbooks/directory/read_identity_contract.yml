@@ -38,6 +38,7 @@
           - terraform_backend_region | default('') | length > 0
           - assume_role_role_arn | default('') | length > 0
           - assume_role_aws_region | default('') | length > 0
+          - managed_ad_group_name | default('') | length > 0
         fail_msg: >-
           Identity contract reader backend, repository, environment, or
           authentication inputs are missing or invalid.
@@ -118,6 +119,40 @@
           Existing Identity state does not expose an enabled Managed AD
           workflow contract with a valid directory ID and directory name.
 
+    ##########################################################################
+    # Managed AD Remote Access Contract
+    #
+    # A fresh destroy workflow cannot rely on artifacts from a previous
+    # deployment workflow. Read the existing authorization-group SID
+    # directly from AWS without changing directory principals.
+    ##########################################################################
+
+    - name: Read Managed AD Remote Access group
+      ire_platform.aws.managed_ad_principals:
+        operation: lookup
+        directory_id: >-
+          {{ terraform_identity_workflow_contract.directory_id }}
+        group_name: "{{ managed_ad_group_name }}"
+        user_names: []
+        region: "{{ assume_role_aws_auth.region }}"
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+        AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+        AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+        AWS_REGION: "{{ assume_role_aws_auth.region }}"
+        AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+      register: managed_ad_group_lookup
+
+    - name: Validate Managed AD Remote Access group contract
+      ansible.builtin.assert:
+        that:
+          - >-
+            managed_ad_group_lookup.group_sid
+            | default('')
+            is match('^S-[0-9-]+$')
+        fail_msg: >-
+          Existing Managed AD Remote Access group did not expose a valid SID.
+
     - name: Publish Identity workflow artifacts
       ansible.builtin.set_stats:
         data:
@@ -125,4 +160,6 @@
             {{ terraform_identity_workflow_contract.directory_id }}
           managed_ad_directory_name: >-
             {{ terraform_identity_workflow_contract.directory_name }}
+          managed_ad_group_sid: >-
+            {{ managed_ad_group_lookup.group_sid }}
         per_host: false
