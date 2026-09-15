@@ -250,9 +250,11 @@ awx_job_templates:
 
   - name: "IRE-Identity-Contract-Read"
     playbook: "playbooks/directory/read_identity_contract.yml"
+    extra_vars:
+      managed_ad_group_name: >-
+        {{ awx_managed_ad_bootstrap_group_name }}
     credentials:
       - "{{ awx_terraform_credential_name }}"
-    extra_vars: {}
     ask_variables_on_launch: false
 
   ##############################################################################

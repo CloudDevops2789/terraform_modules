@@ -227,9 +227,6 @@ awx_workflow_nodes:
   - workflow: "IRE-Sandbox-Full-Destroy"
     identifier: "destroy-identity-contract-read"
     unified_job_template: "IRE-Identity-Contract-Read"
-    extra_data:
-      managed_ad_group_name: >-
-        {{ awx_managed_ad_bootstrap_group_name }}
     success_nodes:
       - "destroy-remote-access-plan"
 
