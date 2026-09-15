@@ -24,6 +24,12 @@
   gather_facts: false
 
   vars:
+    # This helper lives under playbooks/directory, so derive the repository root
+    # from its own location just like the stack-specific Terraform wrappers.
+    # Environment, backend, and AssumeRole values continue to come from the
+    # selected AAP inventory.
+    terraform_repository_root: "{{ playbook_dir }}/../.."
+
     terraform_backend_use_lockfile: true
     terraform_backend_encrypt: true
 
