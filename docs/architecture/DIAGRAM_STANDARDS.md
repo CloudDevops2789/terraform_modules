@@ -358,7 +358,6 @@ Every architecture diagram shall be reviewed against:
 
 - Architecture Principles
 - Terraform Module Development Standard
-- Module Testing Standard
 - AWS Well-Architected Framework
 - AWS Architecture Best Practices
 

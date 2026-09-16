@@ -59,7 +59,6 @@ module call should remain beside the configuration it controls.
 
 ## Validation roots
 
-`terraform/environments/module-tests` contains isolated consumer roots for
 reusable-module initialization and validation. These roots do not own IRE
 lifecycle state and are not full environment examples.
 

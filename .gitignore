@@ -45,6 +45,3 @@ tfplan.*
 # Reusable Terraform child modules are consumed by executable roots.
 # Provider dependency locks belong to those root configurations, not modules.
 terraform/modules/**/.terraform.lock.hcl
-
-# Home-lab AWX runtime bindings
-aap/home-lab/runtime.yml

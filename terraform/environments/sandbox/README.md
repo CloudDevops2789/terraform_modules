@@ -23,7 +23,7 @@ terraform/environments/sandbox/
 
 | File | Consumer | Purpose |
 |---|---|---|
-| `common-tags.tfvars` | All stacks | Customer-neutral `org_*` tagging contract |
+| `common-tags.tfvars` | All stacks | Organization-specific `org_*` tagging contract |
 | `persistent.tfvars` | Persistent | Optional long-lived vault and logging-KMS capabilities |
 | `platform.tfvars` | Platform | Network topology, access plane, SSM and service placement |
 | `platform-network-policy.tfvars` | Platform | Security-group policy |

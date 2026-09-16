@@ -241,7 +241,6 @@ The calling environment owns that lifecycle decision.
 
 A reusable module test is located at:
 
-    terraform/environments/module-tests/iam
 
 The test demonstrates:
 
