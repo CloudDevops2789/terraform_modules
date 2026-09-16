@@ -1,0 +1,7 @@
+---
+- name: Refresh-plan persistent Terraform state
+  import_playbook: ../common/deploy.yml
+  vars:
+    terraform_stack: persistent
+    terraform_operation: refresh-plan
+    terraform_repository_root: "{{ playbook_dir }}/../../.."
