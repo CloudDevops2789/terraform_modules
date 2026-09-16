@@ -89,6 +89,46 @@ awx_job_templates:
     ask_variables_on_launch: true
 
   ##############################################################################
+  # Inspection
+  ##############################################################################
+
+  - name: "IRE-Inspection-Plan"
+    playbook: "playbooks/terraform/plan/inspection.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_variables: {}
+    ask_variables_on_launch: false
+
+  - name: "IRE-Inspection-Apply"
+    playbook: "playbooks/terraform/apply/inspection.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_variables: {}
+    ask_variables_on_launch: false
+
+  - name: "IRE-Inspection-Destroy-Plan"
+    playbook: "playbooks/terraform/destroy/inspection.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_destroy_enabled: false
+      terraform_destroy_confirmation: ""
+      terraform_variables: {}
+    ask_variables_on_launch: false
+
+  - name: "IRE-Inspection-Destroy"
+    playbook: "playbooks/terraform/destroy/inspection.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      terraform_destroy_enabled: false
+      terraform_destroy_confirmation: ""
+      terraform_variables: {}
+    ask_variables_on_launch: true
+
+  ##############################################################################
   # Identity
   ##############################################################################
 

@@ -96,6 +96,18 @@ awx_workflow_nodes:
     identifier: "deploy-platform-apply"
     unified_job_template: "IRE-Platform-Apply"
     success_nodes:
+      - "deploy-inspection-plan"
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-inspection-plan"
+    unified_job_template: "IRE-Inspection-Plan"
+    success_nodes:
+      - "deploy-inspection-apply"
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-inspection-apply"
+    unified_job_template: "IRE-Inspection-Apply"
+    success_nodes:
       - "deploy-identity-plan"
 
   - workflow: "IRE-Sandbox-Full-Deploy"
@@ -260,6 +272,24 @@ awx_workflow_nodes:
     extra_data:
       terraform_destroy_enabled: true
       terraform_destroy_confirmation: "DESTROY IDENTITY"
+    success_nodes:
+      - "destroy-inspection-plan"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-inspection-plan"
+    unified_job_template: "IRE-Inspection-Destroy-Plan"
+    extra_data:
+      terraform_destroy_enabled: false
+      terraform_destroy_confirmation: ""
+    success_nodes:
+      - "destroy-inspection"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-inspection"
+    unified_job_template: "IRE-Inspection-Destroy"
+    extra_data:
+      terraform_destroy_enabled: true
+      terraform_destroy_confirmation: "DESTROY INSPECTION"
     success_nodes:
       - "destroy-platform-plan"
 
