@@ -29,7 +29,8 @@ flowchart LR
 | Security groups/rules | `security-group`, `security-group-rule` | Platform `security.tf` |
 | SSM endpoints | `vpc-endpoints` | Platform `ssm-management.tf` |
 | Client VPN | `client-vpn` | Remote Access `main.tf` |
-| Network Firewall | `network-firewall*` | Platform firewall and routing files |
+| Network Firewall | `network-firewall`, `network-firewall-policy`, `network-firewall-rule-group`, `network-firewall-logging`, `network-firewall-tls-inspection` | Inspection `main.tf` |
+| Network routing | `network-firewall-routing` | Platform `routing.tf` and Inspection `routing.tf` |
 | IAM | `iam` | Platform SSM and Recovery backup composition |
 | KMS | `kms` | Persistent logging-KMS composition |
 | Backup vaults | `backup-*-vault` | Persistent `main.tf` |

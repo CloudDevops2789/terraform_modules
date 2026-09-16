@@ -24,7 +24,9 @@
     - name: Validate Terraform entry-point inputs
       ansible.builtin.assert:
         that:
-          - terraform_operation | default('') in ['plan', 'apply']
+          - >-
+            terraform_operation | default('')
+            in ['plan', 'apply', 'refresh-plan', 'refresh-apply']
           - terraform_stack | default('') | length > 0
           - terraform_environment | default('') == 'sandbox'
           - terraform_backend_bucket | default('') | length > 2
@@ -215,7 +217,16 @@
               {{
                 [
                   'terraform',
-                  'plan',
+                  'plan'
+                ]
+                +
+                (
+                  ['-refresh-only']
+                  if terraform_operation in ['refresh-plan', 'refresh-apply']
+                  else []
+                )
+                +
+                [
                   '-no-color',
                   '-input=false',
                   '-lock=true',
@@ -282,7 +293,7 @@
             AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
             TF_IN_AUTOMATION: "true"
           when:
-            - terraform_operation == 'apply'
+            - terraform_operation in ['apply', 'refresh-apply']
             - terraform_plan.rc == 2
           changed_when: true
 

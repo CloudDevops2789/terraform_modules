@@ -72,3 +72,60 @@ variable "ssm_endpoint_bindings" {
     error_message = "SSM endpoint security group names must be null or non-empty strings."
   }
 }
+
+##################################################################################################
+# S3 Gateway Endpoint Placement
+##################################################################################################
+
+variable "s3_gateway_endpoint_bindings" {
+  description = "VPCs and route-table groups that receive an S3 Gateway VPC endpoint."
+
+  type = map(object({
+    name               = optional(string)
+    route_table_groups = set(string)
+    policy             = optional(string)
+  }))
+
+  default  = {}
+  nullable = false
+
+  validation {
+    condition = alltrue([
+      for vpc_key, binding in var.s3_gateway_endpoint_bindings :
+      contains(keys(var.network_config.vpcs), vpc_key) &&
+      length(binding.route_table_groups) > 0 &&
+      alltrue([
+        for route_table_group in binding.route_table_groups :
+        contains(
+          [
+            for route_table in values(
+              var.network_config.vpcs[vpc_key].route_tables
+            ) :
+            route_table.group
+          ],
+          route_table_group
+        )
+      ])
+    ])
+
+    error_message = "Every S3 Gateway endpoint binding must reference an existing VPC and existing route-table groups within that VPC."
+  }
+
+  validation {
+    condition = alltrue([
+      for binding in values(var.s3_gateway_endpoint_bindings) :
+      binding.name == null ? true : length(trimspace(binding.name)) > 0
+    ])
+
+    error_message = "S3 Gateway endpoint names must be null or non-empty strings."
+  }
+
+  validation {
+    condition = alltrue([
+      for binding in values(var.s3_gateway_endpoint_bindings) :
+      binding.policy == null || can(jsondecode(binding.policy))
+    ])
+
+    error_message = "S3 Gateway endpoint policies must contain valid JSON when supplied."
+  }
+}

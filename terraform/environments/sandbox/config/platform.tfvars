@@ -693,32 +693,6 @@ ssm_instance_profile_mode = "terraform"
 
 
 ################################################################################
-# AWS Network Firewall Logging Integration
-################################################################################
-#
-# false
-#
-#   Persistent Resources-backed Network Firewall logging integration is not enabled.
-#
-# true
-#
-#   Enables the configured Network Firewall logging integration and consumes the
-#   required persistent Persistent Resources logging/encryption references.
-#
-#   AAP must provide the required external Persistent Resources references through:
-#
-#     persistent_resources
-#
-# Operational expectation:
-#
-#   This should normally be enabled only as part of the approved firewall-mode
-#   architecture with the required Persistent Resources logging/KMS resources available.
-#
-# Ownership:
-#
-#   Enablement is Git controlled.
-#   External Persistent Resources resource identifiers are AAP environment bindings.
-################################################################################
 
 
 
@@ -866,3 +840,53 @@ resource_name_overrides = {}
 # SSH security-group authorization requires an explicit Git-controlled change.
 # Recovery runtime choices cannot enable Platform SSH rules.
 ssh_key_access_enabled = true
+
+################################################################################
+# Network Flow Logging
+################################################################################
+#
+# Capture both VPC and Transit Gateway network metadata for the IRE Sandbox.
+# Flow Logs do not alter packet forwarding or inspection behaviour.
+#
+# CloudWatch retention is intentionally finite for Sandbox cost control.
+################################################################################
+
+network_flow_logs = {
+  enabled                      = true
+  vpc_flow_logs_enabled        = true
+  transit_gateway_logs_enabled = true
+  retention_in_days            = 30
+}
+
+################################################################################
+# Amazon S3 Private Access
+################################################################################
+#
+# S3 Gateway endpoints provide private access to Amazon S3 for recovery and
+# administrative workloads without requiring NAT Gateway or public routing.
+#
+# Route-table groups are deliberately selected by workload function rather than
+# attaching the endpoint to every route table in each VPC.
+################################################################################
+
+s3_gateway_endpoint_bindings = {
+  recovery_access = {
+    route_table_groups = [
+      "admin-tools"
+    ]
+  }
+
+  core_recovery = {
+    route_table_groups = [
+      "recovery-services"
+    ]
+  }
+
+  protected_data = {
+    route_table_groups = [
+      "protected-workloads",
+      "ingestion",
+      "file-services"
+    ]
+  }
+}

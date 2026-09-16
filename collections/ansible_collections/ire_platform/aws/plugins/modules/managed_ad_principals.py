@@ -137,6 +137,11 @@ def run_module() -> None:
                 "required": True,
             },
             "region": {"type": "str", "required": True},
+            "operation": {
+                "type": "str",
+                "choices": ["reconcile", "lookup"],
+                "default": "reconcile",
+            },
         },
         supports_check_mode=False,
     )
@@ -148,6 +153,7 @@ def run_module() -> None:
 
     params = module.params
 
+    operation = params["operation"]
     directory_id = params["directory_id"].strip()
     group_name = params["group_name"].strip()
     user_names = [name.strip() for name in params["user_names"]]
@@ -158,22 +164,30 @@ def run_module() -> None:
     if not group_name or len(group_name) > 64:
         module.fail_json(msg="group_name must contain 1-64 characters.")
 
-    if not user_names or any(not name for name in user_names):
-        module.fail_json(msg="user_names must contain at least one non-empty user.")
-
-    if any(
-        re.fullmatch(r"[A-Za-z0-9._-]{1,20}", name) is None
-        for name in user_names
-    ):
-        module.fail_json(
-            msg=(
-                "Each user name must contain 1-20 letters, numbers, dots, "
-                "underscores, or hyphens."
+    # User reconciliation inputs are required only for the mutating operation.
+    # Lookup intentionally accepts an empty user list because it reads only the
+    # existing Managed AD authorization group and never changes principals.
+    if operation == "reconcile":
+        if not user_names or any(not name for name in user_names):
+            module.fail_json(
+                msg="user_names must contain at least one non-empty user."
             )
-        )
 
-    if len({name.lower() for name in user_names}) != len(user_names):
-        module.fail_json(msg="user_names must not contain duplicate values.")
+        if any(
+            re.fullmatch(r"[A-Za-z0-9._-]{1,20}", name) is None
+            for name in user_names
+        ):
+            module.fail_json(
+                msg=(
+                    "Each user name must contain 1-20 letters, numbers, dots, "
+                    "underscores, or hyphens."
+                )
+            )
+
+        if len({name.lower() for name in user_names}) != len(user_names):
+            module.fail_json(
+                msg="user_names must not contain duplicate values."
+            )
 
     result = {
         "changed": False,
@@ -197,6 +211,46 @@ def run_module() -> None:
             DirectoryId=directory_id,
             SAMAccountName=group_name,
         )
+
+        ########################################################################
+        # Read-Only Group Lookup
+        #
+        # Destroy workflows require the existing Client VPN authorization-group
+        # SID but must never recreate directory objects while tearing down the
+        # environment.
+        ########################################################################
+
+        if operation == "lookup":
+            if group is None:
+                module.fail_json(
+                    msg=(
+                        f"Managed AD group {group_name} does not exist; "
+                        "lookup will not create it."
+                    ),
+                    **result,
+                )
+
+            group_sid = group.get("SID")
+
+            if not group_sid:
+                group = data_client.describe_group(
+                    DirectoryId=directory_id,
+                    SAMAccountName=group_name,
+                )
+                group_sid = group.get("SID")
+
+            if not group_sid:
+                module.fail_json(
+                    msg=f"Managed AD group {group_name} did not expose a SID.",
+                    **result,
+                )
+
+            result["group_sid"] = group_sid
+            module.exit_json(**result)
+
+        ########################################################################
+        # Reconcile
+        ########################################################################
 
         if group is None:
             group = data_client.create_group(
