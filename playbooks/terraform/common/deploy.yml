@@ -9,16 +9,7 @@
     terraform_backend_encrypt: true
 
     terraform_common_environment_variable_allowlist:
-      - organization_tag_key_prefix
-      - org_it_cost_center
-      - org_department
-      - org_cmdb_calculated_app
-      - org_business_criticality
-      - org_environment
-      - org_data_classification
-      - org_project_name
-      - org_managed_by
-      - org_additional_tags
+      - organization_tags
 
   pre_tasks:
     - name: Validate Terraform entry-point inputs

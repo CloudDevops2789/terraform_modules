@@ -120,23 +120,5 @@ locals {
   ##################################################################################################
   # Applied to the majority of resources created by the environment. Individual
   # modules may merge additional tags (for example Name) on top of these.
-  org_default_tags = {
-    for key, value in {
-      "${var.organization_tag_key_prefix}it_cost_center"       = var.org_it_cost_center
-      "${var.organization_tag_key_prefix}department"           = var.org_department
-      "${var.organization_tag_key_prefix}cmdb_calculated_app"  = var.org_cmdb_calculated_app
-      "${var.organization_tag_key_prefix}business_criticality" = var.org_business_criticality
-      "${var.organization_tag_key_prefix}environment"          = var.org_environment
-      "${var.organization_tag_key_prefix}data_classification"  = var.org_data_classification
-      "${var.organization_tag_key_prefix}project_name"         = var.org_project_name
-      "${var.organization_tag_key_prefix}managed_by"           = var.org_managed_by
-    } :
-    key => value
-    if value != null ? trimspace(value) != "" : false
-  }
-
-  org_tags = merge(
-    local.org_default_tags,
-    var.org_additional_tags
-  )
+  org_tags = var.organization_tags
 }

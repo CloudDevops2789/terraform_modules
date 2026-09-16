@@ -334,7 +334,6 @@ Terraform validation errors are preferred over AWS API errors.
 
 Every module shall include a dedicated validation environment located under:
 
-terraform/environments/module-tests/
 
 Each validation environment shall contain:
 

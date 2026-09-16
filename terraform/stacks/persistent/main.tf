@@ -131,7 +131,7 @@ module "network_firewall_logging_kms" {
   tags = merge(
     local.org_tags,
     {
-      "${var.organization_tag_key_prefix}service_name" = "network-firewall-logging"
+      "service_name" = "network-firewall-logging"
     }
   )
 }

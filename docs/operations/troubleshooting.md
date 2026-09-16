@@ -219,7 +219,6 @@ rotation occurs after creation and is not a Terraform variable update.
 |---|---|
 | `ansible.cfg` ignored under WSL | Set `ANSIBLE_CONFIG` explicitly; the Windows-mounted directory may be world-writable |
 | Collection role not found | Confirm `ANSIBLE_COLLECTIONS_PATH` includes the repository `collections` directory |
-| No module-test roots found | Confirm `terraform/environments/module-tests` exists and contains Terraform roots |
 | Changed module has no consumer | Add or repair a module-validation root or lifecycle-stack consumer |
 | Lockfile/provider initialization fails | Check Terraform/provider versions and committed lockfile; do not bypass checks |
 | Format check fails | Run `terraform fmt -check -recursive terraform/`, inspect, then format intentionally |

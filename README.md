@@ -15,7 +15,6 @@ The repository combines reusable Terraform modules with Ansible Automation Platf
 - Governed IRE deployments: use the four roots under `terraform/stacks` through
   the approved AAP workflow.
 - Reusable module validation: use the consumer roots under
-  `terraform/environments/module-tests`.
 
 Environment configuration lives under `terraform/environments`; it is not a
 Terraform deployment root. Do not infer state ownership from directory names;
@@ -219,7 +218,6 @@ The following matrix distinguishes reusable implementation, environment integrat
 │   ├── terraform_destroy.yml
 │   ├── test_assume_role.yml
 │   └── test_caller_identity.yml
-├── scripts/
 │   └── ci/
 ├── terraform/
 │   ├── stacks/
@@ -231,7 +229,6 @@ The following matrix distinguishes reusable implementation, environment integrat
 │   ├── environments/
 │   │   ├── sandbox/
 │   │   │   └── config/
-│   │   ├── module-tests/
 │   └── modules/
 │       ├── backup-*/
 │       ├── client-vpn/
@@ -259,7 +256,6 @@ The four directories under `terraform/stacks` are the active lifecycle roots.
 Sandbox desired-state files consumed by AAP are under
 `terraform/environments/sandbox/config`. Reusable module logic remains under
 `terraform/modules` and is validated independently through module-validation
-roots under `terraform/environments/module-tests`.
 
 ---
 

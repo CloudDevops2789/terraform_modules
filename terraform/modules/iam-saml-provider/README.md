@@ -46,6 +46,4 @@ module "client_vpn_saml_provider" {
 ## Validation
 
 ```bash
-scripts/ci/terraform-validate-root.sh \
-  terraform/environments/module-tests/iam-saml-provider
 ```
