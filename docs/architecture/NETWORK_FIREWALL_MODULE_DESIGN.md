@@ -493,7 +493,6 @@ The module suite shall comply with:
 
 - Architecture Principles
 - Terraform Module Development Standard
-- Module Testing Standard
 - Diagram Development Standard
 
 No implementation shall violate these governing standards.

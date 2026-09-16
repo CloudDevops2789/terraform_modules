@@ -24,4 +24,3 @@ CloudWatch Logs encryption. Existing AWS names containing the historical
 - Persistent-stack destroy remains controlled through AAP guardrails.
 
 The matching validation composition is under
-`terraform/environments/module-tests/kms`.

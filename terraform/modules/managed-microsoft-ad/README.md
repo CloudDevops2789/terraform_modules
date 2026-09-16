@@ -128,12 +128,10 @@ The IRE design permits no trust or synchronization between this clean administra
 
 The repository includes a composite module-test root at:
 
-`terraform/environments/module-tests/managed-microsoft-ad`
 
 Run repository validation with:
 
 ```bash
-bash scripts/ci/terraform-validate-all.sh
 ```
 
 Environment deployment validation remains separate from static Terraform validation.
