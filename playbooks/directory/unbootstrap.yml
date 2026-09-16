@@ -6,6 +6,7 @@
 # Microsoft AD bootstrap users.
 #
 # Runtime inputs:
+#   directory_aws_region
 #   managed_ad_unbootstrap_group_name
 #   managed_ad_unbootstrap_users
 #   managed_ad_unbootstrap_delete_users
@@ -30,6 +31,7 @@
       ansible.builtin.assert:
         that:
           - directory_environment | default('') | length > 0
+          - directory_aws_region | default('') | length > 0
           - managed_ad_directory_id | default('') is match('^d-[0-9a-f]{10}$')
           - managed_ad_unbootstrap_group_name | default('') | length > 0
           - managed_ad_unbootstrap_users is defined
@@ -43,7 +45,7 @@
     - name: Derive Managed AD unbootstrap environment values
       ansible.builtin.set_fact:
         managed_ad_unbootstrap_directory_id: "{{ managed_ad_directory_id }}"
-        managed_ad_unbootstrap_region: "{{ aws_region }}"
+        managed_ad_unbootstrap_region: "{{ directory_aws_region }}"
         managed_ad_unbootstrap_secret_prefix: >-
           ire/{{ directory_environment }}/ad-users
 

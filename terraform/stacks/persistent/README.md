@@ -333,12 +333,11 @@ Current consumers are:
 
 | Persistent output | Consumer |
 |---|---|
-| `network_firewall_logging_kms_key_arn` | Platform |
+| `network_firewall_logging_kms_key_arn` | Inspection |
 | `standard_backup_vault_name` | Recovery |
 | `air_gapped_backup_vault_arn` | Recovery |
 
-The Network Firewall logging KMS consumer is expected to move from Platform to
-the future Inspection stack when Network Firewall ownership is extracted.
+The Network Firewall logging KMS output is consumed by the Inspection stack through AAP when customer-managed log encryption is enabled.
 
 ### Why cross-stack dependencies are different
 

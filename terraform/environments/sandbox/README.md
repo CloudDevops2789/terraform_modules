@@ -13,7 +13,9 @@ terraform/environments/sandbox/
 │   ├── persistent.tfvars
 │   ├── platform.tfvars
 │   ├── platform-network-policy.tfvars
+│   ├── inspection.tfvars
 │   ├── identity.tfvars
+│   ├── remote-access.tfvars
 │   └── recovery.tfvars
 └── keys/
     └── ire-lab-admin.pub
@@ -21,24 +23,28 @@ terraform/environments/sandbox/
 
 | File | Consumer | Purpose |
 |---|---|---|
-| `common-tags.tfvars` | All stacks | Customer-neutral `org_*` tagging contract |
+| `common-tags.tfvars` | All stacks | Organization-specific `org_*` tagging contract |
 | `persistent.tfvars` | Persistent | Optional long-lived vault and logging-KMS capabilities |
 | `platform.tfvars` | Platform | Network topology, access plane, SSM and service placement |
-| `platform-network-policy.tfvars` | Platform | Security-group and Network Firewall policy |
+| `platform-network-policy.tfvars` | Platform | Security-group policy |
+| `inspection.tfvars` | Inspection | Network Firewall policy, rules and logging |
 | `identity.tfvars` | Identity | Directory enablement and Platform placement selection |
+| `remote-access.tfvars` | Remote Access | Client VPN authentication, authorization and placement |
 | `recovery.tfvars` | Recovery | Temporary workloads, access, backup intent and placement |
 
-AAP resolves these filenames through
-`playbooks/vars/terraform_stack_bindings.yml`. It resolves the deployment root
-separately under `terraform/stacks/<stack>`.
+AAP resolves each stack's configuration through
+`playbooks/terraform/config/<stack>.yml` and resolves the deployment root
+under `terraform/stacks/<stack>`.
 
 ## Lifecycle roots and state
 
 | Stack | Root | Backend key |
 |---|---|---|
-| Persistent | `terraform/stacks/persistent` | `ire/sandbox/persistent/terraform.tfstate` |
+| Persistent | `terraform/stacks/persistent` | `ire/sandbox/foundation/terraform.tfstate` |
 | Platform | `terraform/stacks/platform` | `ire/sandbox/platform/terraform.tfstate` |
+| Inspection | `terraform/stacks/inspection` | `ire/sandbox/inspection/terraform.tfstate` |
 | Identity | `terraform/stacks/identity` | `ire/sandbox/identity/terraform.tfstate` |
+| Remote Access | `terraform/stacks/remote-access` | `ire/sandbox/remote-access/terraform.tfstate` |
 | Recovery | `terraform/stacks/recovery` | `ire/sandbox/recovery/terraform.tfstate` |
 
 The retired monolithic Sandbox and Foundation roots are preserved in Git
@@ -59,6 +65,6 @@ replacement.
 
 ## Validation boundary
 
-Static validation uses the four lifecycle roots with backends disabled. It does
+Static validation uses the active lifecycle roots with backends disabled. It does
 not prove the selected account, backend key, permissions, quotas or runtime
 network behavior. Those checks require the approved AAP plan workflow.

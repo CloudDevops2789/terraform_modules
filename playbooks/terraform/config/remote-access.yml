@@ -8,6 +8,7 @@ terraform_var_files:
 terraform_environment_variable_allowlist: []
 
 terraform_runtime_variable_allowlist:
+  - remote_access_enabled
   - server_certificate_arn
   - client_root_certificate_chain_arn
 

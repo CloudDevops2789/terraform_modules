@@ -99,9 +99,11 @@ Internet Gateway. Higher-level routing remains in the consuming Platform root.
 
 AAP brokers only approved outputs:
 
-- Persistent to Platform: optional Network Firewall logging KMS ARN;
+- Persistent to Inspection: optional Network Firewall logging KMS ARN;
 - Persistent to Recovery: backup vault references;
-- Platform to Identity: approved VPC/subnet placement contract; and
+- Platform to Inspection: approved inspection topology contract;
+- Platform to Identity: approved VPC/subnet placement contract;
+- Platform to Remote Access: approved network and security-group placement contract; and
 - Platform to Recovery: network, security-group and management-plane contract.
 
 Operators cannot override lifecycle-owned contracts through ordinary runtime
