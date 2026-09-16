@@ -112,7 +112,6 @@ The companion module test creates supporting strict-order stateful and stateless
 - One default-action-order policy with no rule group dependencies
 Run:
 ```bash
-cd terraform/environments/module-tests/network-firewall-policy
 terraform init
 terraform validate
 terraform plan

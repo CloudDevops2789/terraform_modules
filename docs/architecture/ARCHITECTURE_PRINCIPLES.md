@@ -325,7 +325,6 @@ Location
 
 terraform/
     environments/
-        module-tests/
             module-name/
 
 Module tests should include only the supporting infrastructure required to exercise the module.
@@ -457,7 +456,6 @@ Before a module is considered complete, verify:
 - Does complex logic live in locals.tf?
 - Are outputs useful and minimal?
 - Does the module include documentation?
-- Does the module include module-tests?
 - Can the module be deployed independently?
 - Does the module align with AWS Well-Architected principles?
 - Does the module comply with this Architecture Principles document?
