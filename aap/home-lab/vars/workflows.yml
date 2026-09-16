@@ -6,7 +6,6 @@
 #
 # Approval nodes are intentionally disabled for the complete home-lab test.
 #
-# AWS Network Firewall / Inspection remains intentionally excluded.
 ################################################################################
 
 awx_workflows:
