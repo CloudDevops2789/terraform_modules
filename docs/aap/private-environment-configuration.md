@@ -9,16 +9,8 @@ private inventory variable:
 ~~~yaml
 terraform_environment_variables_by_stack:
   common:
-    organization_tag_key_prefix: "<APPROVED_TAG_PREFIX>"
-    org_it_cost_center: "<APPROVED_VALUE>"
-    org_department: "<APPROVED_VALUE>"
-    org_cmdb_calculated_app: "<APPROVED_VALUE>"
-    org_business_criticality: "<APPROVED_VALUE>"
-    org_environment: "<APPROVED_VALUE>"
-    org_data_classification: "<APPROVED_VALUE>"
-    org_project_name: "<APPROVED_VALUE>"
-    org_managed_by: "<APPROVED_VALUE>"
-    org_additional_tags: {}
+    organization_tags:
+      "<ORGANIZATION_TAG_KEY>": "<APPROVED_VALUE>"
 
   platform:
     security_group_naming_mode: standard

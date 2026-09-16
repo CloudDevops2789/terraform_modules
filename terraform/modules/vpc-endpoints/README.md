@@ -310,7 +310,6 @@ requirements should determine which pattern is selected.
 
 A reusable module test is located at:
 
-    terraform/environments/module-tests/vpc-endpoints
 
 The test demonstrates:
 
