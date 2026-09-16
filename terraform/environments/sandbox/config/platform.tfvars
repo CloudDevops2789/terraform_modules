@@ -866,3 +866,20 @@ resource_name_overrides = {}
 # SSH security-group authorization requires an explicit Git-controlled change.
 # Recovery runtime choices cannot enable Platform SSH rules.
 ssh_key_access_enabled = true
+
+################################################################################
+# Network Flow Logging
+################################################################################
+#
+# Capture both VPC and Transit Gateway network metadata for the IRE Sandbox.
+# Flow Logs do not alter packet forwarding or inspection behaviour.
+#
+# CloudWatch retention is intentionally finite for Sandbox cost control.
+################################################################################
+
+network_flow_logs = {
+  enabled                      = true
+  vpc_flow_logs_enabled        = true
+  transit_gateway_logs_enabled = true
+  retention_in_days            = 30
+}
