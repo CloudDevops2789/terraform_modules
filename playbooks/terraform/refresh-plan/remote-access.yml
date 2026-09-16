@@ -1,0 +1,7 @@
+---
+- name: Refresh-plan remote-access Terraform state
+  import_playbook: ../common/deploy.yml
+  vars:
+    terraform_stack: remote-access
+    terraform_operation: refresh-plan
+    terraform_repository_root: "{{ playbook_dir }}/../../.."

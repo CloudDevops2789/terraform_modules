@@ -49,24 +49,14 @@ Git-controlled Inspection configuration:
 
 Upstream AWS identifiers must not be manually copied into `inspection.tfvars`.
 
-## Current migration status
+## Current ownership
 
-The complete desired Inspection composition is now staged in this root, but the
-existing AWS Network Firewall resources remain owned by the Platform Terraform
-state.
+The Inspection stack owns the AWS Network Firewall lifecycle, including firewall
+policy, rule groups, firewall logging, and routes whose next hop depends on
+Network Firewall endpoints.
 
-Therefore:
-
-- static Terraform validation is allowed;
-- source/configuration equivalence review is allowed;
-- do not apply Inspection against the existing environment;
-- do not remove firewall resources from Platform yet;
-- do not move Terraform state until the migration procedure has been reviewed;
-- do not run Platform apply after removing firewall code unless the ownership
-  migration has already succeeded.
-
-A state migration must result in the existing resources being rebound to the
-Inspection backend without recreation or replacement.
+Platform owns the underlying Inspection VPC, subnets, Transit Gateway topology,
+and the `inspection_contract` consumed by this stack.
 
 ## Firewall routing boundary
 
