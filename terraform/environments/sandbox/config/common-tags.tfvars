@@ -1,16 +1,20 @@
 ##################################################################################################
 # Sandbox Common Organization Tags
 #
-# Shared by Platform, Inspection, Identity, Recovery, and Remote Access stacks.
+# Shared by Persistent, Platform, Inspection, Identity, Remote Access,
+# and Recovery stacks.
+#
+# Keys below are the exact AWS tag keys. Terraform does not rename,
+# prefix, or otherwise transform them.
 ##################################################################################################
-organization_tag_key_prefix = "fv:"
 
-org_it_cost_center       = "10000-70100-8281"
-org_department           = "Cybersecurity_Resilience_and_Recovery"
-org_cmdb_calculated_app  = "Cybersecurity_Resilience_and_Recovery"
-org_business_criticality = "4"
-org_environment          = "dev"
-org_data_classification  = "Internal"
-org_project_name         = "CyberRecoveryBlueprint"
-org_managed_by           = "Terraform"
-org_additional_tags      = {}
+organization_tags = {
+  "fv:it-cost-center"             = "10000-70100-8337"
+  "fv:department"                 = "Cybersecurity - Technology Resilience and Recovery"
+  "fv:app-name"                   = "Fairview IRE"
+  "fv:it-app-owner"               = "Bruce Zamaere"
+  "fv:environment"                = "sandbox"
+  "fv:project-name"               = "CyberRecoveryBlueprint"
+  "fv:managed-by"                 = "Ansible_Automation_Platform"
+  "fv:cmdb-calculated-app-number" = "APM0002437"
+}

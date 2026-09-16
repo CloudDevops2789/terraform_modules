@@ -711,8 +711,6 @@ ssm_instance_profile_mode = "terraform"
 # Production/private environment repositories should replace placeholder/example
 # governance values with organization-approved values through normal review.
 #
-# org_additional_tags is the supported extension point for additional resource tags
-# and may override the optional standard tag defaults.
 ################################################################################
 
 
