@@ -883,3 +883,36 @@ network_flow_logs = {
   transit_gateway_logs_enabled = true
   retention_in_days            = 30
 }
+
+################################################################################
+# Amazon S3 Private Access
+################################################################################
+#
+# S3 Gateway endpoints provide private access to Amazon S3 for recovery and
+# administrative workloads without requiring NAT Gateway or public routing.
+#
+# Route-table groups are deliberately selected by workload function rather than
+# attaching the endpoint to every route table in each VPC.
+################################################################################
+
+s3_gateway_endpoint_bindings = {
+  recovery_access = {
+    route_table_groups = [
+      "admin-tools"
+    ]
+  }
+
+  core_recovery = {
+    route_table_groups = [
+      "recovery-services"
+    ]
+  }
+
+  protected_data = {
+    route_table_groups = [
+      "protected-workloads",
+      "ingestion",
+      "file-services"
+    ]
+  }
+}

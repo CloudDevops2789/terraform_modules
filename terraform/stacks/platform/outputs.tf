@@ -274,3 +274,25 @@ output "inspection_contract" {
     }
   }
 }
+
+##################################################################################################
+# S3 Gateway Endpoints
+##################################################################################################
+
+output "s3_gateway_endpoint_ids" {
+  description = "S3 Gateway VPC endpoint IDs keyed by Platform VPC key."
+
+  value = {
+    for vpc_key, endpoints in module.s3_gateway_endpoints :
+    vpc_key => endpoints.gateway_endpoint_ids["s3"]
+  }
+}
+
+output "s3_gateway_endpoint_prefix_list_ids" {
+  description = "AWS-managed S3 prefix-list IDs keyed by Platform VPC key."
+
+  value = {
+    for vpc_key, endpoints in module.s3_gateway_endpoints :
+    vpc_key => endpoints.gateway_endpoint_prefix_list_ids["s3"]
+  }
+}
