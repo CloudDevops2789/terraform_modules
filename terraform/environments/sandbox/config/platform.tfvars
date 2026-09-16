@@ -693,32 +693,6 @@ ssm_instance_profile_mode = "terraform"
 
 
 ################################################################################
-# AWS Network Firewall Logging Integration
-################################################################################
-#
-# false
-#
-#   Persistent Resources-backed Network Firewall logging integration is not enabled.
-#
-# true
-#
-#   Enables the configured Network Firewall logging integration and consumes the
-#   required persistent Persistent Resources logging/encryption references.
-#
-#   AAP must provide the required external Persistent Resources references through:
-#
-#     persistent_resources
-#
-# Operational expectation:
-#
-#   This should normally be enabled only as part of the approved firewall-mode
-#   architecture with the required Persistent Resources logging/KMS resources available.
-#
-# Ownership:
-#
-#   Enablement is Git controlled.
-#   External Persistent Resources resource identifiers are AAP environment bindings.
-################################################################################
 
 
 
