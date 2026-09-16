@@ -1,0 +1,7 @@
+---
+- name: Refresh-apply identity Terraform state
+  import_playbook: ../common/deploy.yml
+  vars:
+    terraform_stack: identity
+    terraform_operation: refresh-apply
+    terraform_repository_root: "{{ playbook_dir }}/../../.."

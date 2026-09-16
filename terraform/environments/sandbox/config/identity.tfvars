@@ -21,7 +21,7 @@ managed_ad_enabled = true
 
 # Define the approved domain and edition before enabling the directory.
 managed_ad_configuration = {
-  domain_name                  = "ad.ire.example"
+  domain_name                  = "ad.ire.ransprot.com"
   short_name                   = "IRE"
   edition                      = "Standard"
   enable_directory_data_access = true

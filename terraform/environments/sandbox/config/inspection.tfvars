@@ -89,8 +89,8 @@ network_firewall_rules = [
 # Network Firewall Logging
 ################################################################################
 #
-# Logging remains disabled in the current Sandbox configuration.
+# Network Firewall ALERT and FLOW logging is enabled for Sandbox validation.
 # When enabled, the optional KMS ARN comes from Persistent through AAP.
 ################################################################################
 
-network_firewall_logging_enabled = false
+network_firewall_logging_enabled = true
