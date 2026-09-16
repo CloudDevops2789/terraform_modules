@@ -235,16 +235,11 @@ common-tags.tfvars / approved environment inventory
     v
 variables.tf
     |
-    +--> var.organization_tag_key_prefix
-    |
-    +--> var.org_*
-    |
-    +--> var.org_additional_tags
+    v
+var.organization_tags
     |
     v
 locals.tf
-    |
-    +--> local.org_default_tags
     |
     v
 local.org_tags
