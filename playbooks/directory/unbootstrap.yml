@@ -5,19 +5,11 @@
 # AAP entry point for revoking or fully deprovisioning selected AWS Managed
 # Microsoft AD bootstrap users.
 #
-# Runtime inputs:
-#   directory_aws_region
-#   managed_ad_unbootstrap_group_name
-#   managed_ad_unbootstrap_users
-#   managed_ad_unbootstrap_delete_users
-#   managed_ad_unbootstrap_delete_secrets
-#   managed_ad_unbootstrap_secret_recovery_days
-#   managed_ad_unbootstrap_confirmation
-#
-# Derived/orchestrated inputs:
-#   managed_ad_unbootstrap_directory_id
-#   managed_ad_unbootstrap_region
-#   managed_ad_unbootstrap_secret_prefix
+# AWS access model:
+#   AAP credential
+#     -> ire_platform.aws.assume_role
+#     -> temporary IRE role credentials
+#     -> Managed AD / ds-data / Secrets Manager API calls
 ################################################################################
 
 - name: Unbootstrap AWS Managed Microsoft AD users
@@ -38,8 +30,11 @@
           - managed_ad_unbootstrap_users is sequence
           - managed_ad_unbootstrap_users is not string
           - managed_ad_unbootstrap_users | length > 0
+          - assume_role_role_arn | default('') | length > 0
+          - assume_role_aws_region | default('') | length > 0
         fail_msg: >-
-          Supply the directory environment, target group and explicit user list
+          Supply the directory environment, AWS Region, Managed AD directory
+          ID, target group, explicit user list, and approved AssumeRole inputs
           through AAP runtime variables.
 
     - name: Derive Managed AD unbootstrap environment values
@@ -49,5 +44,19 @@
         managed_ad_unbootstrap_secret_prefix: >-
           ire/{{ directory_environment }}/ad-users
 
-  roles:
-    - role: ire_platform.aws.managed_ad_unbootstrap
+    - name: Assume IRE AWS deployment role
+      ansible.builtin.include_role:
+        name: ire_platform.aws.assume_role
+
+  tasks:
+
+    - name: Unbootstrap Managed AD users
+      ansible.builtin.include_role:
+        name: ire_platform.aws.managed_ad_unbootstrap
+        apply:
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
