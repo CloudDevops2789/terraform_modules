@@ -40,7 +40,7 @@ module "s3_gateway_endpoints" {
   tags = merge(
     local.org_tags,
     {
-      org_service_name = "s3-private-access"
+      service_name = "s3-private-access"
     }
   )
 }
