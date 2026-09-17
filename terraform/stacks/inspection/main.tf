@@ -85,7 +85,7 @@ locals {
       }
 
       tags = {
-        org_service_name = "centralized-network-inspection"
+        service_name = "centralized-network-inspection"
       }
     }
   }
@@ -158,7 +158,7 @@ locals {
       }
 
       tags = {
-        org_service_name = "centralized-network-inspection"
+        service_name = "centralized-network-inspection"
       }
     }
   }
@@ -214,7 +214,7 @@ module "network_firewall" {
       subnet_change_protection          = false
 
       tags = {
-        org_service_name = "centralized-network-inspection"
+        service_name = "centralized-network-inspection"
       }
     }
   }
@@ -268,8 +268,8 @@ resource "aws_cloudwatch_log_group" "network_firewall" {
   tags = merge(
     local.org_tags,
     {
-      org_service_name = "network-firewall-logging"
-      org_log_type     = lower(each.value.log_type)
+      service_name = "network-firewall-logging"
+      log_type     = lower(each.value.log_type)
     }
   )
 }
