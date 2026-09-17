@@ -81,9 +81,9 @@ resource "aws_cloudwatch_log_group" "network_flow_logs" {
   tags = merge(
     local.org_tags,
     {
-      Name             = each.value
-      org_service_name = "network-flow-logging"
-      org_log_type     = each.key
+      Name         = each.value
+      service_name = "network-flow-logging"
+      log_type     = each.key
     }
   )
 }
@@ -147,8 +147,8 @@ resource "aws_iam_role" "network_flow_logs" {
   tags = merge(
     local.org_tags,
     {
-      Name             = "${local.name_prefix}-network-flow-logs"
-      org_service_name = "network-flow-logging"
+      Name         = "${local.name_prefix}-network-flow-logs"
+      service_name = "network-flow-logging"
     }
   )
 }
@@ -231,9 +231,9 @@ resource "aws_flow_log" "vpc" {
   tags = merge(
     local.org_tags,
     {
-      Name             = "${local.name_prefix}-${replace(each.key, "_", "-")}-flow-log"
-      org_service_name = "vpc-flow-logging"
-      org_vpc_key      = each.key
+      Name         = "${local.name_prefix}-${replace(each.key, "_", "-")}-flow-log"
+      service_name = "vpc-flow-logging"
+      vpc_key      = each.key
     }
   )
 
@@ -270,8 +270,8 @@ resource "aws_flow_log" "transit_gateway" {
   tags = merge(
     local.org_tags,
     {
-      Name             = "${local.name_prefix}-transit-gateway-flow-log"
-      org_service_name = "transit-gateway-flow-logging"
+      Name         = "${local.name_prefix}-transit-gateway-flow-log"
+      service_name = "transit-gateway-flow-logging"
     }
   )
 
