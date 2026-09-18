@@ -1,0 +1,65 @@
+---
+- name: Provision AWS Client VPN server certificate
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  pre_tasks:
+    - name: Validate Client VPN certificate provisioning request
+      ansible.builtin.assert:
+        that:
+          - client_vpn_certificate_provider | default('') | length > 0
+          - client_vpn_certificate_domain_name | default('') | length > 0
+          - assume_role_role_arn | default('') | length > 0
+          - assume_role_aws_region | default('') | length > 0
+        fail_msg: >-
+          Supply certificate provider, certificate domain name,
+          and approved AssumeRole inputs.
+
+    - name: Assume IRE AWS deployment role
+      ansible.builtin.include_role:
+        name: ire_platform.aws.assume_role
+
+  tasks:
+    - name: Provision Client VPN server certificate
+      ansible.builtin.include_role:
+        name: ire_platform.aws.client_vpn_certificate
+        apply:
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+      vars:
+        client_vpn_certificate_region: "{{ assume_role_aws_auth.region }}"
+
+    - name: Validate provisioned Client VPN certificate
+      ansible.builtin.include_role:
+        name: ire_platform.aws.client_vpn_certificate_validate
+        apply:
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+      vars:
+        client_vpn_certificate_validate_arn: >-
+          {{ client_vpn_certificate_provision_result.certificate_arn }}
+        client_vpn_certificate_validate_region: >-
+          {{ assume_role_aws_auth.region }}
+
+  post_tasks:
+    - name: Report provisioned Client VPN certificate
+      ansible.builtin.debug:
+        msg:
+          - >-
+            Provider:
+            {{ client_vpn_certificate_provision_result.provider }}
+          - >-
+            Certificate:
+            {{ client_vpn_certificate_provision_result.certificate_arn }}
+          - >-
+            Domain:
+            {{ client_vpn_certificate_provision_result.domain_name }}

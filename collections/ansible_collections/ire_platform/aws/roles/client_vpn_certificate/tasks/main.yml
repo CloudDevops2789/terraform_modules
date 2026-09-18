@@ -1,0 +1,24 @@
+---
+- name: Validate Client VPN certificate provider inputs
+  ansible.builtin.assert:
+    that:
+      - client_vpn_certificate_provider in ['easyrsa', 'aws_private_ca']
+      - client_vpn_certificate_region | length > 0
+      - client_vpn_certificate_domain_name | length > 0
+      - client_vpn_certificate_key_algorithm == 'RSA_2048'
+    fail_msg: >-
+      Supply a supported Client VPN certificate provider, AWS Region,
+      certificate domain name, and RSA_2048 key algorithm.
+
+- name: Validate AWS Private CA provider inputs
+  ansible.builtin.assert:
+    that:
+      - client_vpn_certificate_private_ca_arn | length > 0
+    fail_msg: >-
+      Supply client_vpn_certificate_private_ca_arn when using aws_private_ca.
+  when:
+    - client_vpn_certificate_provider == 'aws_private_ca'
+
+- name: Provision Client VPN certificate
+  ansible.builtin.include_tasks:
+    file: "{{ client_vpn_certificate_provider }}.yml"

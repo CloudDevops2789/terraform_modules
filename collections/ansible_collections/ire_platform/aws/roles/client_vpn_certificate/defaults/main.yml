@@ -1,0 +1,20 @@
+---
+# Certificate provider:
+# - easyrsa
+# - aws_private_ca
+client_vpn_certificate_provider: ""
+
+# Common certificate settings.
+client_vpn_certificate_domain_name: ""
+client_vpn_certificate_region: ""
+client_vpn_certificate_key_algorithm: "RSA_2048"
+
+# EasyRSA provider settings.
+client_vpn_certificate_easyrsa_command: "easyrsa"
+client_vpn_certificate_easyrsa_common_name: "IRE Client VPN CA"
+client_vpn_certificate_easyrsa_server_name: ""
+client_vpn_certificate_easyrsa_cleanup: true
+
+# AWS Private CA provider settings.
+# Existing CA only. This role must not create a Private CA.
+client_vpn_certificate_private_ca_arn: ""
