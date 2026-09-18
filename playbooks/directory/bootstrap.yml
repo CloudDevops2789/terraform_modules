@@ -4,19 +4,11 @@
 #
 # AAP entry point for operational AWS Managed Microsoft AD bootstrap.
 #
-# Runtime inputs:
-#   directory_aws_region
-#   managed_ad_bootstrap_group_name
-#   managed_ad_bootstrap_users
-#   managed_ad_bootstrap_reset_existing_passwords
-#
-# Derived/orchestrated inputs:
-#   managed_ad_bootstrap_directory_id
-#   managed_ad_bootstrap_region
-#   managed_ad_bootstrap_secret_prefix
-#
-# The reusable role itself contains no AAP, Terraform-state, credential, or
-# environment-specific assumptions.
+# AWS access model:
+#   AAP credential
+#     -> ire_platform.aws.assume_role
+#     -> temporary IRE role credentials
+#     -> Managed AD / ds-data / Secrets Manager API calls
 ################################################################################
 
 - name: Bootstrap AWS Managed Microsoft AD users and groups
@@ -25,10 +17,6 @@
   gather_facts: false
 
   pre_tasks:
-
-    ##########################################################################
-    # Runtime Request
-    ##########################################################################
 
     - name: Validate directory bootstrap runtime request
       ansible.builtin.assert:
@@ -41,15 +29,12 @@
           - managed_ad_bootstrap_users is sequence
           - managed_ad_bootstrap_users is not string
           - managed_ad_bootstrap_users | length > 0
+          - assume_role_role_arn | default('') | length > 0
+          - assume_role_aws_region | default('') | length > 0
         fail_msg: >-
-          Supply the directory environment, target group and requested user
-          list through AAP runtime variables.
-
-    ##########################################################################
-    # Environment-Derived Values
-    #
-    # The directory ID is supplied by the upstream Identity workflow artifact.
-    ##########################################################################
+          Supply the directory environment, AWS Region, Managed AD directory
+          ID, target group, requested users, and approved AssumeRole inputs
+          through AAP runtime variables.
 
     - name: Derive Managed AD bootstrap environment values
       ansible.builtin.set_fact:
@@ -58,18 +43,24 @@
         managed_ad_bootstrap_secret_prefix: >-
           ire/{{ directory_environment }}/ad-users
 
-  roles:
-    - role: ire_platform.aws.managed_ad_bootstrap
+    - name: Assume IRE AWS deployment role
+      ansible.builtin.include_role:
+        name: ire_platform.aws.assume_role
+
+  tasks:
+
+    - name: Bootstrap Managed AD users and group
+      ansible.builtin.include_role:
+        name: ire_platform.aws.managed_ad_bootstrap
+        apply:
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
 
   post_tasks:
-
-    ##########################################################################
-    # Downstream Workflow Contract
-    #
-    # Remote Access requires the SID of the Managed AD authorization group.
-    # Publish only that non-secret operational identifier to downstream AAP
-    # workflow jobs.
-    ##########################################################################
 
     - name: Validate Managed AD bootstrap workflow result
       ansible.builtin.assert:
