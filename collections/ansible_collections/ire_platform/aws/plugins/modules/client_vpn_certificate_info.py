@@ -99,6 +99,7 @@ def main():
             "certificate_arn": certificate.get("CertificateArn"),
             "domain_name": certificate.get("DomainName"),
             "status": certificate.get("Status"),
+            "failure_reason": certificate.get("FailureReason"),
             "type": certificate.get("Type"),
             "issuer": certificate.get("Issuer"),
             "subject": certificate.get("Subject"),

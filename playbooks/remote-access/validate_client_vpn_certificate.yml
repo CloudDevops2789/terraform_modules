@@ -47,6 +47,9 @@
             Status:
             {{ client_vpn_certificate_validate_summary.status }}
           - >-
+            Failure reason:
+            {{ client_vpn_certificate_validate_summary.failure_reason }}
+          - >-
             Type:
             {{ client_vpn_certificate_validate_summary.type }}
           - >-
