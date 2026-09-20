@@ -26,3 +26,9 @@ client_vpn_certificate_easyrsa_cleanup: true
 # AWS Private CA provider settings.
 # Existing CA only. This role must not create a Private CA.
 client_vpn_certificate_private_ca_arn: ""
+
+# EasyRSA persistent PKI.
+# Required when intentionally creating certificates with the EasyRSA provider.
+# Must point outside the source repository.
+client_vpn_certificate_easyrsa_pki_path: ""
+client_vpn_certificate_easyrsa_create_ca_if_missing: false

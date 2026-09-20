@@ -3,8 +3,9 @@
   ansible.builtin.assert:
     that:
       - client_vpn_certificate_easyrsa_command | length > 0
+      - client_vpn_certificate_easyrsa_pki_path | length > 0
     fail_msg: >-
-      Supply the EasyRSA executable path or command name.
+      Supply the EasyRSA executable and a persistent PKI path.
 
 - name: Verify EasyRSA is available
   ansible.builtin.command:
@@ -23,106 +24,137 @@
         else client_vpn_certificate_domain_name
       }}
 
-- name: Create secure temporary EasyRSA workspace
-  ansible.builtin.tempfile:
-    state: directory
-    prefix: ire-client-vpn-pki-
-  register: client_vpn_certificate_easyrsa_workspace
-  no_log: true
-
-- name: Restrict EasyRSA workspace permissions
+- name: Create persistent EasyRSA PKI parent
   ansible.builtin.file:
-    path: "{{ client_vpn_certificate_easyrsa_workspace.path }}"
+    path: "{{ client_vpn_certificate_easyrsa_pki_path | dirname }}"
     state: directory
     mode: "0700"
+
+- name: Check EasyRSA CA certificate
+  ansible.builtin.stat:
+    path: "{{ client_vpn_certificate_easyrsa_pki_path }}/ca.crt"
+  register: client_vpn_certificate_easyrsa_ca_certificate
+
+- name: Check EasyRSA CA private key
+  ansible.builtin.stat:
+    path: "{{ client_vpn_certificate_easyrsa_pki_path }}/private/ca.key"
+  register: client_vpn_certificate_easyrsa_ca_private_key
   no_log: true
 
-- name: Provision and import EasyRSA Client VPN certificate
-  block:
-    - name: Initialize EasyRSA PKI
-      ansible.builtin.command:
-        argv:
-          - "{{ client_vpn_certificate_easyrsa_command }}"
-          - "--batch"
-          - "init-pki"
-      args:
-        chdir: "{{ client_vpn_certificate_easyrsa_workspace.path }}"
-      environment:
-        EASYRSA_PKI: "{{ client_vpn_certificate_easyrsa_workspace.path }}/pki"
-      register: client_vpn_certificate_easyrsa_init
-      changed_when: client_vpn_certificate_easyrsa_init.rc == 0
+- name: Validate existing EasyRSA CA state
+  ansible.builtin.assert:
+    that:
+      - >-
+        client_vpn_certificate_easyrsa_ca_certificate.stat.exists
+        ==
+        client_vpn_certificate_easyrsa_ca_private_key.stat.exists
+    fail_msg: >-
+      EasyRSA PKI is incomplete. The CA certificate and CA private key must
+      either both exist or both be absent.
+  no_log: true
 
-    - name: Build EasyRSA certificate authority
-      ansible.builtin.command:
-        argv:
-          - "{{ client_vpn_certificate_easyrsa_command }}"
-          - "--batch"
-          - "--req-cn={{ client_vpn_certificate_easyrsa_common_name }}"
-          - "build-ca"
-          - "nopass"
-      args:
-        chdir: "{{ client_vpn_certificate_easyrsa_workspace.path }}"
-      environment:
-        EASYRSA_PKI: "{{ client_vpn_certificate_easyrsa_workspace.path }}/pki"
-        EASYRSA_ALGO: "rsa"
-        EASYRSA_KEY_SIZE: "2048"
-      register: client_vpn_certificate_easyrsa_ca
-      changed_when: client_vpn_certificate_easyrsa_ca.rc == 0
+- name: Require explicit CA creation approval
+  ansible.builtin.assert:
+    that:
+      - client_vpn_certificate_easyrsa_create_ca_if_missing | bool
+    fail_msg: >-
+      No EasyRSA CA exists at the configured persistent PKI path.
+      Set client_vpn_certificate_easyrsa_create_ca_if_missing=true only when
+      intentionally creating the environment CA for the first time.
+  when:
+    - not client_vpn_certificate_easyrsa_ca_certificate.stat.exists
 
-    - name: Build EasyRSA Client VPN server certificate
-      ansible.builtin.command:
-        argv:
-          - "{{ client_vpn_certificate_easyrsa_command }}"
-          - "--batch"
-          - "--san=DNS:{{ client_vpn_certificate_domain_name }}"
-          - "build-server-full"
-          - "{{ client_vpn_certificate_easyrsa_effective_server_name }}"
-          - "nopass"
-      args:
-        chdir: "{{ client_vpn_certificate_easyrsa_workspace.path }}"
-      environment:
-        EASYRSA_PKI: "{{ client_vpn_certificate_easyrsa_workspace.path }}/pki"
-        EASYRSA_ALGO: "rsa"
-        EASYRSA_KEY_SIZE: "2048"
-      register: client_vpn_certificate_easyrsa_server
-      changed_when: client_vpn_certificate_easyrsa_server.rc == 0
+- name: Initialize persistent EasyRSA PKI
+  ansible.builtin.command:
+    argv:
+      - "{{ client_vpn_certificate_easyrsa_command }}"
+      - "--batch"
+      - "init-pki"
+  environment:
+    EASYRSA_PKI: "{{ client_vpn_certificate_easyrsa_pki_path }}"
+  register: client_vpn_certificate_easyrsa_init
+  changed_when: client_vpn_certificate_easyrsa_init.rc == 0
+  when:
+    - not client_vpn_certificate_easyrsa_ca_certificate.stat.exists
+    - client_vpn_certificate_easyrsa_create_ca_if_missing | bool
 
-    - name: Import EasyRSA server certificate into ACM
-      ire_platform.aws.client_vpn_certificate_import:
-        certificate_path: >-
-          {{
-            client_vpn_certificate_easyrsa_workspace.path
-            ~ '/pki/issued/'
-            ~ client_vpn_certificate_easyrsa_effective_server_name
-            ~ '.crt'
-          }}
-        private_key_path: >-
-          {{
-            client_vpn_certificate_easyrsa_workspace.path
-            ~ '/pki/private/'
-            ~ client_vpn_certificate_easyrsa_effective_server_name
-            ~ '.key'
-          }}
-        certificate_chain_path: >-
-          {{ client_vpn_certificate_easyrsa_workspace.path ~ '/pki/ca.crt' }}
-        region: "{{ client_vpn_certificate_region }}"
-      register: client_vpn_certificate_easyrsa_import
+- name: Build persistent EasyRSA certificate authority
+  ansible.builtin.command:
+    argv:
+      - "{{ client_vpn_certificate_easyrsa_command }}"
+      - "--batch"
+      - "--req-cn={{ client_vpn_certificate_easyrsa_common_name }}"
+      - "build-ca"
+      - "nopass"
+  environment:
+    EASYRSA_PKI: "{{ client_vpn_certificate_easyrsa_pki_path }}"
+    EASYRSA_ALGO: "rsa"
+    EASYRSA_KEY_SIZE: "2048"
+  register: client_vpn_certificate_easyrsa_ca
+  changed_when: client_vpn_certificate_easyrsa_ca.rc == 0
+  no_log: true
+  when:
+    - not client_vpn_certificate_easyrsa_ca_certificate.stat.exists
+    - client_vpn_certificate_easyrsa_create_ca_if_missing | bool
 
-    - name: Publish Client VPN certificate provisioning result
-      ansible.builtin.set_fact:
-        client_vpn_certificate_provision_result:
-          provider: "easyrsa"
-          certificate_arn: >-
-            {{ client_vpn_certificate_easyrsa_import.certificate_arn }}
-          domain_name: >-
-            {{ client_vpn_certificate_domain_name }}
-          key_algorithm: "RSA-2048"
+- name: Build EasyRSA Client VPN server certificate
+  ansible.builtin.command:
+    argv:
+      - "{{ client_vpn_certificate_easyrsa_command }}"
+      - "--batch"
+      - "--san=DNS:{{ client_vpn_certificate_domain_name }}"
+      - "build-server-full"
+      - "{{ client_vpn_certificate_easyrsa_effective_server_name }}"
+      - "nopass"
+  environment:
+    EASYRSA_PKI: "{{ client_vpn_certificate_easyrsa_pki_path }}"
+    EASYRSA_ALGO: "rsa"
+    EASYRSA_KEY_SIZE: "2048"
+  register: client_vpn_certificate_easyrsa_server
+  changed_when: client_vpn_certificate_easyrsa_server.rc == 0
+  no_log: true
 
-  always:
-    - name: Remove temporary EasyRSA PKI workspace
-      ansible.builtin.file:
-        path: "{{ client_vpn_certificate_easyrsa_workspace.path }}"
-        state: absent
-      when:
-        - client_vpn_certificate_easyrsa_cleanup | bool
-      no_log: true
+- name: Import EasyRSA server certificate into ACM
+  ire_platform.aws.client_vpn_certificate_import:
+    certificate_path: >-
+      {{
+        client_vpn_certificate_easyrsa_pki_path
+        ~ '/issued/'
+        ~ client_vpn_certificate_easyrsa_effective_server_name
+        ~ '.crt'
+      }}
+    private_key_path: >-
+      {{
+        client_vpn_certificate_easyrsa_pki_path
+        ~ '/private/'
+        ~ client_vpn_certificate_easyrsa_effective_server_name
+        ~ '.key'
+      }}
+    certificate_chain_path: >-
+      {{ client_vpn_certificate_easyrsa_pki_path ~ '/ca.crt' }}
+    region: "{{ client_vpn_certificate_region }}"
+  register: client_vpn_certificate_easyrsa_import
+
+- name: Publish Client VPN certificate provisioning result
+  ansible.builtin.set_fact:
+    client_vpn_certificate_provision_result:
+      provider: "easyrsa"
+      certificate_arn: >-
+        {{ client_vpn_certificate_easyrsa_import.certificate_arn }}
+      domain_name: >-
+        {{ client_vpn_certificate_domain_name }}
+      key_algorithm: "RSA-2048"
+
+- name: Remove imported server private key
+  ansible.builtin.file:
+    path: >-
+      {{
+        client_vpn_certificate_easyrsa_pki_path
+        ~ '/private/'
+        ~ client_vpn_certificate_easyrsa_effective_server_name
+        ~ '.key'
+      }}
+    state: absent
+  when:
+    - client_vpn_certificate_easyrsa_cleanup | bool
+  no_log: true
