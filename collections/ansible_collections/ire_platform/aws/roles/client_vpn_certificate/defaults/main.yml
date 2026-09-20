@@ -1,8 +1,16 @@
 ---
-# Certificate provider:
+# Certificate provider used only when a new certificate must be provisioned:
 # - easyrsa
 # - aws_private_ca
 client_vpn_certificate_provider: ""
+
+# Reuse an existing ACM certificate when supplied.
+# Generation is skipped completely when this ARN is populated.
+client_vpn_certificate_existing_arn: ""
+
+# Explicit creation guard.
+# A new certificate must never be created unless this is true.
+client_vpn_certificate_create: false
 
 # Common certificate settings.
 client_vpn_certificate_domain_name: ""

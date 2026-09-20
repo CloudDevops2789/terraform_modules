@@ -8,7 +8,6 @@
     - name: Validate Client VPN certificate provisioning request
       ansible.builtin.assert:
         that:
-          - client_vpn_certificate_provider | default('') | length > 0
           - client_vpn_certificate_domain_name | default('') | length > 0
           - assume_role_role_arn | default('') | length > 0
           - assume_role_aws_region | default('') | length > 0

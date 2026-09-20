@@ -1,14 +1,59 @@
 ---
-- name: Validate Client VPN certificate provider inputs
+- name: Validate common Client VPN certificate inputs
+  ansible.builtin.assert:
+    that:
+      - client_vpn_certificate_region | length > 0
+      - client_vpn_certificate_domain_name | length > 0
+    fail_msg: >-
+      Supply the AWS Region and Client VPN certificate domain name.
+
+- name: Validate existing ACM certificate ARN
+  ansible.builtin.assert:
+    that:
+      - >-
+        client_vpn_certificate_existing_arn
+        is match(
+          '^arn:[^:]+:acm:'
+          ~ client_vpn_certificate_region
+          ~ ':[0-9]{12}:certificate/.+$'
+        )
+    fail_msg: >-
+      client_vpn_certificate_existing_arn must be a valid ACM certificate ARN
+      in the requested AWS Region.
+  when:
+    - client_vpn_certificate_existing_arn | length > 0
+
+- name: Reuse existing Client VPN certificate
+  ansible.builtin.set_fact:
+    client_vpn_certificate_provision_result:
+      provider: "existing"
+      certificate_arn: "{{ client_vpn_certificate_existing_arn }}"
+      domain_name: "{{ client_vpn_certificate_domain_name }}"
+      key_algorithm: ""
+  when:
+    - client_vpn_certificate_existing_arn | length > 0
+
+- name: Require explicit certificate creation approval
+  ansible.builtin.assert:
+    that:
+      - client_vpn_certificate_create | bool
+    fail_msg: >-
+      No existing ACM certificate ARN was supplied. New certificate creation
+      is disabled by default. Set client_vpn_certificate_create=true only when
+      a new Client VPN certificate is intentionally required.
+  when:
+    - client_vpn_certificate_existing_arn | length == 0
+
+- name: Validate new certificate provider inputs
   ansible.builtin.assert:
     that:
       - client_vpn_certificate_provider in ['easyrsa', 'aws_private_ca']
-      - client_vpn_certificate_region | length > 0
-      - client_vpn_certificate_domain_name | length > 0
       - client_vpn_certificate_key_algorithm == 'RSA_2048'
     fail_msg: >-
-      Supply a supported Client VPN certificate provider, AWS Region,
-      certificate domain name, and RSA_2048 key algorithm.
+      Supply a supported certificate provider and RSA_2048 key algorithm.
+  when:
+    - client_vpn_certificate_existing_arn | length == 0
+    - client_vpn_certificate_create | bool
 
 - name: Validate AWS Private CA provider inputs
   ansible.builtin.assert:
@@ -17,8 +62,13 @@
     fail_msg: >-
       Supply client_vpn_certificate_private_ca_arn when using aws_private_ca.
   when:
+    - client_vpn_certificate_existing_arn | length == 0
+    - client_vpn_certificate_create | bool
     - client_vpn_certificate_provider == 'aws_private_ca'
 
-- name: Provision Client VPN certificate
+- name: Provision new Client VPN certificate
   ansible.builtin.include_tasks:
     file: "{{ client_vpn_certificate_provider }}.yml"
+  when:
+    - client_vpn_certificate_existing_arn | length == 0
+    - client_vpn_certificate_create | bool
