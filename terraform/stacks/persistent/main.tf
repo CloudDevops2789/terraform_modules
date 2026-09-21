@@ -135,3 +135,50 @@ module "network_firewall_logging_kms" {
     }
   )
 }
+
+
+################################################################################
+# Client VPN PKI Artifact Persistence
+#
+# Long-lived storage for EasyRSA CA state used by ephemeral AAP execution
+# environments. This lifecycle is intentionally independent of Remote Access.
+################################################################################
+
+module "client_vpn_pki_kms" {
+  count = var.client_vpn_pki_artifacts_enabled ? 1 : 0
+
+  source = "../../modules/kms"
+
+  description = local.client_vpn_pki_kms_description
+  alias       = local.client_vpn_pki_kms_alias
+
+  bootstrap_current_caller = false
+  key_administrators       = var.client_vpn_pki_kms_key_administrators
+  key_user_principals      = var.client_vpn_pki_kms_key_users
+
+  tags = merge(
+    local.org_tags,
+    {
+      "service_name" = "client-vpn-pki"
+    }
+  )
+}
+
+module "client_vpn_pki_bucket" {
+  count = var.client_vpn_pki_artifacts_enabled ? 1 : 0
+
+  source = "../../modules/s3-private-bucket"
+
+  name        = local.client_vpn_pki_bucket_name
+  kms_key_arn = module.client_vpn_pki_kms[0].key_arn
+
+  versioning_enabled = true
+  force_destroy      = false
+
+  tags = merge(
+    local.org_tags,
+    {
+      "service_name" = "client-vpn-pki"
+    }
+  )
+}
