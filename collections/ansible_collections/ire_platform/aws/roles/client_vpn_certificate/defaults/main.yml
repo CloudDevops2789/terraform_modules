@@ -32,3 +32,13 @@ client_vpn_certificate_private_ca_arn: ""
 # Must point outside the source repository.
 client_vpn_certificate_easyrsa_pki_path: ""
 client_vpn_certificate_easyrsa_create_ca_if_missing: false
+
+# EasyRSA CA storage source:
+# - filesystem
+# - s3
+client_vpn_certificate_easyrsa_ca_source: "filesystem"
+
+# S3 source configuration.
+client_vpn_certificate_easyrsa_ca_s3_bucket: ""
+client_vpn_certificate_easyrsa_ca_s3_key: ""
+client_vpn_certificate_easyrsa_ca_kms_key_arn: ""

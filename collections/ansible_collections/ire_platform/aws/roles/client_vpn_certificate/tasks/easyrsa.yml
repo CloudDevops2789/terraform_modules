@@ -3,9 +3,36 @@
   ansible.builtin.assert:
     that:
       - client_vpn_certificate_easyrsa_command | length > 0
+    fail_msg: >-
+      Supply the EasyRSA executable.
+
+- name: Validate filesystem CA source
+  ansible.builtin.assert:
+    that:
       - client_vpn_certificate_easyrsa_pki_path | length > 0
     fail_msg: >-
-      Supply the EasyRSA executable and a persistent PKI path.
+      Supply a persistent EasyRSA PKI path when using filesystem storage.
+  when:
+    - client_vpn_certificate_easyrsa_ca_source == 'filesystem'
+
+- name: Validate EasyRSA CA source
+  ansible.builtin.assert:
+    that:
+      - client_vpn_certificate_easyrsa_ca_source in ['filesystem', 's3']
+    fail_msg: >-
+      Supply a supported EasyRSA CA storage source.
+
+- name: Validate S3 CA source
+  ansible.builtin.assert:
+    that:
+      - client_vpn_certificate_easyrsa_ca_s3_bucket | length > 0
+      - client_vpn_certificate_easyrsa_ca_s3_key | length > 0
+      - client_vpn_certificate_easyrsa_ca_kms_key_arn | length > 0
+    fail_msg: >-
+      Supply S3 bucket, object key, and KMS key ARN when using
+      s3.
+  when:
+    - client_vpn_certificate_easyrsa_ca_source == 's3'
 
 - name: Verify EasyRSA is available
   ansible.builtin.command:
@@ -24,20 +51,34 @@
         else client_vpn_certificate_domain_name
       }}
 
+- name: Set filesystem EasyRSA runtime PKI path
+  ansible.builtin.set_fact:
+    client_vpn_certificate_easyrsa_runtime_pki_path: "{{ client_vpn_certificate_easyrsa_pki_path }}"
+  when:
+    - client_vpn_certificate_easyrsa_ca_source == 'filesystem'
+
+- name: Block incomplete S3 CA source
+  ansible.builtin.fail:
+    msg: >-
+      EasyRSA S3 CA storage is configured but not yet implemented.
+      No PKI or certificate changes have been made.
+  when:
+    - client_vpn_certificate_easyrsa_ca_source == 's3'
+
 - name: Create persistent EasyRSA PKI parent
   ansible.builtin.file:
-    path: "{{ client_vpn_certificate_easyrsa_pki_path | dirname }}"
+    path: "{{ client_vpn_certificate_easyrsa_runtime_pki_path | dirname }}"
     state: directory
     mode: "0700"
 
 - name: Check EasyRSA CA certificate
   ansible.builtin.stat:
-    path: "{{ client_vpn_certificate_easyrsa_pki_path }}/ca.crt"
+    path: "{{ client_vpn_certificate_easyrsa_runtime_pki_path }}/ca.crt"
   register: client_vpn_certificate_easyrsa_ca_certificate
 
 - name: Check EasyRSA CA private key
   ansible.builtin.stat:
-    path: "{{ client_vpn_certificate_easyrsa_pki_path }}/private/ca.key"
+    path: "{{ client_vpn_certificate_easyrsa_runtime_pki_path }}/private/ca.key"
   register: client_vpn_certificate_easyrsa_ca_private_key
   no_log: true
 
@@ -71,7 +112,7 @@
       - "--batch"
       - "init-pki"
   environment:
-    EASYRSA_PKI: "{{ client_vpn_certificate_easyrsa_pki_path }}"
+    EASYRSA_PKI: "{{ client_vpn_certificate_easyrsa_runtime_pki_path }}"
   register: client_vpn_certificate_easyrsa_init
   changed_when: client_vpn_certificate_easyrsa_init.rc == 0
   when:
@@ -87,7 +128,7 @@
       - "build-ca"
       - "nopass"
   environment:
-    EASYRSA_PKI: "{{ client_vpn_certificate_easyrsa_pki_path }}"
+    EASYRSA_PKI: "{{ client_vpn_certificate_easyrsa_runtime_pki_path }}"
     EASYRSA_ALGO: "rsa"
     EASYRSA_KEY_SIZE: "2048"
   register: client_vpn_certificate_easyrsa_ca
@@ -107,7 +148,7 @@
       - "{{ client_vpn_certificate_easyrsa_effective_server_name }}"
       - "nopass"
   environment:
-    EASYRSA_PKI: "{{ client_vpn_certificate_easyrsa_pki_path }}"
+    EASYRSA_PKI: "{{ client_vpn_certificate_easyrsa_runtime_pki_path }}"
     EASYRSA_ALGO: "rsa"
     EASYRSA_KEY_SIZE: "2048"
   register: client_vpn_certificate_easyrsa_server
@@ -118,20 +159,20 @@
   ire_platform.aws.client_vpn_certificate_import:
     certificate_path: >-
       {{
-        client_vpn_certificate_easyrsa_pki_path
+        client_vpn_certificate_easyrsa_runtime_pki_path
         ~ '/issued/'
         ~ client_vpn_certificate_easyrsa_effective_server_name
         ~ '.crt'
       }}
     private_key_path: >-
       {{
-        client_vpn_certificate_easyrsa_pki_path
+        client_vpn_certificate_easyrsa_runtime_pki_path
         ~ '/private/'
         ~ client_vpn_certificate_easyrsa_effective_server_name
         ~ '.key'
       }}
     certificate_chain_path: >-
-      {{ client_vpn_certificate_easyrsa_pki_path ~ '/ca.crt' }}
+      {{ client_vpn_certificate_easyrsa_runtime_pki_path ~ '/ca.crt' }}
     region: "{{ client_vpn_certificate_region }}"
   register: client_vpn_certificate_easyrsa_import
 
@@ -149,7 +190,7 @@
   ansible.builtin.file:
     path: >-
       {{
-        client_vpn_certificate_easyrsa_pki_path
+        client_vpn_certificate_easyrsa_runtime_pki_path
         ~ '/private/'
         ~ client_vpn_certificate_easyrsa_effective_server_name
         ~ '.key'
