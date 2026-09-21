@@ -9,6 +9,8 @@ terraform_environment_variable_allowlist: []
 
 terraform_runtime_variable_allowlist:
   - kms_key_administrators
+  - client_vpn_pki_kms_key_administrators
+  - client_vpn_pki_kms_key_users
 
 terraform_dependencies: {}
 

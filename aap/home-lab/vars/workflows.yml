@@ -133,6 +133,15 @@ awx_workflow_nodes:
         {{ awx_managed_ad_bootstrap_users }}
       managed_ad_bootstrap_reset_existing_passwords: false
     success_nodes:
+      - "deploy-client-vpn-certificate"
+
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-client-vpn-certificate"
+    unified_job_template: "IRE-Client-VPN-Certificate-Provision"
+    extra_data:
+      client_vpn_certificate_easyrsa_allow_ca_creation: true
+    success_nodes:
       - "deploy-remote-access-plan"
 
   - workflow: "IRE-Sandbox-Full-Deploy"
@@ -140,8 +149,6 @@ awx_workflow_nodes:
     unified_job_template: "IRE-Remote-Access-Plan"
     extra_data:
       terraform_variables:
-        server_certificate_arn: >-
-          {{ awx_client_vpn_server_certificate_arn }}
         client_root_certificate_chain_arn: >-
           {{ awx_client_vpn_client_root_certificate_chain_arn }}
     success_nodes:
@@ -152,8 +159,6 @@ awx_workflow_nodes:
     unified_job_template: "IRE-Remote-Access-Apply"
     extra_data:
       terraform_variables:
-        server_certificate_arn: >-
-          {{ awx_client_vpn_server_certificate_arn }}
         client_root_certificate_chain_arn: >-
           {{ awx_client_vpn_client_root_certificate_chain_arn }}
     success_nodes:
@@ -214,8 +219,6 @@ awx_workflow_nodes:
       terraform_destroy_enabled: false
       terraform_destroy_confirmation: ""
       terraform_variables:
-        server_certificate_arn: >-
-          {{ awx_client_vpn_server_certificate_arn }}
         client_root_certificate_chain_arn: >-
           {{ awx_client_vpn_client_root_certificate_chain_arn }}
     success_nodes:
@@ -228,8 +231,6 @@ awx_workflow_nodes:
       terraform_destroy_enabled: true
       terraform_destroy_confirmation: "DESTROY REMOTE ACCESS"
       terraform_variables:
-        server_certificate_arn: >-
-          {{ awx_client_vpn_server_certificate_arn }}
         client_root_certificate_chain_arn: >-
           {{ awx_client_vpn_client_root_certificate_chain_arn }}
     success_nodes:

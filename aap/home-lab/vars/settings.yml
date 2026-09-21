@@ -44,6 +44,13 @@ awx_terraform_credential_name: "fhs-main-test-ire-redhataap-user"
 awx_managed_ad_password_credential_name: "IRE Sandbox Managed AD Bootstrap"
 
 ################################################################################
+# Persistent Client VPN PKI
+################################################################################
+
+awx_client_vpn_pki_kms_principal_arn: "arn:aws:iam::781436988948:role/fhs-main-test-ire-redhataap-role"
+
+
+################################################################################
 # Managed AD Operational Bootstrap
 #
 # Populate these with the home-lab authorization group and explicit bootstrap
@@ -54,13 +61,14 @@ awx_managed_ad_bootstrap_group_name: ""
 awx_managed_ad_bootstrap_users: []
 
 ################################################################################
-# Client VPN Mutual Authentication
+# Client VPN Certificate Configuration
 #
-# Populate these with existing us-east-1 ACM certificate ARNs before executing
-# Remote Access Plan/Apply.
+# The server certificate is provisioned automatically by the Full Deploy
+# workflow. The mutual-authentication client root certificate remains a
+# home-lab runtime input.
 ################################################################################
 
-awx_client_vpn_server_certificate_arn: ""
+awx_client_vpn_certificate_dns_name: "vpn.ad.ire.ransprot.com"
 awx_client_vpn_client_root_certificate_chain_arn: ""
 
 ################################################################################

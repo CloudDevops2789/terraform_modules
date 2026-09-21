@@ -242,6 +242,21 @@
 
 
 ################################################################################
+- name: Add Client VPN server certificate to Remote Access contract
+  ansible.builtin.set_fact:
+    terraform_contract_variables: >-
+      {{
+        terraform_contract_variables
+        | combine({
+            'server_certificate_arn': server_certificate_arn
+          })
+      }}
+  when:
+    - terraform_stack == 'remote-access'
+    - server_certificate_arn | default('') | length > 0
+  no_log: true
+
+
 # 7. Recovery Contracts
 #
 # Recovery consumes Platform placement information plus approved Persistent

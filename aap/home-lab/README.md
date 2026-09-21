@@ -11,7 +11,7 @@ organization uses its own AAP Configuration-as-Code repository.
 The home-lab CaC manages:
 
 - one dedicated SCM Project: `IRE Home Lab IaC`
-- 23 Job Templates
+- 38 Job Templates
 - two Workflow Job Templates
 - workflow node relationships
 - removal of obsolete approval nodes from the earlier gated test model
@@ -21,8 +21,6 @@ The lifecycle workflows are:
 - `IRE-Sandbox-Full-Deploy`
 - `IRE-Sandbox-Full-Destroy`
 
-AWS Network Firewall / the Inspection Terraform stack is intentionally excluded
-from these workflows.
 
 ## Controller authentication
 
@@ -67,7 +65,6 @@ The runtime file supplies:
 
 - Managed AD authorization group
 - Managed AD bootstrap users
-- Client VPN server ACM certificate ARN
 - Client VPN client/root ACM certificate ARN
 
 `runtime.yml` is ignored by Git.
@@ -89,9 +86,12 @@ The complete home-lab deployment test runs without approval nodes:
     -> Persistent Apply
     -> Platform Plan
     -> Platform Apply
+    -> Inspection Plan
+    -> Inspection Apply
     -> Identity Plan
     -> Identity Apply
     -> Managed AD Bootstrap
+    -> Client VPN Certificate Provision
     -> Remote Access Plan
     -> Remote Access Apply
     -> Recovery Plan
@@ -111,6 +111,8 @@ The complete destruction workflow runs in reverse dependency order:
     -> Managed AD Unbootstrap
     -> Identity Destroy Plan
     -> Identity Destroy
+    -> Inspection Destroy Plan
+    -> Inspection Destroy
     -> Platform Destroy Plan
     -> Platform Destroy
     -> Persistent Destroy Plan

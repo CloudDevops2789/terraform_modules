@@ -7,7 +7,6 @@ starting point for common changes.
 
 | Goal | Start here | Do not start here |
 |---|---|---|
-| Consume a reusable module | Module README and matching `terraform/environments/module-tests/<module>` root | IRE lifecycle roots |
 | Change reusable VPC behavior | `terraform/modules/vpc` | Sandbox desired-state files |
 | Change the governed IRE topology | `terraform/environments/sandbox/config/platform.tfvars` | Reusable module defaults |
 | Change Platform composition | `terraform/stacks/platform` | Reusable modules unrelated to the change |
@@ -89,7 +88,6 @@ services remain with the consuming composition root.
 
 ## Validation terminology
 
-`terraform/environments/module-tests` contains deployable module-validation
 roots. They verify that reusable modules initialize and validate in realistic
 consumer compositions. They are not native Terraform `.tftest.hcl` suites.
 

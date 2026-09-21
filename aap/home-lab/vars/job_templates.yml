@@ -3,8 +3,6 @@
 #
 # The organization environment uses its own AAP Configuration-as-Code repo.
 #
-# Inspection / AWS Network Firewall is intentionally excluded from this
-# home-lab lifecycle.
 
 awx_job_templates:
 
@@ -17,7 +15,11 @@ awx_job_templates:
     credentials:
       - "{{ awx_terraform_credential_name }}"
     extra_vars:
-      terraform_variables: {}
+      terraform_variables:
+        client_vpn_pki_kms_key_administrators:
+          - "{{ awx_client_vpn_pki_kms_principal_arn }}"
+        client_vpn_pki_kms_key_users:
+          - "{{ awx_client_vpn_pki_kms_principal_arn }}"
     ask_variables_on_launch: false
 
   - name: "IRE-Persistent-Apply"
@@ -25,7 +27,11 @@ awx_job_templates:
     credentials:
       - "{{ awx_terraform_credential_name }}"
     extra_vars:
-      terraform_variables: {}
+      terraform_variables:
+        client_vpn_pki_kms_key_administrators:
+          - "{{ awx_client_vpn_pki_kms_principal_arn }}"
+        client_vpn_pki_kms_key_users:
+          - "{{ awx_client_vpn_pki_kms_principal_arn }}"
     ask_variables_on_launch: false
 
   - name: "IRE-Persistent-Destroy-Plan"
@@ -35,7 +41,11 @@ awx_job_templates:
     extra_vars:
       terraform_destroy_enabled: false
       terraform_destroy_confirmation: ""
-      terraform_variables: {}
+      terraform_variables:
+        client_vpn_pki_kms_key_administrators:
+          - "{{ awx_client_vpn_pki_kms_principal_arn }}"
+        client_vpn_pki_kms_key_users:
+          - "{{ awx_client_vpn_pki_kms_principal_arn }}"
     ask_variables_on_launch: false
 
   - name: "IRE-Persistent-Destroy"
@@ -45,7 +55,11 @@ awx_job_templates:
     extra_vars:
       terraform_destroy_enabled: false
       terraform_destroy_confirmation: ""
-      terraform_variables: {}
+      terraform_variables:
+        client_vpn_pki_kms_key_administrators:
+          - "{{ awx_client_vpn_pki_kms_principal_arn }}"
+        client_vpn_pki_kms_key_users:
+          - "{{ awx_client_vpn_pki_kms_principal_arn }}"
     ask_variables_on_launch: true
 
   ##############################################################################
@@ -199,8 +213,21 @@ awx_job_templates:
   # Remote Access
   #
   # Current Sandbox mode is mutual certificate authentication.
-  # Certificate ARNs are intentionally supplied at launch/workflow runtime.
+  # The server certificate is provisioned automatically and passed as a workflow artifact.
   ##############################################################################
+
+
+  - name: "IRE-Client-VPN-Certificate-Provision"
+    playbook: "playbooks/remote-access/provision_client_vpn_certificate.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      client_vpn_certificate_provider: "easyrsa"
+      client_vpn_certificate_create: true
+      client_vpn_certificate_dns_name: "{{ awx_client_vpn_certificate_dns_name }}"
+      client_vpn_certificate_easyrsa_ca_source: "s3"
+      client_vpn_certificate_easyrsa_allow_ca_creation: false
+    ask_variables_on_launch: true
 
   - name: "IRE-Remote-Access-Plan"
     playbook: "playbooks/terraform/plan/remote-access.yml"
@@ -332,7 +359,6 @@ awx_job_templates:
       - "{{ awx_terraform_credential_name }}"
     extra_vars:
       terraform_variables:
-        server_certificate_arn: "{{ awx_client_vpn_server_certificate_arn }}"
         client_root_certificate_chain_arn: "{{ awx_client_vpn_client_root_certificate_chain_arn }}"
     ask_variables_on_launch: true
 
@@ -342,7 +368,6 @@ awx_job_templates:
       - "{{ awx_terraform_credential_name }}"
     extra_vars:
       terraform_variables:
-        server_certificate_arn: "{{ awx_client_vpn_server_certificate_arn }}"
         client_root_certificate_chain_arn: "{{ awx_client_vpn_client_root_certificate_chain_arn }}"
     ask_variables_on_launch: true
 
@@ -385,7 +410,11 @@ awx_job_templates:
     credentials:
       - "{{ awx_terraform_credential_name }}"
     extra_vars:
-      terraform_variables: {}
+      terraform_variables:
+        client_vpn_pki_kms_key_administrators:
+          - "{{ awx_client_vpn_pki_kms_principal_arn }}"
+        client_vpn_pki_kms_key_users:
+          - "{{ awx_client_vpn_pki_kms_principal_arn }}"
     ask_variables_on_launch: true
 
   - name: "IRE-Persistent-Refresh-Apply"
@@ -393,5 +422,9 @@ awx_job_templates:
     credentials:
       - "{{ awx_terraform_credential_name }}"
     extra_vars:
-      terraform_variables: {}
+      terraform_variables:
+        client_vpn_pki_kms_key_administrators:
+          - "{{ awx_client_vpn_pki_kms_principal_arn }}"
+        client_vpn_pki_kms_key_users:
+          - "{{ awx_client_vpn_pki_kms_principal_arn }}"
     ask_variables_on_launch: true

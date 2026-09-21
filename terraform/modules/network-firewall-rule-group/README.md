@@ -149,7 +149,6 @@ The companion module test exercises:
 - Stateless custom metric actions
 Run:
 ```bash
-cd terraform/environments/module-tests/network-firewall-rule-group
 terraform init
 terraform validate
 terraform plan

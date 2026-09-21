@@ -1,0 +1,66 @@
+---
+- name: Validate AWS Client VPN server certificate
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  pre_tasks:
+    - name: Validate Client VPN certificate request
+      ansible.builtin.assert:
+        that:
+          - server_certificate_arn | default('') | length > 0
+          - assume_role_role_arn | default('') | length > 0
+          - assume_role_aws_region | default('') | length > 0
+        fail_msg: >-
+          Supply the ACM server certificate ARN and approved AssumeRole inputs.
+
+    - name: Assume IRE AWS deployment role
+      ansible.builtin.include_role:
+        name: ire_platform.aws.assume_role
+
+  tasks:
+    - name: Validate Client VPN ACM certificate
+      ansible.builtin.include_role:
+        name: ire_platform.aws.client_vpn_certificate_validate
+        apply:
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+      vars:
+        client_vpn_certificate_validate_arn: "{{ server_certificate_arn }}"
+        client_vpn_certificate_validate_region: "{{ assume_role_aws_auth.region }}"
+
+  post_tasks:
+    - name: Report Client VPN certificate validation
+      ansible.builtin.debug:
+        msg:
+          - >-
+            Certificate:
+            {{ client_vpn_certificate_validate_summary.certificate_arn }}
+          - >-
+            Domain:
+            {{ client_vpn_certificate_validate_summary.domain_name }}
+          - >-
+            Status:
+            {{ client_vpn_certificate_validate_summary.status }}
+          - >-
+            Failure reason:
+            {{ client_vpn_certificate_validate_summary.failure_reason }}
+          - >-
+            Type:
+            {{ client_vpn_certificate_validate_summary.type }}
+          - >-
+            Issuer:
+            {{ client_vpn_certificate_validate_summary.issuer }}
+          - >-
+            Key algorithm:
+            {{ client_vpn_certificate_validate_summary.key_algorithm }}
+          - >-
+            Expires:
+            {{ client_vpn_certificate_validate_summary.not_after }}
+          - >-
+            Certificate chain present:
+            {{ client_vpn_certificate_validate_summary.certificate_chain_present }}
