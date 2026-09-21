@@ -1,0 +1,330 @@
+---
+################################################################################
+# Home Lab AWX Workflow Job Templates
+#
+# Complete end-to-end lifecycle test workflows.
+#
+# Approval nodes are intentionally disabled for the complete home-lab test.
+#
+################################################################################
+
+awx_workflows:
+
+  - name: "IRE-Sandbox-Full-Deploy"
+    description: >-
+      Complete unattended home-lab IRE deployment. Each Terraform stack is
+      planned immediately before its corresponding apply.
+    ask_variables_on_launch: false
+
+  - name: "IRE-Sandbox-Full-Destroy"
+    description: >-
+      Complete unattended home-lab IRE destruction in reverse dependency order.
+      Launching this workflow is destructive.
+    ask_variables_on_launch: false
+
+################################################################################
+# Obsolete Approval Nodes
+#
+# These nodes existed in the gated test workflow and must be removed from AWX
+# when reconciling the new unattended lifecycle model.
+################################################################################
+
+awx_workflow_nodes_absent:
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-persistent-approval"
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-platform-approval"
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-identity-approval"
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-remote-access-approval"
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-recovery-approval"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-recovery-approval"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-remote-access-approval"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-managed-ad-cleanup-approval"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-identity-approval"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-platform-approval"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-persistent-approval"
+
+################################################################################
+# Active Workflow Nodes
+################################################################################
+
+awx_workflow_nodes:
+
+  ##############################################################################
+  # FULL DEPLOY
+  ##############################################################################
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-persistent-plan"
+    unified_job_template: "IRE-Persistent-Plan"
+    success_nodes:
+      - "deploy-persistent-apply"
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-persistent-apply"
+    unified_job_template: "IRE-Persistent-Apply"
+    success_nodes:
+      - "deploy-platform-plan"
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-platform-plan"
+    unified_job_template: "IRE-Platform-Plan"
+    success_nodes:
+      - "deploy-platform-apply"
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-platform-apply"
+    unified_job_template: "IRE-Platform-Apply"
+    success_nodes:
+      - "deploy-inspection-plan"
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-inspection-plan"
+    unified_job_template: "IRE-Inspection-Plan"
+    success_nodes:
+      - "deploy-inspection-apply"
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-inspection-apply"
+    unified_job_template: "IRE-Inspection-Apply"
+    success_nodes:
+      - "deploy-identity-plan"
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-identity-plan"
+    unified_job_template: "IRE-Identity-Plan"
+    success_nodes:
+      - "deploy-identity-apply"
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-identity-apply"
+    unified_job_template: "IRE-Identity-Apply"
+    success_nodes:
+      - "deploy-managed-ad-bootstrap"
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-managed-ad-bootstrap"
+    unified_job_template: "IRE-Managed-AD-Bootstrap"
+    extra_data:
+      directory_environment: "sandbox"
+      managed_ad_bootstrap_group_name: >-
+        {{ awx_managed_ad_bootstrap_group_name }}
+      managed_ad_bootstrap_users: >-
+        {{ awx_managed_ad_bootstrap_users }}
+      managed_ad_bootstrap_reset_existing_passwords: false
+    success_nodes:
+      - "deploy-client-vpn-certificate"
+
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-client-vpn-certificate"
+    unified_job_template: "IRE-Client-VPN-Certificate-Provision"
+    extra_data:
+      client_vpn_certificate_easyrsa_allow_ca_creation: true
+    success_nodes:
+      - "deploy-remote-access-plan"
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-remote-access-plan"
+    unified_job_template: "IRE-Remote-Access-Plan"
+    extra_data:
+      terraform_variables:
+        client_root_certificate_chain_arn: >-
+          {{ awx_client_vpn_client_root_certificate_chain_arn }}
+    success_nodes:
+      - "deploy-remote-access-apply"
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-remote-access-apply"
+    unified_job_template: "IRE-Remote-Access-Apply"
+    extra_data:
+      terraform_variables:
+        client_root_certificate_chain_arn: >-
+          {{ awx_client_vpn_client_root_certificate_chain_arn }}
+    success_nodes:
+      - "deploy-recovery-plan"
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-recovery-plan"
+    unified_job_template: "IRE-Recovery-Plan"
+    extra_data:
+      terraform_variables:
+        demo_ec2_enabled: "{{ awx_recovery_demo_ec2_enabled }}"
+    success_nodes:
+      - "deploy-recovery-apply"
+
+  - workflow: "IRE-Sandbox-Full-Deploy"
+    identifier: "deploy-recovery-apply"
+    unified_job_template: "IRE-Recovery-Apply"
+    extra_data:
+      terraform_variables:
+        demo_ec2_enabled: "{{ awx_recovery_demo_ec2_enabled }}"
+    success_nodes: []
+
+  ##############################################################################
+  # FULL DESTROY
+  #
+  # Launching this workflow performs real destruction.
+  #
+  # The underlying Destroy Job Templates remain non-destructive by default.
+  # Destructive authorization is supplied only here.
+  ##############################################################################
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-recovery-plan"
+    unified_job_template: "IRE-Recovery-Destroy-Plan"
+    extra_data:
+      terraform_destroy_enabled: false
+      terraform_destroy_confirmation: ""
+      terraform_variables:
+        demo_ec2_enabled: "{{ awx_recovery_demo_ec2_enabled }}"
+    success_nodes:
+      - "destroy-recovery"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-recovery"
+    unified_job_template: "IRE-Recovery-Destroy"
+    extra_data:
+      terraform_destroy_enabled: true
+      terraform_destroy_confirmation: "DESTROY RECOVERY"
+      terraform_variables:
+        demo_ec2_enabled: "{{ awx_recovery_demo_ec2_enabled }}"
+    success_nodes:
+      - "destroy-identity-contract-read"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-remote-access-plan"
+    unified_job_template: "IRE-Remote-Access-Destroy-Plan"
+    extra_data:
+      terraform_destroy_enabled: false
+      terraform_destroy_confirmation: ""
+      terraform_variables:
+        client_root_certificate_chain_arn: >-
+          {{ awx_client_vpn_client_root_certificate_chain_arn }}
+    success_nodes:
+      - "destroy-remote-access"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-remote-access"
+    unified_job_template: "IRE-Remote-Access-Destroy"
+    extra_data:
+      terraform_destroy_enabled: true
+      terraform_destroy_confirmation: "DESTROY REMOTE ACCESS"
+      terraform_variables:
+        client_root_certificate_chain_arn: >-
+          {{ awx_client_vpn_client_root_certificate_chain_arn }}
+    success_nodes:
+      - "destroy-managed-ad-unbootstrap"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-identity-contract-read"
+    unified_job_template: "IRE-Identity-Contract-Read"
+    success_nodes:
+      - "destroy-remote-access-plan"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-managed-ad-unbootstrap"
+    unified_job_template: "IRE-Managed-AD-Unbootstrap"
+    extra_data:
+      directory_environment: "sandbox"
+      managed_ad_unbootstrap_group_name: >-
+        {{ awx_managed_ad_bootstrap_group_name }}
+      managed_ad_unbootstrap_users: >-
+        {{ awx_managed_ad_bootstrap_users }}
+      managed_ad_unbootstrap_delete_users: true
+      managed_ad_unbootstrap_delete_secrets: true
+      managed_ad_unbootstrap_secret_recovery_days: 7
+      managed_ad_unbootstrap_confirmation: "REMOVE MANAGED AD USERS"
+    success_nodes:
+      - "destroy-identity-plan"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-identity-plan"
+    unified_job_template: "IRE-Identity-Destroy-Plan"
+    extra_data:
+      terraform_destroy_enabled: false
+      terraform_destroy_confirmation: ""
+    success_nodes:
+      - "destroy-identity"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-identity"
+    unified_job_template: "IRE-Identity-Destroy"
+    extra_data:
+      terraform_destroy_enabled: true
+      terraform_destroy_confirmation: "DESTROY IDENTITY"
+    success_nodes:
+      - "destroy-inspection-plan"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-inspection-plan"
+    unified_job_template: "IRE-Inspection-Destroy-Plan"
+    extra_data:
+      terraform_destroy_enabled: false
+      terraform_destroy_confirmation: ""
+    success_nodes:
+      - "destroy-inspection"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-inspection"
+    unified_job_template: "IRE-Inspection-Destroy"
+    extra_data:
+      terraform_destroy_enabled: true
+      terraform_destroy_confirmation: "DESTROY INSPECTION"
+    success_nodes:
+      - "destroy-platform-plan"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-platform-plan"
+    unified_job_template: "IRE-Platform-Destroy-Plan"
+    extra_data:
+      terraform_destroy_enabled: false
+      terraform_destroy_confirmation: ""
+    success_nodes:
+      - "destroy-platform"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-platform"
+    unified_job_template: "IRE-Platform-Destroy"
+    extra_data:
+      terraform_destroy_enabled: true
+      terraform_destroy_confirmation: "DESTROY PLATFORM"
+    success_nodes:
+      - "destroy-persistent-plan"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-persistent-plan"
+    unified_job_template: "IRE-Persistent-Destroy-Plan"
+    extra_data:
+      terraform_destroy_enabled: false
+      terraform_destroy_confirmation: ""
+    success_nodes:
+      - "destroy-persistent"
+
+  - workflow: "IRE-Sandbox-Full-Destroy"
+    identifier: "destroy-persistent"
+    unified_job_template: "IRE-Persistent-Destroy"
+    extra_data:
+      terraform_destroy_enabled: true
+      terraform_destroy_confirmation: "DESTROY PERSISTENT"
+    success_nodes: []

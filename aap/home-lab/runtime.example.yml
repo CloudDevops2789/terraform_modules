@@ -1,0 +1,14 @@
+---
+# Copy this file to:
+#
+#   aap/home-lab/runtime.yml
+#
+# runtime.yml is local home-lab execution configuration and must not be
+# committed.
+
+awx_managed_ad_bootstrap_group_name: "IRE-VPN-Users"
+
+awx_managed_ad_bootstrap_users:
+  - "ireadmin"
+
+awx_client_vpn_client_root_certificate_chain_arn: ""
