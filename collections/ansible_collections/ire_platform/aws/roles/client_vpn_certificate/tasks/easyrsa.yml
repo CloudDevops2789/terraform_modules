@@ -57,13 +57,40 @@
   when:
     - client_vpn_certificate_easyrsa_ca_source == 'filesystem'
 
-- name: Block incomplete S3 CA source
-  ansible.builtin.fail:
-    msg: >-
-      EasyRSA S3 CA storage is configured but not yet implemented.
-      No PKI or certificate changes have been made.
+- name: Create temporary EasyRSA S3 workspace
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: ire-client-vpn-pki-
+  register: client_vpn_certificate_easyrsa_s3_workspace
   when:
     - client_vpn_certificate_easyrsa_ca_source == 's3'
+
+- name: Restrict temporary EasyRSA S3 workspace
+  ansible.builtin.file:
+    path: "{{ client_vpn_certificate_easyrsa_s3_workspace.path }}"
+    state: directory
+    mode: "0700"
+  when:
+    - client_vpn_certificate_easyrsa_ca_source == 's3'
+
+- name: Set S3 EasyRSA runtime PKI path
+  ansible.builtin.set_fact:
+    client_vpn_certificate_easyrsa_runtime_pki_path: >-
+      {{ client_vpn_certificate_easyrsa_s3_workspace.path ~ '/pki' }}
+  when:
+    - client_vpn_certificate_easyrsa_ca_source == 's3'
+
+- name: Restore EasyRSA PKI archive from S3
+  ire_platform.aws.easyrsa_pki_archive:
+    action: restore
+    bucket: "{{ client_vpn_certificate_easyrsa_ca_s3_bucket }}"
+    key: "{{ client_vpn_certificate_easyrsa_ca_s3_key }}"
+    pki_path: "{{ client_vpn_certificate_easyrsa_runtime_pki_path }}"
+    region: "{{ client_vpn_certificate_region }}"
+  register: client_vpn_certificate_easyrsa_s3_restore
+  when:
+    - client_vpn_certificate_easyrsa_ca_source == 's3'
+  no_log: true
 
 - name: Create persistent EasyRSA PKI parent
   ansible.builtin.file:
@@ -186,7 +213,7 @@
         {{ client_vpn_certificate_domain_name }}
       key_algorithm: "RSA-2048"
 
-- name: Remove imported server private key
+- name: Remove S3 server private key before persistence
   ansible.builtin.file:
     path: >-
       {{
@@ -197,5 +224,33 @@
       }}
     state: absent
   when:
+    - client_vpn_certificate_easyrsa_ca_source == 's3'
+  no_log: true
+
+- name: Persist EasyRSA PKI archive to S3
+  ire_platform.aws.easyrsa_pki_archive:
+    action: persist
+    bucket: "{{ client_vpn_certificate_easyrsa_ca_s3_bucket }}"
+    key: "{{ client_vpn_certificate_easyrsa_ca_s3_key }}"
+    pki_path: "{{ client_vpn_certificate_easyrsa_runtime_pki_path }}"
+    region: "{{ client_vpn_certificate_region }}"
+    kms_key_arn: "{{ client_vpn_certificate_easyrsa_ca_kms_key_arn }}"
+  register: client_vpn_certificate_easyrsa_s3_persist
+  when:
+    - client_vpn_certificate_easyrsa_ca_source == 's3'
+  no_log: true
+
+- name: Remove filesystem server private key after import
+  ansible.builtin.file:
+    path: >-
+      {{
+        client_vpn_certificate_easyrsa_runtime_pki_path
+        ~ '/private/'
+        ~ client_vpn_certificate_easyrsa_effective_server_name
+        ~ '.key'
+      }}
+    state: absent
+  when:
+    - client_vpn_certificate_easyrsa_ca_source == 'filesystem'
     - client_vpn_certificate_easyrsa_cleanup | bool
   no_log: true

@@ -67,8 +67,22 @@
     - client_vpn_certificate_provider == 'aws_private_ca'
 
 - name: Provision new Client VPN certificate
-  ansible.builtin.include_tasks:
-    file: "{{ client_vpn_certificate_provider }}.yml"
   when:
     - client_vpn_certificate_existing_arn | length == 0
     - client_vpn_certificate_create | bool
+  block:
+    - name: Run selected Client VPN certificate provider
+      ansible.builtin.include_tasks:
+        file: "{{ client_vpn_certificate_provider }}.yml"
+
+  always:
+    - name: Remove temporary EasyRSA S3 workspace
+      ansible.builtin.file:
+        path: "{{ client_vpn_certificate_easyrsa_s3_workspace.path }}"
+        state: absent
+      when:
+        - client_vpn_certificate_provider == 'easyrsa'
+        - client_vpn_certificate_easyrsa_ca_source == 's3'
+        - client_vpn_certificate_easyrsa_s3_workspace is defined
+        - client_vpn_certificate_easyrsa_s3_workspace.path is defined
+      no_log: true
