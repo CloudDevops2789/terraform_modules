@@ -428,3 +428,36 @@ awx_job_templates:
         client_vpn_pki_kms_key_users:
           - "{{ awx_client_vpn_pki_kms_principal_arn }}"
     ask_variables_on_launch: true
+
+  ##############################################################################
+  # Temporary Managed AD PoC
+  #
+  # Disposable home-lab validation only. Uses the AWS default VPC and two
+  # default subnets. Not part of the normal IRE lifecycle.
+  ##############################################################################
+
+  - name: "IRE-Identity-POC-Plan"
+    playbook: "playbooks/terraform/plan/identity-poc.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+      - "{{ awx_managed_ad_password_credential_name }}"
+    extra_vars:
+      terraform_variables:
+        vpc_id: "vpc-082454e2b0a7c07c7"
+        subnet_ids:
+          - "subnet-08b3f4811707cb1e5"
+          - "subnet-0d457b3705ae5d860"
+    ask_variables_on_launch: false
+
+  - name: "IRE-Identity-POC-Apply"
+    playbook: "playbooks/terraform/apply/identity-poc.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+      - "{{ awx_managed_ad_password_credential_name }}"
+    extra_vars:
+      terraform_variables:
+        vpc_id: "vpc-082454e2b0a7c07c7"
+        subnet_ids:
+          - "subnet-08b3f4811707cb1e5"
+          - "subnet-0d457b3705ae5d860"
+    ask_variables_on_launch: false

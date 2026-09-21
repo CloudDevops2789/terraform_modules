@@ -333,7 +333,7 @@
         )
       }}
   when:
-    - terraform_stack == 'identity'
+    - terraform_stack in ['identity', 'identity-poc']
   no_log: true
 
 - name: Add Managed AD password to Terraform variables
@@ -341,7 +341,7 @@
     terraform_sensitive_variables:
       managed_ad_password: "{{ terraform_managed_ad_password }}"
   when:
-    - terraform_stack == 'identity'
+    - terraform_stack in ['identity', 'identity-poc']
     - terraform_managed_ad_password | default('') | length > 0
   no_log: true
 
