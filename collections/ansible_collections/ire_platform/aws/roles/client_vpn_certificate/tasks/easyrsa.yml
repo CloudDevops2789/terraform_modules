@@ -42,13 +42,19 @@
   register: client_vpn_certificate_easyrsa_version
   changed_when: false
 
-- name: Resolve EasyRSA server certificate name
+- name: Resolve EasyRSA certificate name
   ansible.builtin.set_fact:
-    client_vpn_certificate_easyrsa_effective_server_name: >-
+    client_vpn_certificate_easyrsa_effective_certificate_name: >-
       {{
         client_vpn_certificate_easyrsa_certificate_name
         if client_vpn_certificate_easyrsa_certificate_name | length > 0
-        else client_vpn_certificate_dns_name
+        else
+        (
+          client_vpn_certificate_dns_name
+          | regex_replace('[^A-Za-z0-9_-]', '-')
+        )
+        ~ '-'
+        ~ now(utc=true, fmt='%Y%m%dT%H%M%SZ')
       }}
 
 - name: Set filesystem EasyRSA runtime PKI path
@@ -172,7 +178,7 @@
       - "--batch"
       - "--san=DNS:{{ client_vpn_certificate_dns_name }}"
       - "build-server-full"
-      - "{{ client_vpn_certificate_easyrsa_effective_server_name }}"
+      - "{{ client_vpn_certificate_easyrsa_effective_certificate_name }}"
       - "nopass"
   environment:
     EASYRSA_PKI: "{{ client_vpn_certificate_easyrsa_runtime_pki_path }}"
@@ -188,14 +194,14 @@
       {{
         client_vpn_certificate_easyrsa_runtime_pki_path
         ~ '/issued/'
-        ~ client_vpn_certificate_easyrsa_effective_server_name
+        ~ client_vpn_certificate_easyrsa_effective_certificate_name
         ~ '.crt'
       }}
     private_key_path: >-
       {{
         client_vpn_certificate_easyrsa_runtime_pki_path
         ~ '/private/'
-        ~ client_vpn_certificate_easyrsa_effective_server_name
+        ~ client_vpn_certificate_easyrsa_effective_certificate_name
         ~ '.key'
       }}
     certificate_chain_path: >-
@@ -219,7 +225,7 @@
       {{
         client_vpn_certificate_easyrsa_runtime_pki_path
         ~ '/private/'
-        ~ client_vpn_certificate_easyrsa_effective_server_name
+        ~ client_vpn_certificate_easyrsa_effective_certificate_name
         ~ '.key'
       }}
     state: absent
@@ -246,7 +252,7 @@
       {{
         client_vpn_certificate_easyrsa_runtime_pki_path
         ~ '/private/'
-        ~ client_vpn_certificate_easyrsa_effective_server_name
+        ~ client_vpn_certificate_easyrsa_effective_certificate_name
         ~ '.key'
       }}
     state: absent
