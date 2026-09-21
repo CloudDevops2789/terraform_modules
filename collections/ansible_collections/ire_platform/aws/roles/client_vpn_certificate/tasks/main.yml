@@ -3,7 +3,7 @@
   ansible.builtin.assert:
     that:
       - client_vpn_certificate_region | length > 0
-      - client_vpn_certificate_domain_name | length > 0
+      - client_vpn_certificate_dns_name | length > 0
     fail_msg: >-
       Supply the AWS Region and Client VPN certificate domain name.
 
@@ -28,7 +28,7 @@
     client_vpn_certificate_provision_result:
       provider: "existing"
       certificate_arn: "{{ client_vpn_certificate_existing_arn }}"
-      domain_name: "{{ client_vpn_certificate_domain_name }}"
+      domain_name: "{{ client_vpn_certificate_dns_name }}"
       key_algorithm: ""
   when:
     - client_vpn_certificate_existing_arn | length > 0

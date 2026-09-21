@@ -46,9 +46,9 @@
   ansible.builtin.set_fact:
     client_vpn_certificate_easyrsa_effective_server_name: >-
       {{
-        client_vpn_certificate_easyrsa_server_name
-        if client_vpn_certificate_easyrsa_server_name | length > 0
-        else client_vpn_certificate_domain_name
+        client_vpn_certificate_easyrsa_certificate_name
+        if client_vpn_certificate_easyrsa_certificate_name | length > 0
+        else client_vpn_certificate_dns_name
       }}
 
 - name: Set filesystem EasyRSA runtime PKI path
@@ -170,7 +170,7 @@
     argv:
       - "{{ client_vpn_certificate_easyrsa_command }}"
       - "--batch"
-      - "--san=DNS:{{ client_vpn_certificate_domain_name }}"
+      - "--san=DNS:{{ client_vpn_certificate_dns_name }}"
       - "build-server-full"
       - "{{ client_vpn_certificate_easyrsa_effective_server_name }}"
       - "nopass"
@@ -210,7 +210,7 @@
       certificate_arn: >-
         {{ client_vpn_certificate_easyrsa_import.certificate_arn }}
       domain_name: >-
-        {{ client_vpn_certificate_domain_name }}
+        {{ client_vpn_certificate_dns_name }}
       key_algorithm: "RSA-2048"
 
 - name: Remove S3 server private key before persistence
