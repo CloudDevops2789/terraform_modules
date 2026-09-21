@@ -17,4 +17,4 @@ air_gapped_max_retention_days = 365
 network_firewall_log_group_prefix = "/aws/network-firewall/fv-ire-sandbox-centralized-inspection"
 
 # Client VPN PKI persistence remains disabled until the first controlled test.
-client_vpn_pki_artifacts_enabled = false
+client_vpn_pki_artifacts_enabled = true
