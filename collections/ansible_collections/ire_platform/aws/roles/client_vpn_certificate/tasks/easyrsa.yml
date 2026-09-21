@@ -124,10 +124,10 @@
 - name: Require explicit CA creation approval
   ansible.builtin.assert:
     that:
-      - client_vpn_certificate_easyrsa_create_ca_if_missing | bool
+      - client_vpn_certificate_easyrsa_allow_ca_creation | bool
     fail_msg: >-
-      No EasyRSA CA exists at the configured persistent PKI path.
-      Set client_vpn_certificate_easyrsa_create_ca_if_missing=true only when
+      No EasyRSA CA exists in the configured persistent PKI storage.
+      Set client_vpn_certificate_easyrsa_allow_ca_creation=true only when
       intentionally creating the environment CA for the first time.
   when:
     - not client_vpn_certificate_easyrsa_ca_certificate.stat.exists
@@ -144,7 +144,7 @@
   changed_when: client_vpn_certificate_easyrsa_init.rc == 0
   when:
     - not client_vpn_certificate_easyrsa_ca_certificate.stat.exists
-    - client_vpn_certificate_easyrsa_create_ca_if_missing | bool
+    - client_vpn_certificate_easyrsa_allow_ca_creation | bool
 
 - name: Build persistent EasyRSA certificate authority
   ansible.builtin.command:
@@ -163,7 +163,7 @@
   no_log: true
   when:
     - not client_vpn_certificate_easyrsa_ca_certificate.stat.exists
-    - client_vpn_certificate_easyrsa_create_ca_if_missing | bool
+    - client_vpn_certificate_easyrsa_allow_ca_creation | bool
 
 - name: Build EasyRSA Client VPN server certificate
   ansible.builtin.command:

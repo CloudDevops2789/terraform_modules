@@ -31,7 +31,7 @@ client_vpn_certificate_private_ca_arn: ""
 # Required when intentionally creating certificates with the EasyRSA provider.
 # Must point outside the source repository.
 client_vpn_certificate_easyrsa_pki_path: ""
-client_vpn_certificate_easyrsa_create_ca_if_missing: false
+client_vpn_certificate_easyrsa_allow_ca_creation: false
 
 # EasyRSA CA storage source:
 # - filesystem
