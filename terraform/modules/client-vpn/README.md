@@ -130,26 +130,33 @@ The module supports four authentication modes:
 | `directory` | Directory Service | Directory username and password |
 | `directory_and_mutual` | Directory Service and certificate | Both directory credentials and a valid client certificate |
 
-For certificate authentication, the caller supplies an existing ACM server
-certificate ARN and an ACM root certificate-chain ARN at runtime.
+Every authentication mode requires an ACM server certificate because the
+Client VPN endpoint uses it for TLS server identity.
 
-For federated authentication, the module consumes an existing ACM server
-certificate ARN and an IAM SAML identity provider ARN.
+For certificate authentication, the caller additionally supplies the trusted
+client root certificate-chain ARN. Clients authenticate with certificates.
 
-For directory authentication, the module consumes an existing AWS Directory
-Service directory ID. Combined mode also consumes the trusted client root CA.
-AWS requires both methods to succeed when combined mode is selected.
+For federated authentication, the caller supplies an IAM SAML identity provider
+ARN. Enterprise MFA policy remains the responsibility of that identity
+provider.
+
+For directory authentication, the caller supplies an AWS Directory Service
+directory ID. A client root certificate is not required. Users authenticate
+with directory credentials.
+
+Combined directory-and-mutual authentication requires both the directory ID and
+the trusted client root CA. AWS requires both authentication methods to
+succeed.
 
 Authorization can grant all authenticated users or set `access_group_id` to an
 Active Directory group SID. Group-scoped authorization is preferred for
 directory modes.
 
 The module intentionally does not create, import, or manage server
-certificates, client certificates, certificate authorities, or private keys in
-home-lab or enterprise deployments. It also does not manage enterprise identity
-providers, SAML metadata, MFA policy, certificate rotation, revocation, or
-client trust distribution. Those responsibilities remain outside the Client
-VPN infrastructure module.
+certificates, client certificates, certificate authorities, or private keys.
+It also does not manage enterprise identity providers, SAML metadata, MFA
+policy, certificate rotation, revocation, or client trust distribution. Those
+responsibilities remain outside the Client VPN infrastructure module.
 
 ## Security guidance
 
