@@ -30,6 +30,16 @@ locals {
 
   network_firewall_logging_kms_alias = "${var.name_prefix}-network-firewall-logs"
 
+  client_vpn_pki_kms_alias = "${var.name_prefix}-client-vpn-pki"
+
+  client_vpn_pki_kms_description = (
+    "Persistent customer-managed KMS key for IRE Client VPN PKI artifacts"
+  )
+
+  client_vpn_pki_bucket_name = (
+    "${var.name_prefix}-client-vpn-pki-${data.aws_caller_identity.current.account_id}"
+  )
+
   network_firewall_logging_kms_description = (
     "Persistent customer-managed KMS key for IRE Network Firewall CloudWatch logs"
   )
