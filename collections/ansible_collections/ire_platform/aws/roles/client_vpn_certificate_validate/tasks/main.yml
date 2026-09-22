@@ -34,6 +34,14 @@
         Status:
         {{ client_vpn_certificate_validate_result.certificate.status }}
       - >-
+        Failure reason:
+        {{
+          client_vpn_certificate_validate_result
+          .certificate
+          .failure_reason
+          | default('N/A', true)
+        }}
+      - >-
         Type:
         {{ client_vpn_certificate_validate_result.certificate.type }}
       - >-
@@ -83,6 +91,13 @@
         {{ client_vpn_certificate_validate_result.certificate.domain_name }}
       status: >-
         {{ client_vpn_certificate_validate_result.certificate.status }}
+      failure_reason: >-
+        {{
+          client_vpn_certificate_validate_result
+          .certificate
+          .failure_reason
+          | default('N/A', true)
+        }}
       type: >-
         {{ client_vpn_certificate_validate_result.certificate.type }}
       issuer: >-

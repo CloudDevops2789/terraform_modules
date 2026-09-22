@@ -1,0 +1,5 @@
+---
+- name: AWS Private CA Client VPN certificate provider
+  ansible.builtin.fail:
+    msg: >-
+      AWS Private CA Client VPN certificate provisioning has not been implemented yet.

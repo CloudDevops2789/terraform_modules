@@ -1,0 +1,44 @@
+---
+# Certificate provider used only when a new certificate must be provisioned:
+# - easyrsa
+# - aws_private_ca
+client_vpn_certificate_provider: ""
+
+# Reuse an existing ACM certificate when supplied.
+# Generation is skipped completely when this ARN is populated.
+client_vpn_certificate_existing_arn: ""
+
+# Explicit creation guard.
+# A new certificate must never be created unless this is true.
+client_vpn_certificate_create: false
+
+# Common certificate settings.
+client_vpn_certificate_dns_name: ""
+client_vpn_certificate_region: ""
+client_vpn_certificate_key_algorithm: "RSA_2048"
+
+# EasyRSA provider settings.
+client_vpn_certificate_easyrsa_command: "easyrsa"
+client_vpn_certificate_easyrsa_common_name: "IRE Client VPN CA"
+client_vpn_certificate_easyrsa_certificate_name: ""
+client_vpn_certificate_easyrsa_cleanup: true
+
+# AWS Private CA provider settings.
+# Existing CA only. This role must not create a Private CA.
+client_vpn_certificate_private_ca_arn: ""
+
+# EasyRSA persistent PKI.
+# Required when intentionally creating certificates with the EasyRSA provider.
+# Must point outside the source repository.
+client_vpn_certificate_easyrsa_pki_path: ""
+client_vpn_certificate_easyrsa_allow_ca_creation: false
+
+# EasyRSA CA storage source:
+# - filesystem
+# - s3
+client_vpn_certificate_easyrsa_ca_source: "filesystem"
+
+# S3 source configuration.
+client_vpn_certificate_easyrsa_ca_s3_bucket: ""
+client_vpn_certificate_easyrsa_ca_s3_key: ""
+client_vpn_certificate_easyrsa_ca_kms_key_arn: ""
