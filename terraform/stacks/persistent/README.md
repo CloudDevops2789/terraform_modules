@@ -11,8 +11,16 @@ not an account foundation or networking foundation stack.
 When enabled, this stack can manage:
 
 - a standard AWS Backup vault;
-- a logically air-gapped AWS Backup vault; and
-- a customer-managed KMS key for Network Firewall CloudWatch Logs encryption.
+- a logically air-gapped AWS Backup vault;
+- a customer-managed KMS key for Network Firewall CloudWatch Logs encryption;
+- a dedicated KMS key for Client VPN PKI artifact encryption; and
+- a private, versioned S3 bucket for long-lived Client VPN PKI artifacts.
+
+Client VPN PKI persistence is optional and disabled by default. When enabled,
+the Persistent stack retains CA state independently of ephemeral AAP execution
+environments and independently of the Remote Access lifecycle. Destroying a
+Client VPN endpoint therefore does not implicitly destroy its long-lived CA
+artifacts.
 
 It does not own:
 

@@ -142,3 +142,51 @@ variable "organization_tags" {
     error_message = "Organization tag values must not exceed 256 characters."
   }
 }
+
+variable "client_vpn_pki_artifacts_enabled" {
+  description = "Create the persistent private S3 artifact store and dedicated KMS key for Client VPN PKI state."
+  type        = bool
+  default     = false
+}
+
+variable "client_vpn_pki_kms_key_administrators" {
+  description = "Stable IAM role/user ARNs allowed to administer the Client VPN PKI KMS key."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition = (
+      !var.client_vpn_pki_artifacts_enabled ||
+      (
+        length(var.client_vpn_pki_kms_key_administrators) > 0 &&
+        alltrue([
+          for arn in var.client_vpn_pki_kms_key_administrators :
+          can(regex("^arn:[^:]+:iam::[0-9]{12}:(role|user)/", arn))
+        ])
+      )
+    )
+
+    error_message = "When client_vpn_pki_artifacts_enabled=true, client_vpn_pki_kms_key_administrators must contain at least one stable IAM role or user ARN."
+  }
+}
+
+variable "client_vpn_pki_kms_key_users" {
+  description = "Stable IAM role/user ARNs allowed to use the Client VPN PKI KMS key for cryptographic operations."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition = (
+      !var.client_vpn_pki_artifacts_enabled ||
+      (
+        length(var.client_vpn_pki_kms_key_users) > 0 &&
+        alltrue([
+          for arn in var.client_vpn_pki_kms_key_users :
+          can(regex("^arn:[^:]+:iam::[0-9]{12}:(role|user)/", arn))
+        ])
+      )
+    )
+
+    error_message = "When client_vpn_pki_artifacts_enabled=true, client_vpn_pki_kms_key_users must contain at least one stable IAM role or user ARN."
+  }
+}
