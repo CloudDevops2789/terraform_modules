@@ -1,0 +1,118 @@
+---
+- name: Validate Client VPN certificate inputs
+  ansible.builtin.assert:
+    that:
+      - client_vpn_certificate_validate_arn | length > 0
+      - client_vpn_certificate_validate_region | length > 0
+      - >-
+        client_vpn_certificate_validate_arn
+        is match(
+          '^arn:[^:]+:acm:'
+          ~ client_vpn_certificate_validate_region
+          ~ ':[0-9]{12}:certificate/.+$'
+        )
+    fail_msg: >-
+      Supply a valid ACM certificate ARN in the target AWS Region.
+
+- name: Read Client VPN ACM certificate
+  ire_platform.aws.client_vpn_certificate_info:
+    certificate_arn: "{{ client_vpn_certificate_validate_arn }}"
+    region: "{{ client_vpn_certificate_validate_region }}"
+  register: client_vpn_certificate_validate_result
+  changed_when: false
+
+- name: Report Client VPN certificate metadata
+  ansible.builtin.debug:
+    msg:
+      - >-
+        Certificate ARN:
+        {{ client_vpn_certificate_validate_result.certificate.certificate_arn }}
+      - >-
+        Domain:
+        {{ client_vpn_certificate_validate_result.certificate.domain_name }}
+      - >-
+        Status:
+        {{ client_vpn_certificate_validate_result.certificate.status }}
+      - >-
+        Failure reason:
+        {{
+          client_vpn_certificate_validate_result
+          .certificate
+          .failure_reason
+          | default('N/A', true)
+        }}
+      - >-
+        Type:
+        {{ client_vpn_certificate_validate_result.certificate.type }}
+      - >-
+        Issuer:
+        {{ client_vpn_certificate_validate_result.certificate.issuer }}
+      - >-
+        Key algorithm:
+        {{ client_vpn_certificate_validate_result.certificate.key_algorithm }}
+      - >-
+        Valid now:
+        {{ client_vpn_certificate_validate_result.certificate.valid_now }}
+      - >-
+        Expires:
+        {{ client_vpn_certificate_validate_result.certificate.not_after }}
+      - >-
+        Certificate chain present:
+        {{
+          client_vpn_certificate_validate_result
+          .certificate
+          .certificate_chain_present
+        }}
+
+- name: Validate Client VPN server certificate
+  ansible.builtin.assert:
+    that:
+      - client_vpn_certificate_validate_result.certificate.status == 'ISSUED'
+      - client_vpn_certificate_validate_result.certificate.valid_now | bool
+      - >-
+        (client_vpn_certificate_validate_result.certificate.key_algorithm | replace('-', '_'))
+        in ['RSA_1024', 'RSA_2048']
+      - >-
+        client_vpn_certificate_validate_result
+        .certificate
+        .certificate_chain_present
+        | bool
+    fail_msg: >-
+      ACM certificate is not suitable for AWS Client VPN. It must be ISSUED,
+      currently within its validity period, use a supported RSA key algorithm,
+      and include a non-empty certificate chain.
+
+- name: Publish Client VPN certificate validation result
+  ansible.builtin.set_fact:
+    client_vpn_certificate_validate_summary:
+      certificate_arn: >-
+        {{ client_vpn_certificate_validate_result.certificate.certificate_arn }}
+      domain_name: >-
+        {{ client_vpn_certificate_validate_result.certificate.domain_name }}
+      status: >-
+        {{ client_vpn_certificate_validate_result.certificate.status }}
+      failure_reason: >-
+        {{
+          client_vpn_certificate_validate_result
+          .certificate
+          .failure_reason
+          | default('N/A', true)
+        }}
+      type: >-
+        {{ client_vpn_certificate_validate_result.certificate.type }}
+      issuer: >-
+        {{ client_vpn_certificate_validate_result.certificate.issuer }}
+      key_algorithm: >-
+        {{ client_vpn_certificate_validate_result.certificate.key_algorithm }}
+      not_before: >-
+        {{ client_vpn_certificate_validate_result.certificate.not_before }}
+      not_after: >-
+        {{ client_vpn_certificate_validate_result.certificate.not_after }}
+      valid_now: >-
+        {{ client_vpn_certificate_validate_result.certificate.valid_now }}
+      certificate_chain_present: >-
+        {{
+          client_vpn_certificate_validate_result
+          .certificate
+          .certificate_chain_present
+        }}
