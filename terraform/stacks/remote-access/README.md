@@ -35,7 +35,15 @@ terraform_variables:
   server_certificate_arn: "<ACM_SERVER_CERTIFICATE_ARN>"
 ```
 
-Future combined authentication additionally supplies:
+For directory authentication, AAP also brokers the Managed AD directory ID and
+the bootstrap-generated authorization-group SID into the Remote Access
+Terraform contract.
+
+`authentication_type = "directory"` requires an ACM server certificate for TLS
+termination, but it does not require a client certificate or client root CA.
+End users authenticate with their directory credentials.
+
+Combined directory-and-mutual authentication additionally supplies:
 
 ```yaml
   client_root_certificate_chain_arn: "<ACM_CLIENT_ROOT_CA_ARN>"
@@ -43,6 +51,22 @@ Future combined authentication additionally supplies:
 
 Terraform consumes these identifiers and never generates, imports or stores
 certificate private keys.
+
+## Validated directory-authentication flow
+
+The directory-authentication path has been validated end to end with:
+
+- AWS Managed Microsoft AD provisioned before Remote Access;
+- the VPN authorization group and test principal bootstrapped through AAP;
+- the authorization-group SID passed through the runtime contract;
+- AWS Client VPN created with `directory-service-authentication`;
+- the target-network association reaching `associated`;
+- a directory user successfully connecting with AWS VPN Client; and
+- Remote Access and temporary validation resources successfully destroyed
+  afterward.
+
+The validation identifiers, credentials, account details, VPC IDs, directory
+IDs, and certificate ARNs are intentionally not stored in this repository.
 
 ## Security-group source
 

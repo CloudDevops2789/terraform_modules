@@ -46,3 +46,18 @@ output "network_firewall_logging_kms_key_arn" {
   description = "Persistent logging KMS key ARN, or null when customer-managed log encryption is disabled."
   value       = try(module.network_firewall_logging_kms[0].key_arn, null)
 }
+
+output "client_vpn_pki_bucket_name" {
+  description = "Persistent private S3 bucket used for Client VPN PKI artifacts, or null when disabled."
+  value       = try(module.client_vpn_pki_bucket[0].name, null)
+}
+
+output "client_vpn_pki_bucket_arn" {
+  description = "Persistent private S3 bucket ARN used for Client VPN PKI artifacts, or null when disabled."
+  value       = try(module.client_vpn_pki_bucket[0].arn, null)
+}
+
+output "client_vpn_pki_kms_key_arn" {
+  description = "Persistent KMS key ARN used to encrypt Client VPN PKI artifacts, or null when disabled."
+  value       = try(module.client_vpn_pki_kms[0].key_arn, null)
+}
