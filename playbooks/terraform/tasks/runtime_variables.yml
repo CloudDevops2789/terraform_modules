@@ -257,6 +257,22 @@
   no_log: true
 
 
+- name: Add Client VPN root certificate to Remote Access contract
+  ansible.builtin.set_fact:
+    terraform_contract_variables: >-
+      {{
+        terraform_contract_variables
+        | combine({
+            'client_root_certificate_chain_arn':
+              client_root_certificate_chain_arn
+          })
+      }}
+  when:
+    - terraform_stack == 'remote-access'
+    - client_root_certificate_chain_arn | default('') | length > 0
+  no_log: true
+
+
 # 7. Recovery Contracts
 #
 # Recovery consumes Platform placement information plus approved Persistent
