@@ -174,6 +174,15 @@
             {{ client_vpn_certificate_provision_result.certificate_arn }}
         per_host: false
 
+    - name: Publish EasyRSA Client VPN root certificate workflow artifact
+      ansible.builtin.set_stats:
+        data:
+          client_root_certificate_chain_arn: >-
+            {{ client_vpn_certificate_provision_result.certificate_arn }}
+        per_host: false
+      when:
+        - client_vpn_certificate_provision_result.provider == 'easyrsa'
+
     - name: Report provisioned Client VPN certificate
       ansible.builtin.debug:
         msg:
