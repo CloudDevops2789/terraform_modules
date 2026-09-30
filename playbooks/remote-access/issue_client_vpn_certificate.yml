@@ -1,0 +1,251 @@
+---
+- name: Issue AWS Client VPN client certificate
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    terraform_repository_root: "{{ playbook_dir }}/../.."
+
+    terraform_backend_use_lockfile: true
+    terraform_backend_encrypt: true
+
+    client_vpn_client_certificate_easyrsa_ca_s3_key: >-
+      client-vpn/easyrsa/pki.tar.gz
+
+    client_vpn_client_certificate_csr_s3_key: >-
+      client-vpn/requests/{{ client_vpn_client_certificate_name }}.csr
+
+    client_vpn_client_certificate_output_s3_key: >-
+      client-vpn/issued/{{ client_vpn_client_certificate_name }}.crt
+
+    client_vpn_client_certificate_ca_output_s3_key: >-
+      client-vpn/issued/ca.crt
+
+  pre_tasks:
+    - name: Validate Client VPN client certificate issuance request
+      ansible.builtin.assert:
+        that:
+          - client_vpn_client_certificate_name | default('') | length > 0
+          - >-
+            client_vpn_client_certificate_name
+            is match('^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$')
+          - terraform_environment | default('') == 'sandbox'
+          - terraform_backend_bucket | default('') | length > 2
+          - terraform_backend_region | default('') | length > 0
+          - assume_role_role_arn | default('') | length > 0
+          - assume_role_aws_region | default('') | length > 0
+        fail_msg: >-
+          Supply a valid client certificate name, backend inputs, and approved
+          AssumeRole inputs.
+
+    - name: Assume IRE AWS deployment role
+      ansible.builtin.include_role:
+        name: ire_platform.aws.assume_role
+
+    - name: Derive Persistent Terraform paths
+      ansible.builtin.set_fact:
+        client_vpn_client_certificate_persistent_root: >-
+          {{ terraform_repository_root }}/terraform/stacks/persistent
+        client_vpn_client_certificate_persistent_backend_key: >-
+          ire/{{ terraform_environment }}/persistent/terraform.tfstate
+
+    - name: Initialize Persistent Terraform backend
+      ansible.builtin.command:
+        argv:
+          - terraform
+          - init
+          - -input=false
+          - -reconfigure
+          - "-backend-config=bucket={{ terraform_backend_bucket }}"
+          - "-backend-config=key={{ client_vpn_client_certificate_persistent_backend_key }}"
+          - "-backend-config=region={{ terraform_backend_region }}"
+          - "-backend-config=encrypt={{ terraform_backend_encrypt | lower }}"
+          - "-backend-config=use_lockfile={{ terraform_backend_use_lockfile | lower }}"
+      args:
+        chdir: "{{ client_vpn_client_certificate_persistent_root }}"
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+        AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+        AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+        AWS_REGION: "{{ assume_role_aws_auth.region }}"
+        AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+        TF_IN_AUTOMATION: "true"
+      changed_when: false
+      no_log: true
+
+    - name: Read Client VPN PKI bucket from Persistent state
+      ansible.builtin.command:
+        argv:
+          - terraform
+          - output
+          - -raw
+          - client_vpn_pki_bucket_name
+      args:
+        chdir: "{{ client_vpn_client_certificate_persistent_root }}"
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+        AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+        AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+        AWS_REGION: "{{ assume_role_aws_auth.region }}"
+        AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+        TF_IN_AUTOMATION: "true"
+      register: client_vpn_client_certificate_pki_bucket_read
+      changed_when: false
+
+    - name: Read Client VPN PKI KMS key from Persistent state
+      ansible.builtin.command:
+        argv:
+          - terraform
+          - output
+          - -raw
+          - client_vpn_pki_kms_key_arn
+      args:
+        chdir: "{{ client_vpn_client_certificate_persistent_root }}"
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+        AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+        AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+        AWS_REGION: "{{ assume_role_aws_auth.region }}"
+        AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+        TF_IN_AUTOMATION: "true"
+      register: client_vpn_client_certificate_pki_kms_read
+      changed_when: false
+      no_log: true
+
+    - name: Publish Persistent PKI storage inputs
+      ansible.builtin.set_fact:
+        client_vpn_client_certificate_easyrsa_ca_s3_bucket: >-
+          {{ client_vpn_client_certificate_pki_bucket_read.stdout | trim }}
+        client_vpn_client_certificate_easyrsa_ca_kms_key_arn: >-
+          {{ client_vpn_client_certificate_pki_kms_read.stdout | trim }}
+
+    - name: Validate Persistent PKI storage contract
+      ansible.builtin.assert:
+        that:
+          - client_vpn_client_certificate_easyrsa_ca_s3_bucket | length > 0
+          - >-
+            client_vpn_client_certificate_easyrsa_ca_kms_key_arn
+            is match('^arn:aws[a-zA-Z-]*:kms:[a-z0-9-]+:[0-9]{12}:key/.+$')
+        fail_msg: >-
+          Persistent stack does not expose the Client VPN PKI S3 bucket
+          and KMS key required for client certificate issuance.
+
+  tasks:
+    - name: Execute Client VPN client certificate issuance
+      block:
+        - name: Create temporary CSR workspace
+          ansible.builtin.tempfile:
+            state: directory
+            prefix: ire-client-vpn-csr-
+          register: client_vpn_client_certificate_csr_workspace
+
+        - name: Restrict temporary CSR workspace
+          ansible.builtin.file:
+            path: "{{ client_vpn_client_certificate_csr_workspace.path }}"
+            state: directory
+            mode: "0700"
+
+        - name: Set local CSR path
+          ansible.builtin.set_fact:
+            client_vpn_client_certificate_csr_path: >-
+              {{
+                client_vpn_client_certificate_csr_workspace.path
+                ~ '/'
+                ~ client_vpn_client_certificate_name
+                ~ '.csr'
+              }}
+
+        - name: Download Client VPN certificate signing request
+          amazon.aws.s3_object:
+            mode: get
+            bucket: "{{ client_vpn_client_certificate_easyrsa_ca_s3_bucket }}"
+            object: "{{ client_vpn_client_certificate_csr_s3_key }}"
+            dest: "{{ client_vpn_client_certificate_csr_path }}"
+            region: "{{ assume_role_aws_auth.region }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+          no_log: true
+
+        - name: Issue Client VPN client certificate
+          ansible.builtin.include_role:
+            name: ire_platform.aws.client_vpn_client_certificate
+            apply:
+              environment:
+                AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+                AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+                AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+                AWS_REGION: "{{ assume_role_aws_auth.region }}"
+                AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+          vars:
+            client_vpn_client_certificate_region: "{{ assume_role_aws_auth.region }}"
+
+        - name: Upload signed Client VPN client certificate
+          amazon.aws.s3_object:
+            mode: put
+            bucket: "{{ client_vpn_client_certificate_easyrsa_ca_s3_bucket }}"
+            object: "{{ client_vpn_client_certificate_output_s3_key }}"
+            src: "{{ client_vpn_client_certificate_result.certificate_path }}"
+            encrypt: true
+            encryption_mode: aws:kms
+            encryption_kms_key_id: >-
+              {{ client_vpn_client_certificate_easyrsa_ca_kms_key_arn }}
+            region: "{{ assume_role_aws_auth.region }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+          no_log: true
+
+        - name: Upload Client VPN CA certificate
+          amazon.aws.s3_object:
+            mode: put
+            bucket: "{{ client_vpn_client_certificate_easyrsa_ca_s3_bucket }}"
+            object: "{{ client_vpn_client_certificate_ca_output_s3_key }}"
+            src: "{{ client_vpn_client_certificate_result.ca_certificate_path }}"
+            encrypt: true
+            encryption_mode: aws:kms
+            encryption_kms_key_id: >-
+              {{ client_vpn_client_certificate_easyrsa_ca_kms_key_arn }}
+            region: "{{ assume_role_aws_auth.region }}"
+          environment:
+            AWS_ACCESS_KEY_ID: "{{ assume_role_aws_auth.access_key }}"
+            AWS_SECRET_ACCESS_KEY: "{{ assume_role_aws_auth.secret_key }}"
+            AWS_SESSION_TOKEN: "{{ assume_role_aws_auth.session_token }}"
+            AWS_REGION: "{{ assume_role_aws_auth.region }}"
+            AWS_DEFAULT_REGION: "{{ assume_role_aws_auth.region }}"
+          no_log: true
+
+        - name: Report Client VPN client certificate issuance
+          ansible.builtin.debug:
+            msg:
+              - "Client certificate issued: {{ client_vpn_client_certificate_name }}"
+              - "CSR object: {{ client_vpn_client_certificate_csr_s3_key }}"
+              - "Certificate object: {{ client_vpn_client_certificate_output_s3_key }}"
+              - "CA certificate object: {{ client_vpn_client_certificate_ca_output_s3_key }}"
+              - "Client private key generated by AAP: false"
+
+      always:
+        - name: Remove temporary CSR workspace
+          ansible.builtin.file:
+            path: "{{ client_vpn_client_certificate_csr_workspace.path }}"
+            state: absent
+          when:
+            - client_vpn_client_certificate_csr_workspace is defined
+            - client_vpn_client_certificate_csr_workspace.path is defined
+          no_log: true
+
+        - name: Remove temporary EasyRSA client certificate workspace
+          ansible.builtin.file:
+            path: "{{ client_vpn_client_certificate_workspace.path }}"
+            state: absent
+          when:
+            - client_vpn_client_certificate_workspace is defined
+            - client_vpn_client_certificate_workspace.path is defined
+          no_log: true
