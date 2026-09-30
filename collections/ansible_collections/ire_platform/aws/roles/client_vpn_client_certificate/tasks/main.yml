@@ -1,0 +1,170 @@
+---
+- name: Validate Client VPN client certificate request
+  ansible.builtin.assert:
+    that:
+      - client_vpn_client_certificate_name | length > 0
+      - >-
+        client_vpn_client_certificate_name
+        is match('^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$')
+      - client_vpn_client_certificate_csr_path | length > 0
+      - client_vpn_client_certificate_region | length > 0
+      - client_vpn_client_certificate_easyrsa_command | length > 0
+      - client_vpn_client_certificate_easyrsa_ca_s3_bucket | length > 0
+      - client_vpn_client_certificate_easyrsa_ca_s3_key | length > 0
+      - client_vpn_client_certificate_easyrsa_ca_kms_key_arn | length > 0
+    fail_msg: >-
+      Supply a valid client certificate name, CSR path, AWS Region,
+      EasyRSA command, and approved Persistent PKI S3/KMS inputs.
+
+- name: Verify requested CSR exists
+  ansible.builtin.stat:
+    path: "{{ client_vpn_client_certificate_csr_path }}"
+  register: client_vpn_client_certificate_csr
+
+- name: Require requested CSR
+  ansible.builtin.assert:
+    that:
+      - client_vpn_client_certificate_csr.stat.exists
+      - client_vpn_client_certificate_csr.stat.isreg
+    fail_msg: >-
+      The requested Client VPN certificate CSR does not exist.
+
+- name: Create temporary Client VPN client certificate workspace
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: ire-client-vpn-client-cert-
+  register: client_vpn_client_certificate_workspace
+
+- name: Restrict temporary client certificate workspace
+  ansible.builtin.file:
+    path: "{{ client_vpn_client_certificate_workspace.path }}"
+    state: directory
+    mode: "0700"
+
+- name: Set runtime EasyRSA PKI path
+  ansible.builtin.set_fact:
+    client_vpn_client_certificate_runtime_pki_path: >-
+      {{ client_vpn_client_certificate_workspace.path ~ '/pki' }}
+
+- name: Restore existing EasyRSA PKI
+  ire_platform.aws.easyrsa_pki_archive:
+    action: restore
+    bucket: "{{ client_vpn_client_certificate_easyrsa_ca_s3_bucket }}"
+    key: "{{ client_vpn_client_certificate_easyrsa_ca_s3_key }}"
+    pki_path: "{{ client_vpn_client_certificate_runtime_pki_path }}"
+    region: "{{ client_vpn_client_certificate_region }}"
+  register: client_vpn_client_certificate_restore
+  no_log: true
+
+- name: Require existing EasyRSA PKI archive
+  ansible.builtin.assert:
+    that:
+      - client_vpn_client_certificate_restore.exists | bool
+    fail_msg: >-
+      Existing EasyRSA PKI archive is required. Client certificate issuance
+      is not permitted to create a new certificate authority.
+
+- name: Check EasyRSA CA certificate
+  ansible.builtin.stat:
+    path: "{{ client_vpn_client_certificate_runtime_pki_path }}/ca.crt"
+  register: client_vpn_client_certificate_ca_certificate
+
+- name: Check EasyRSA CA private key
+  ansible.builtin.stat:
+    path: "{{ client_vpn_client_certificate_runtime_pki_path }}/private/ca.key"
+  register: client_vpn_client_certificate_ca_private_key
+  no_log: true
+
+- name: Require complete existing EasyRSA CA
+  ansible.builtin.assert:
+    that:
+      - client_vpn_client_certificate_ca_certificate.stat.exists
+      - client_vpn_client_certificate_ca_private_key.stat.exists
+    fail_msg: >-
+      Existing EasyRSA CA certificate and private key are required for
+      client certificate issuance.
+  no_log: true
+
+- name: Verify EasyRSA is available
+  ansible.builtin.command:
+    argv:
+      - "{{ client_vpn_client_certificate_easyrsa_command }}"
+      - "--version"
+  changed_when: false
+
+- name: Import Client VPN certificate signing request
+  ansible.builtin.command:
+    argv:
+      - "{{ client_vpn_client_certificate_easyrsa_command }}"
+      - "--batch"
+      - "import-req"
+      - "{{ client_vpn_client_certificate_csr_path }}"
+      - "{{ client_vpn_client_certificate_name }}"
+  environment:
+    EASYRSA_PKI: "{{ client_vpn_client_certificate_runtime_pki_path }}"
+  register: client_vpn_client_certificate_import
+  changed_when: client_vpn_client_certificate_import.rc == 0
+  no_log: true
+
+- name: Sign Client VPN client certificate
+  ansible.builtin.command:
+    argv:
+      - "{{ client_vpn_client_certificate_easyrsa_command }}"
+      - "--batch"
+      - "sign-req"
+      - "client"
+      - "{{ client_vpn_client_certificate_name }}"
+  environment:
+    EASYRSA_PKI: "{{ client_vpn_client_certificate_runtime_pki_path }}"
+  register: client_vpn_client_certificate_sign
+  changed_when: client_vpn_client_certificate_sign.rc == 0
+  no_log: true
+
+- name: Verify signed client certificate
+  ansible.builtin.stat:
+    path: >-
+      {{
+        client_vpn_client_certificate_runtime_pki_path
+        ~ '/issued/'
+        ~ client_vpn_client_certificate_name
+        ~ '.crt'
+      }}
+  register: client_vpn_client_certificate_signed
+
+- name: Require signed client certificate
+  ansible.builtin.assert:
+    that:
+      - client_vpn_client_certificate_signed.stat.exists
+    fail_msg: >-
+      EasyRSA did not produce the expected signed Client VPN certificate.
+
+- name: Persist updated EasyRSA PKI
+  ire_platform.aws.easyrsa_pki_archive:
+    action: persist
+    bucket: "{{ client_vpn_client_certificate_easyrsa_ca_s3_bucket }}"
+    key: "{{ client_vpn_client_certificate_easyrsa_ca_s3_key }}"
+    pki_path: "{{ client_vpn_client_certificate_runtime_pki_path }}"
+    region: "{{ client_vpn_client_certificate_region }}"
+    kms_key_arn: "{{ client_vpn_client_certificate_easyrsa_ca_kms_key_arn }}"
+  register: client_vpn_client_certificate_persist
+  no_log: true
+
+- name: Publish Client VPN client certificate result
+  ansible.builtin.set_fact:
+    client_vpn_client_certificate_result:
+      certificate_name: "{{ client_vpn_client_certificate_name }}"
+      certificate_path: >-
+        {{
+          client_vpn_client_certificate_runtime_pki_path
+          ~ '/issued/'
+          ~ client_vpn_client_certificate_name
+          ~ '.crt'
+        }}
+      ca_certificate_path: >-
+        {{ client_vpn_client_certificate_runtime_pki_path ~ '/ca.crt' }}
+
+- name: Report Client VPN client certificate issuance
+  ansible.builtin.debug:
+    msg:
+      - "Client certificate issued: {{ client_vpn_client_certificate_name }}"
+      - "Private key generated by AAP: false"

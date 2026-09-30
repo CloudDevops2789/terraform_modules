@@ -1,0 +1,15 @@
+---
+# Client VPN client certificate issuance uses an existing EasyRSA CA.
+# This role never creates a CA and never generates the client private key.
+
+client_vpn_client_certificate_name: ""
+client_vpn_client_certificate_csr_path: ""
+
+client_vpn_client_certificate_region: ""
+
+client_vpn_client_certificate_easyrsa_command: "easyrsa"
+
+# Persistent EasyRSA PKI storage.
+client_vpn_client_certificate_easyrsa_ca_s3_bucket: ""
+client_vpn_client_certificate_easyrsa_ca_s3_key: ""
+client_vpn_client_certificate_easyrsa_ca_kms_key_arn: ""
