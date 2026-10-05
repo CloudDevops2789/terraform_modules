@@ -10,11 +10,11 @@ remote_access_enabled = true
 name              = "fv-ire-sandbox-remote-access"
 client_cidr_block = "172.30.240.0/22"
 # authentication_type = "directory"
-authentication_type = "mutual"
+# authentication_type = "mutual"
 
 # Future combined authentication changes only the reviewed mode below and
 # requires client_root_certificate_chain_arn at runtime:
-# authentication_type = "directory_and_mutual"
+authentication_type = "directory_and_mutual"
 
 network_binding = {
   vpc_key               = "recovery_access"
