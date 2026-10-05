@@ -19,13 +19,13 @@
 - name: Verify requested CSR exists
   ansible.builtin.stat:
     path: "{{ client_vpn_client_certificate_csr_path }}"
-  register: client_vpn_client_certificate_csr
+  register: client_vpn_client_certificate_csr_stat
 
 - name: Require requested CSR
   ansible.builtin.assert:
     that:
-      - client_vpn_client_certificate_csr.stat.exists
-      - client_vpn_client_certificate_csr.stat.isreg
+      - client_vpn_client_certificate_csr_stat.stat.exists
+      - client_vpn_client_certificate_csr_stat.stat.isreg
     fail_msg: >-
       The requested Client VPN certificate CSR does not exist.
 
