@@ -171,7 +171,7 @@ Use where the logical trust model must be retained without routing approved inte
 
 - AWS Client VPN association to the Recovery Access VPC.
 - Optional AWS Client VPN with certificate or SAML-federated authentication.
-- Enterprise SAML/MFA as the target organizational access pattern.
+- Authentication mode is selected by the consuming environment; directory, mutual-certificate, combined directory-and-mutual, and federated capabilities remain reusable.
 - Optional Terraform-managed IAM SAML provider composition.
 - Client VPN authorization rules scoped to approved destinations.
 
@@ -457,7 +457,7 @@ The reviewed Recovery stack configuration owns each workload's AMI, access
 method, placement, backup intent, and optional SSH key-pair reference. AAP
 cannot replace these through the normal Sandbox runtime map.
 
-When Git later enables enterprise federated Client VPN, AAP supplies the
+When federated Client VPN authentication is selected, AAP supplies the
 existing external certificate and SAML-provider ARNs.
 
 Identity secrets are separated from ordinary runtime variables. When Git enables

@@ -7,7 +7,7 @@
 # Retain the established AWS naming prefix during the stack rename.
 name_prefix = "fv-ire-sandbox-persistent"
 
-# Safe home-lab defaults. Enable independently to exercise managed resources.
+# Capability flags are enabled independently according to the target environment.
 backup_vaults_enabled                = false
 network_firewall_logging_kms_enabled = false
 

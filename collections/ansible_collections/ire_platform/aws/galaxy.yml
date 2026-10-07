@@ -9,7 +9,7 @@ version: 1.0.0
 readme: README.md
 
 authors:
-  - Yoganand
+  - IRE Platform Engineering
 
 description: >-
   Ansible roles for AWS authentication and Terraform backend bootstrap

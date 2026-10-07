@@ -1,6 +1,6 @@
 ---
 galaxy_info:
-  author: Yoganand
+  author: IRE Platform Engineering
   description: Assume a base AWS role and an optional DR deployment role.
   license: MIT
 
