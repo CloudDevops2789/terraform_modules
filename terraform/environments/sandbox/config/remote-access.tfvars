@@ -2,9 +2,9 @@
 # Fairview Remote Access desired state
 ################################################################################
 
-# Creation still requires Platform, Identity and AD user/group bootstrap to
-# complete first. AAP supplies the approved ACM server certificate ARN and the
-# Managed AD VPN-group SID at runtime.
+# Platform must be available before Remote Access.
+# Mutual authentication does not require Identity or Managed AD.
+# AAP supplies the approved ACM server/root certificate ARN at runtime.
 remote_access_enabled = true
 
 name              = "fv-ire-sandbox-remote-access"
