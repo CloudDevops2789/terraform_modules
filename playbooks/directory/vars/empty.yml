@@ -1,0 +1,3 @@
+---
+# Intentionally empty.
+# Used when Managed AD bootstrap is not consuming an Ansible Vault vars file.

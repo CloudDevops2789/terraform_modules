@@ -16,6 +16,17 @@
   connection: local
   gather_facts: false
 
+  vars_files:
+    - >-
+      {{
+        (playbook_dir ~ "/../../" ~ managed_ad_bootstrap_vault_file)
+        if (
+          (managed_ad_bootstrap_user_password_source | default("generated")) == "vault"
+          and (managed_ad_bootstrap_vault_file | default("") | length > 0)
+        )
+        else (playbook_dir ~ "/vars/empty.yml")
+      }}
+
   pre_tasks:
 
     - name: Validate directory bootstrap runtime request
@@ -29,6 +40,11 @@
           - managed_ad_bootstrap_users is sequence
           - managed_ad_bootstrap_users is not string
           - managed_ad_bootstrap_users | length > 0
+          - managed_ad_bootstrap_user_password_source | default("generated") in ["generated", "vault"]
+          - >-
+            (managed_ad_bootstrap_user_password_source | default("generated")) != "vault"
+            or
+            (managed_ad_bootstrap_vault_file | default("") | length > 0)
           - assume_role_role_arn | default('') | length > 0
           - assume_role_aws_region | default('') | length > 0
         fail_msg: >-
@@ -42,13 +58,6 @@
         managed_ad_bootstrap_region: "{{ directory_aws_region }}"
         managed_ad_bootstrap_secret_prefix: >-
           ire/{{ directory_environment }}/ad-users
-
-    - name: Load Vault-backed Managed AD user credentials
-      ansible.builtin.include_vars:
-        file: "{{ managed_ad_bootstrap_vault_file }}"
-      when:
-        - managed_ad_bootstrap_user_password_source | default('generated') == 'vault'
-      no_log: true
 
     - name: Assume IRE AWS deployment role
       ansible.builtin.include_role:
