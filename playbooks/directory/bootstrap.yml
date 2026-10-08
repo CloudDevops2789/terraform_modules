@@ -43,6 +43,13 @@
         managed_ad_bootstrap_secret_prefix: >-
           ire/{{ directory_environment }}/ad-users
 
+    - name: Load Vault-backed Managed AD user credentials
+      ansible.builtin.include_vars:
+        file: "{{ managed_ad_bootstrap_vault_file }}"
+      when:
+        - managed_ad_bootstrap_user_password_source | default('generated') == 'vault'
+      no_log: true
+
     - name: Assume IRE AWS deployment role
       ansible.builtin.include_role:
         name: ire_platform.aws.assume_role
