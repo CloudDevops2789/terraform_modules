@@ -41,23 +41,21 @@ variable "client_cidr_block" {
 #
 # Supported values:
 # - certificate: Mutual Authentication using client certificates.
-# - federated: Federated Authentication using SAML 2.0.
 # - directory: User-based authentication using AWS Directory Service.
 # - directory_and_mutual: Directory authentication plus a client certificate.
 variable "authentication_type" {
-  description = "Client VPN authentication mode. Supported values are certificate, federated, directory, and directory_and_mutual."
+  description = "Client VPN authentication mode. Supported values are certificate, directory, and directory_and_mutual."
   type        = string
   default     = "certificate"
 
   validation {
     condition = contains([
       "certificate",
-      "federated",
       "directory",
       "directory_and_mutual"
     ], var.authentication_type)
 
-    error_message = "authentication_type must be certificate, federated, directory, or directory_and_mutual."
+    error_message = "authentication_type must be certificate, directory, or directory_and_mutual."
   }
 }
 
@@ -90,14 +88,6 @@ variable "root_certificate_chain_arn" {
   nullable    = true
 }
 
-# ARN of the IAM SAML identity provider used for federated authentication.
-# This is required when authentication_type is federated.
-variable "saml_provider_arn" {
-  description = "ARN of the IAM SAML identity provider. Required when authentication_type is federated."
-  type        = string
-  default     = null
-  nullable    = true
-}
 
 # AWS Directory Service directory used for user-based authentication.
 # Required for directory and directory_and_mutual modes.

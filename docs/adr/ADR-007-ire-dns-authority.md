@@ -1,6 +1,11 @@
-# ADR-003: IRE DNS Authority and Resolution Strategy
+# ADR-007: IRE DNS Authority and Resolution Strategy
 
-- **Status:** Accepted
+## Status
+
+Proposed — pending organizational review.
+
+## Metadata
+
 - **Date:** 2026-08-27
 - **Scope:** Customer-neutral IRE reference architecture
 

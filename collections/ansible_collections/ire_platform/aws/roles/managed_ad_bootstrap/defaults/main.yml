@@ -5,8 +5,16 @@
 # This role manages directory-level bootstrap objects after AWS Managed
 # Microsoft AD infrastructure has been provisioned.
 #
-# Passwords are never supplied through these defaults. New-user passwords will
-# be generated at runtime and stored individually in AWS Secrets Manager.
+# Password sources:
+#
+#   generated
+#     -> password generated at runtime
+#     -> stored individually in AWS Secrets Manager
+#
+#   vault
+#     -> password supplied through an Ansible Vault protected variable
+#     -> password set in Managed AD
+#     -> no per-user Secrets Manager secret created
 ################################################################################
 
 managed_ad_bootstrap_directory_id: ""
@@ -17,6 +25,21 @@ managed_ad_bootstrap_group_name: ""
 managed_ad_bootstrap_users: []
 
 managed_ad_bootstrap_secret_prefix: ""
+
+# Supported values:
+# - generated
+# - vault
+managed_ad_bootstrap_user_password_source: "generated"
+
+# Used only when managed_ad_bootstrap_user_password_source == "vault".
+#
+# Expected structure:
+#
+# managed_ad_bootstrap_user_credentials:
+#   user1:
+#     password: "<vault-protected-password>"
+#
+managed_ad_bootstrap_user_credentials: {}
 
 # Existing users are not password-reset during ordinary idempotent runs.
 # A later explicit reset workflow may override this value.
