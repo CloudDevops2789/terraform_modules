@@ -1,0 +1,7 @@
+---
+- name: Refresh-apply inspection Terraform state
+  import_playbook: ../common/deploy.yml
+  vars:
+    terraform_stack: inspection
+    terraform_operation: refresh-apply
+    terraform_repository_root: "{{ playbook_dir }}/../../.."

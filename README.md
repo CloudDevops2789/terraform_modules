@@ -170,9 +170,8 @@ Use where the logical trust model must be retained without routing approved inte
 ### Administrative access
 
 - AWS Client VPN association to the Recovery Access VPC.
-- Optional AWS Client VPN with certificate or SAML-federated authentication.
-- Enterprise SAML/MFA as the target organizational access pattern.
-- Optional Terraform-managed IAM SAML provider composition.
+- AWS Client VPN with directory, mutual-certificate, or combined directory-and-mutual authentication.
+- Authentication mode is selected by the consuming environment.
 - Client VPN authorization rules scoped to approved destinations.
 
 ---
@@ -187,8 +186,9 @@ The following matrix distinguishes reusable implementation, environment integrat
 | Transit Gateway | Yes | Yes | Deployment validation pending |
 | AWS Network Firewall | Yes | Yes | Deployment validation pending |
 | Security groups and rules | Yes | Yes | Deployment validation pending |
-| Client VPN certificate authentication | Yes | Yes | Environment validation required |
-| Client VPN SAML federation | Yes | Configuration supported | Enterprise IdP integration and validation pending |
+| Client VPN directory authentication | Yes | Yes | Validated |
+| Client VPN mutual authentication | Yes | Yes | Validated |
+| Client VPN directory-and-mutual authentication | Yes | Yes | Environment validation required |
 | AWS Backup | Yes | Yes | Backup and recovery testing pending |
 | KMS | Yes | Yes | Deployment validation pending |
 | EC2 / key pair | Yes | Yes | Environment validation required |
@@ -232,7 +232,6 @@ The following matrix distinguishes reusable implementation, environment integrat
 │   └── modules/
 │       ├── backup-*/
 │       ├── client-vpn/
-│       ├── iam-saml-provider/
 │       ├── ec2/
 │       ├── key-pair/
 │       ├── kms/
@@ -252,7 +251,7 @@ The following matrix distinguishes reusable implementation, environment integrat
 └── requirements.yml
 ```
 
-The four directories under `terraform/stacks` are the active lifecycle roots.
+The six directories under `terraform/stacks` are the active lifecycle roots.
 Sandbox desired-state files consumed by AAP are under
 `terraform/environments/sandbox/config`. Reusable module logic remains under
 `terraform/modules` and is validated independently through module-validation
@@ -288,7 +287,6 @@ The major ownership boundaries are:
 | Network Firewall modules | Firewall, policy, rule groups, logging, routing, TLS inspection |
 | Security modules | Security groups and standalone rules |
 | Client VPN module | Client VPN endpoint, associations, authorization, authentication configuration |
-| IAM SAML provider module | Optional IAM SAML provider creation from approved metadata |
 | Backup modules | Vaults, plans, copy actions, roles, selections |
 | EC2 / key-pair modules | Compute and public-key registration |
 | Managed Microsoft AD module | AWS Managed Microsoft AD resources |
@@ -457,8 +455,7 @@ The reviewed Recovery stack configuration owns each workload's AMI, access
 method, placement, backup intent, and optional SSH key-pair reference. AAP
 cannot replace these through the normal Sandbox runtime map.
 
-When Git later enables enterprise federated Client VPN, AAP supplies the
-existing external certificate and SAML-provider ARNs.
+For Client VPN, AAP supplies approved ACM certificate ARNs and brokers the Managed AD authorization-group SID for directory-based modes.
 
 Identity secrets are separated from ordinary runtime variables. When Git enables
 Managed AD, an approved AAP custom credential injects the bootstrap password as
@@ -513,8 +510,7 @@ The current design includes the following controls:
 - explicit security-group policy;
 - version-controlled Network Firewall policy;
 - Client VPN authorization scoped to approved networks;
-- Terraform support for certificate and SAML-federated Client VPN authentication;
-- enterprise IdP ownership of MFA policy;
+- Terraform support for directory, mutual-certificate, and combined directory-and-mutual Client VPN authentication;
 - KMS encryption for protected logging and recovery resources where configured;
 - public-key-only EC2 key-pair registration;
 - temporary AWS STS credentials for AAP execution;
@@ -708,7 +704,7 @@ Repository validation verifies configuration structure, static validation, modul
 End-to-end operational acceptance requires an approved deployment and environment-specific runtime validation of items such as:
 
 - Client VPN connectivity;
-- enterprise SAML/IdP authentication;
+- Client VPN directory and mutual-certificate authentication;
 - network reachability between approved zones;
 - absence of prohibited routes;
 - Network Firewall rule matches;
@@ -735,7 +731,6 @@ Do not commit:
 - AWS credentials;
 - private keys;
 - passwords;
-- sensitive SAML metadata;
 - AAP runtime-variable files containing secrets; or
 - generated logs containing sensitive runtime information.
 
@@ -786,7 +781,7 @@ The following capabilities are outside the current baseline and are expected to 
 - standardized AAP Execution Environment dependencies;
 - AWS account and environment safety assertions;
 - automated post-deployment infrastructure validation;
-- integration and validation with the approved enterprise SAML identity provider and MFA policy;
+- validation of combined directory-and-mutual Client VPN authentication;
 - inspected AWS Site-to-Site VPN connectivity into Core Recovery;
 - organization-approved tagging integration where required; and
 - incremental policy-as-code hardening.
