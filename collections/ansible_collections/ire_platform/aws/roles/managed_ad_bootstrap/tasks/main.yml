@@ -6,7 +6,7 @@
 #
 # Ownership:
 #   Terraform                -> directory infrastructure
-#   managed_ad_bootstrap     -> users, groups, memberships and bootstrap secrets
+#   managed_ad_bootstrap     -> users, groups, memberships and credentials
 #
 # AWS credentials are supplied by the caller through the normal AWS credential
 # chain. This role does not assume IAM roles or contain AAP-specific auth logic.
@@ -37,14 +37,23 @@
         | length
         == managed_ad_bootstrap_users | length
 
-      - managed_ad_bootstrap_secret_prefix is string
-      - managed_ad_bootstrap_secret_prefix | trim | length > 0
+      - managed_ad_bootstrap_user_password_source in ['generated', 'vault']
+      - managed_ad_bootstrap_user_credentials is mapping
+
+      - >-
+        managed_ad_bootstrap_user_password_source != 'generated'
+        or
+        (
+          managed_ad_bootstrap_secret_prefix is string
+          and
+          managed_ad_bootstrap_secret_prefix | trim | length > 0
+        )
 
       - managed_ad_bootstrap_reset_existing_passwords is boolean
     fail_msg: >-
       Managed AD bootstrap inputs are invalid. Supply a valid Managed AD
-      directory ID, AWS Region, group name, unique user list and Secrets
-      Manager prefix.
+      directory ID, AWS Region, group name, unique user list and supported
+      credential source configuration.
 
 - name: Validate Managed AD bootstrap user names
   ansible.builtin.assert:
@@ -88,5 +97,12 @@
         Credentials provisioned:
         {{ managed_ad_bootstrap_credential_users | join(', ') }}
       - >-
-        Credential location:
-        {{ managed_ad_bootstrap_secret_prefix }}/<username>
+        Credential source:
+        {{ managed_ad_bootstrap_user_password_source }}
+      - >-
+        Credential storage:
+        {{
+          managed_ad_bootstrap_secret_prefix ~ '/<username>'
+          if managed_ad_bootstrap_user_password_source == 'generated'
+          else 'Ansible Vault supplied; no per-user Secrets Manager secret'
+        }}
