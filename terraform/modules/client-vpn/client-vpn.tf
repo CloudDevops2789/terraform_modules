@@ -76,7 +76,6 @@ resource "aws_ec2_client_vpn_endpoint" "this" {
       type                       = authentication_options.value.type
       active_directory_id        = authentication_options.value.active_directory_id
       root_certificate_chain_arn = authentication_options.value.root_certificate_arn
-      saml_provider_arn          = authentication_options.value.saml_provider_arn
     }
   }
 
@@ -94,15 +93,6 @@ resource "aws_ec2_client_vpn_endpoint" "this" {
       )
 
       error_message = "root_certificate_chain_arn must be provided for certificate and directory_and_mutual authentication."
-    }
-
-    precondition {
-      condition = (
-        var.authentication_type != "federated" ||
-        try(length(trimspace(var.saml_provider_arn)) > 0, false)
-      )
-
-      error_message = "saml_provider_arn must be provided when authentication_type is federated."
     }
 
     precondition {

@@ -119,7 +119,7 @@ is a consumer binding and never manages external resources.
 | Persistent | `kms_key_administrators` | Required only when managed logging KMS creation is enabled |
 | Platform | `ssm_instance_profile_name` | Required only for externally owned SSM profile mode |
 | Identity | None | Supply `{}` |
-| Remote Access | `server_certificate_arn`, `client_root_certificate_chain_arn` | Managed AD group SID is workflow-owned; Root CA ARN is required only for Git-selected combined mutual mode |
+| Remote Access | `server_certificate_arn`, `client_root_certificate_chain_arn` | Managed AD group SID is workflow-owned; Root CA ARN is required for mutual and directory_and_mutual authentication modes |
 | Recovery | `demo_ec2_enabled` | Enables only the workloads already reviewed in Git |
 
 Examples:

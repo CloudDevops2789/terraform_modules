@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Proposed — pending organizational review.
 
 ## Context
 

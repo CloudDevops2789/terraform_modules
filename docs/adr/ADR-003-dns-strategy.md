@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; revised to cover multi-VPC Managed Microsoft AD resolution.
+Proposed — pending organizational review.
 
 ## Context
 
