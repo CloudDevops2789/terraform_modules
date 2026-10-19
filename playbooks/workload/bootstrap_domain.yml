@@ -1,0 +1,59 @@
+---
+################################################################################
+# Workload Domain Bootstrap
+#
+# AAP entry point for joining Windows or Linux workloads to the requested
+# recovery directory.
+#
+# Target connectivity and inventory are caller-owned. The role does not assume
+# SSH, WinRM or SSM transport.
+################################################################################
+
+- name: Bootstrap workload domain membership
+  hosts: workload_targets
+  gather_facts: true
+
+  pre_tasks:
+
+    - name: Validate workload bootstrap runtime request
+      ansible.builtin.assert:
+        that:
+          - workload_domain_bootstrap_domain_name | default('') | length > 0
+          - workload_domain_bootstrap_username | default('') | length > 0
+          - workload_domain_bootstrap_password | default('') | length > 0
+        fail_msg: >-
+          Supply the target domain and approved domain-join credential through
+          the AAP runtime credential/variable contract.
+      no_log: true
+
+  tasks:
+
+    - name: Bootstrap workload directory membership
+      ansible.builtin.include_role:
+        name: ire_platform.aws.workload_domain_bootstrap
+
+  post_tasks:
+
+    - name: Validate workload domain bootstrap result
+      ansible.builtin.assert:
+        that:
+          - workload_domain_bootstrap_result is defined
+          - workload_domain_bootstrap_result.joined | bool
+          - workload_domain_bootstrap_result.validation == 'passed'
+          - >-
+            workload_domain_bootstrap_result.domain | lower
+            ==
+            workload_domain_bootstrap_domain_name | lower
+        fail_msg: >-
+          Workload domain bootstrap completed without a valid membership result.
+
+    - name: Publish workload domain bootstrap artifacts
+      ansible.builtin.set_stats:
+        data:
+          workload_domain_bootstrap_platform: >-
+            {{ workload_domain_bootstrap_result.platform }}
+          workload_domain_bootstrap_domain: >-
+            {{ workload_domain_bootstrap_result.domain }}
+          workload_domain_bootstrap_status: >-
+            {{ workload_domain_bootstrap_result.validation }}
+        per_host: true

@@ -28,5 +28,7 @@ tags:
 # (s3_bucket, sts_assume_role...) every role here calls.
 dependencies:
   amazon.aws: ">=10.0.0"
+  ansible.windows: ">=3.8.0"
+  microsoft.ad: ">=1.12.1"
 
 repository: https://github.com/CloudDevops2789/terraform_modules

@@ -1,0 +1,127 @@
+---
+################################################################################
+# Windows workload domain bootstrap
+################################################################################
+
+- name: Read current Windows domain membership
+  ansible.windows.win_powershell:
+    script: |
+      $computerSystem = Get-CimInstance -ClassName Win32_ComputerSystem
+
+      [PSCustomObject]@{
+          PartOfDomain = [bool]$computerSystem.PartOfDomain
+          Domain       = [string]$computerSystem.Domain
+      }
+  register: workload_domain_bootstrap_windows_membership
+
+- name: Derive current Windows membership
+  ansible.builtin.set_fact:
+    workload_domain_bootstrap_windows_current_joined: >-
+      {{
+        workload_domain_bootstrap_windows_membership.output[0].PartOfDomain
+        | default(false)
+        | bool
+      }}
+    workload_domain_bootstrap_windows_current_domain: >-
+      {{
+        workload_domain_bootstrap_windows_membership.output[0].Domain
+        | default('')
+        | lower
+      }}
+
+- name: Refuse automatic Windows cross-domain rejoin
+  ansible.builtin.assert:
+    that:
+      - >-
+        not workload_domain_bootstrap_windows_current_joined
+        or
+        workload_domain_bootstrap_windows_current_domain
+        ==
+        (workload_domain_bootstrap_domain_name | lower)
+    fail_msg: >-
+      Windows workload is already joined to
+      {{ workload_domain_bootstrap_windows_current_domain }}. Automatic
+      unjoin/rejoin to {{ workload_domain_bootstrap_domain_name }} is prohibited.
+
+- name: Validate Windows can resolve target directory
+  ansible.windows.win_powershell:
+    script: |
+      param(
+          [Parameter(Mandatory = $true)]
+          [string]$DomainName
+      )
+
+      $records = Resolve-DnsName `
+          -Name $DomainName `
+          -Type SOA `
+          -ErrorAction Stop
+
+      if (-not $records) {
+          throw "No DNS response returned for domain $DomainName"
+      }
+
+      Write-Output "Resolved directory DNS domain: $DomainName"
+    parameters:
+      DomainName: "{{ workload_domain_bootstrap_domain_name }}"
+  changed_when: false
+
+- name: Join Windows workload to requested domain
+  microsoft.ad.membership:
+    dns_domain_name: "{{ workload_domain_bootstrap_domain_name }}"
+    domain_admin_user: "{{ workload_domain_bootstrap_username }}"
+    domain_admin_password: "{{ workload_domain_bootstrap_password }}"
+    domain_ou_path: >-
+      {{
+        workload_domain_bootstrap_ou_path
+        if workload_domain_bootstrap_ou_path | length > 0
+        else omit
+      }}
+    state: domain
+    reboot: "{{ workload_domain_bootstrap_windows_reboot }}"
+    reboot_timeout: "{{ workload_domain_bootstrap_windows_reboot_timeout }}"
+  register: workload_domain_bootstrap_windows_join
+  no_log: true
+  when:
+    - not workload_domain_bootstrap_windows_current_joined
+
+- name: Validate final Windows domain membership
+  ansible.windows.win_powershell:
+    script: |
+      param(
+          [Parameter(Mandatory = $true)]
+          [string]$ExpectedDomain
+      )
+
+      $computerSystem = Get-CimInstance -ClassName Win32_ComputerSystem
+
+      if (-not $computerSystem.PartOfDomain) {
+          throw "Computer is not joined to a domain."
+      }
+
+      if ($computerSystem.Domain -ine $ExpectedDomain) {
+          throw "Computer is joined to $($computerSystem.Domain), expected $ExpectedDomain."
+      }
+
+      $secureChannel = Test-ComputerSecureChannel -ErrorAction Stop
+
+      if (-not $secureChannel) {
+          throw "Active Directory secure channel validation failed."
+      }
+
+      [PSCustomObject]@{
+          Domain        = [string]$computerSystem.Domain
+          PartOfDomain  = [bool]$computerSystem.PartOfDomain
+          SecureChannel = [bool]$secureChannel
+      }
+    parameters:
+      ExpectedDomain: "{{ workload_domain_bootstrap_domain_name }}"
+  register: workload_domain_bootstrap_windows_validation
+  changed_when: false
+
+- name: Publish Windows domain bootstrap result
+  ansible.builtin.set_fact:
+    workload_domain_bootstrap_result:
+      platform: windows
+      domain: "{{ workload_domain_bootstrap_domain_name }}"
+      joined: true
+      validation: passed
