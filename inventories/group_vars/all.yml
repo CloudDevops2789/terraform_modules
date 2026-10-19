@@ -1,22 +1,30 @@
 ---
 ################################################################################
-# Customer-neutral AAP environment inventory example
+# IRE AAP Runtime Variables
+#
+# Environment-specific AWS account, AssumeRole, backend bucket and region values
+# must be supplied by the approved AAP inventory / credential configuration.
+#
+# Do not commit personal account IDs, credentials, backend bucket names, or
+# workstation-specific values to this file.
 ################################################################################
-# Copy this inventory into the private deployment-configuration repository and
-# replace every placeholder with an approved value for the target environment.
 
 terraform_environment: sandbox
 
-assume_role_role_arn: >-
-  arn:aws:iam::781436988948:role/fhs-main-test-ire-redhataap-role
+# AWS deployment context.
+assume_role_role_arn: ""
+assume_role_expected_account_id: ""
 assume_role_aws_region: us-east-1
 assume_role_application_name: ire-terraform
-assume_role_expected_account_id: "781436988948"
 
-terraform_backend_bucket: yoganand-terraform-state-781436988948
+# Terraform backend.
+terraform_backend_bucket: ""
 terraform_backend_region: us-east-1
+terraform_backend_encrypt: true
+terraform_backend_use_lockfile: true
 
+# Persistent resource contract.
 # managed  -> consumers read approved Persistent Terraform outputs.
-# external -> consumers use the explicit existing-resource references below.
+# external -> consumers use explicitly supplied existing-resource references.
 terraform_persistent_contract_source: managed
 terraform_external_persistent_resources: {}
