@@ -395,3 +395,19 @@ awx_job_templates:
     extra_vars:
       terraform_variables: {}
     ask_variables_on_launch: true
+
+  ##############################################################################
+  # IRE Operational Notifications
+  #
+  # The SNS topic is resolved from the existing Platform Terraform contract.
+  # Operators provide only the notification subject and message.
+  ##############################################################################
+
+  - name: "IRE-Send-Notification"
+    playbook: "playbooks/notifications/send.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+    extra_vars:
+      ire_notification_subject: ""
+      ire_notification_message: ""
+    ask_variables_on_launch: true

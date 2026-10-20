@@ -1,25 +1,31 @@
 ---
 - name: Send IRE operational notification
   hosts: localhost
+  connection: local
   gather_facts: false
 
   vars:
+    terraform_repository_root: "{{ playbook_dir }}/../.."
+    terraform_backend_use_lockfile: true
+    terraform_backend_encrypt: true
+
     ire_notification_subject_max_length: 100
 
   pre_tasks:
-    - name: Validate notification inputs
+    - name: Validate notification execution inputs
       ansible.builtin.assert:
         that:
-          - ire_notification_topic_arn is defined
-          - ire_notification_topic_arn | string | trim | length > 0
-          - ire_notification_subject is defined
-          - ire_notification_subject | string | trim | length > 0
+          - terraform_environment | default('') | length > 0
+          - terraform_backend_bucket | default('') | length > 2
+          - terraform_backend_region | default('') | length > 0
+          - assume_role_role_arn | default('') | length > 0
+          - assume_role_aws_region | default('') | length > 0
+          - ire_notification_subject | default('') | string | trim | length > 0
           - ire_notification_subject | string | length <= ire_notification_subject_max_length
-          - ire_notification_message is defined
-          - ire_notification_message | string | trim | length > 0
+          - ire_notification_message | default('') | string | trim | length > 0
         fail_msg: >-
-          ire_notification_topic_arn, ire_notification_subject, and
-          ire_notification_message are required.
+          Notification subject/message or required Terraform backend and
+          AWS authentication settings are missing or invalid.
 
     - name: Assume IRE AWS execution role
       ansible.builtin.include_role:
@@ -28,21 +34,80 @@
         assume_role_application_name: "ire-notifications"
 
   tasks:
-    - name: Publish IRE notification
-      community.aws.sns:
-        topic: "{{ ire_notification_topic_arn }}"
-        subject: "{{ ire_notification_subject }}"
-        msg: "{{ ire_notification_message }}"
-        message_structure: string
-        region: "{{ assume_role_aws_auth.region }}"
-        access_key: "{{ assume_role_aws_auth.access_key }}"
-        secret_key: "{{ assume_role_aws_auth.secret_key }}"
-        session_token: "{{ assume_role_aws_auth.session_token }}"
-      register: ire_notification_publish_result
+    - name: Create temporary Terraform dependency workspace
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: "-ire-notifications"
+      register: terraform_temp_dir
 
-    - name: Publish notification result for AAP workflows
-      ansible.builtin.set_stats:
-        data:
-          ire_notification_message_id: "{{ ire_notification_publish_result.message_id | default('') }}"
-          ire_notification_topic_arn: "{{ ire_notification_topic_arn }}"
-        per_host: false
+    - name: Resolve Platform contract and send notification
+      block:
+        - name: Initialize Terraform dependency outputs
+          ansible.builtin.set_fact:
+            terraform_dependency_outputs: {}
+
+        - name: Read Platform notification contract
+          ansible.builtin.include_tasks:
+            file: >-
+              {{ terraform_repository_root }}/playbooks/terraform/tasks/read_dependency.yml
+          vars:
+            terraform_dependency_stack: platform
+            terraform_dependency_output_names:
+              - platform_contract
+            terraform_dependency_outputs_optional: false
+
+        - name: Resolve notification contract
+          ansible.builtin.set_fact:
+            ire_notification_contract: >-
+              {{
+                terraform_dependency_outputs
+                .platform
+                .platform_contract
+                .notifications
+                | default({})
+              }}
+
+        - name: Validate notification contract
+          ansible.builtin.assert:
+            that:
+              - ire_notification_contract.enabled | default(false) | bool
+              - >-
+                (
+                  ire_notification_contract.topic_arn
+                  | default('')
+                  | string
+                )
+                is match('^arn:[^:]+:sns:[^:]+:[0-9]{12}:.+$')
+            fail_msg: >-
+              Platform state does not expose an enabled IRE notification
+              topic. Apply the Platform stack with notifications enabled
+              before sending notifications.
+
+        - name: Publish IRE notification
+          community.aws.sns:
+            topic: "{{ ire_notification_contract.topic_arn }}"
+            subject: "{{ ire_notification_subject }}"
+            msg: "{{ ire_notification_message }}"
+            message_structure: string
+            region: "{{ assume_role_aws_auth.region }}"
+            access_key: "{{ assume_role_aws_auth.access_key }}"
+            secret_key: "{{ assume_role_aws_auth.secret_key }}"
+            session_token: "{{ assume_role_aws_auth.session_token }}"
+          register: ire_notification_publish_result
+
+        - name: Publish notification result for AAP workflows
+          ansible.builtin.set_stats:
+            data:
+              ire_notification_message_id: >-
+                {{ ire_notification_publish_result.message_id | default('') }}
+              ire_notification_topic_arn: >-
+                {{ ire_notification_contract.topic_arn }}
+            per_host: false
+
+      always:
+        - name: Remove temporary Terraform dependency workspace
+          ansible.builtin.file:
+            path: "{{ terraform_temp_dir.path }}"
+            state: absent
+          when:
+            - terraform_temp_dir.path is defined
