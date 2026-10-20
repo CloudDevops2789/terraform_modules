@@ -41,21 +41,13 @@ resource_name_overrides = {}
 #   }
 # }
 
-recovery_ssh_key_pairs = {
-  ire-recovery-lab-admin = {
-    source          = "managed"
-    public_key_path = "../../environments/sandbox/keys/ire-lab-admin.pub"
-  }
-}
-
 # Representative Recovery workload placement.
 # These logical selectors may change without changing Recovery Terraform code.
 recovery_workloads = {
-  management = {
-    server_name      = "A2NIREMGMT001"
-    ami_id           = "ami-0332d564d76dbd8d6" # Replace with an approved AMI before enabling Recovery compute.
-    access_method    = "ssm_with_ssh_fallback"
-    ssh_key_pair_key = "ire-recovery-lab-admin"
+  management_windows = {
+    server_name       = "A2NIREMGMTWIN001"
+    ami_ssm_parameter = "/aws/service/ami-windows-latest/Windows_Server-2022-English-Full-Base"
+    access_method     = "ssm"
 
     vpc_key      = "recovery_access"
     subnet_group = "admin-tools"
@@ -68,32 +60,30 @@ recovery_workloads = {
     backup_enabled = false
   }
 
-  core = {
-    server_name      = "A2NIRECORE001"
-    ami_id           = "ami-0332d564d76dbd8d6" # Replace with an approved AMI before enabling Recovery compute.
-    access_method    = "ssm_with_ssh_fallback"
-    ssh_key_pair_key = "ire-recovery-lab-admin"
-
-    vpc_key      = "core_recovery"
-    subnet_group = "recovery-services"
-    subnet_index = 0
-
-    security_group_keys = [
-      "core"
-    ]
-
-    backup_enabled = true
-  }
-
-  protected = {
-    server_name      = "A2NIREPROTDB001"
-    ami_id           = "ami-0332d564d76dbd8d6" # Replace with an approved AMI before enabling Recovery compute.
-    access_method    = "ssm_with_ssh_fallback"
-    ssh_key_pair_key = "ire-recovery-lab-admin"
+  protected_windows = {
+    server_name       = "A2NIREPROTWIN001"
+    ami_ssm_parameter = "/aws/service/ami-windows-latest/Windows_Server-2022-English-Full-Base"
+    access_method     = "ssm"
 
     vpc_key      = "protected_data"
     subnet_group = "protected-workloads"
     subnet_index = 0
+
+    security_group_keys = [
+      "protected"
+    ]
+
+    backup_enabled = false
+  }
+
+  protected_linux = {
+    server_name       = "A2NIREPROTLNX001"
+    ami_ssm_parameter = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+    access_method     = "ssm"
+
+    vpc_key      = "protected_data"
+    subnet_group = "protected-workloads"
+    subnet_index = 1
 
     security_group_keys = [
       "protected"

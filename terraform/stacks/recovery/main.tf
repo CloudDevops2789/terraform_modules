@@ -40,6 +40,16 @@ module "key_pair" {
   tags = local.org_tags
 }
 
+data "aws_ssm_parameter" "recovery_ami" {
+  for_each = var.demo_ec2_enabled ? {
+    for workload_key, workload in var.recovery_workloads :
+    workload_key => workload
+    if workload.ami_ssm_parameter != null
+  } : {}
+
+  name = each.value.ami_ssm_parameter
+}
+
 module "ec2" {
   source = "../../modules/ec2"
 
@@ -48,8 +58,12 @@ module "ec2" {
     ? {
       for workload_key, workload in var.recovery_workloads :
       workload_key => {
-        name          = workload.server_name
-        ami           = workload.ami_id
+        name = workload.server_name
+        ami = (
+          workload.ami_id != null
+          ? workload.ami_id
+          : data.aws_ssm_parameter.recovery_ami[workload_key].value
+        )
         instance_type = workload.instance_type
 
         subnet_id = (

@@ -192,9 +192,10 @@ variable "recovery_workloads" {
     vpc_key     = string
 
     # Workload-specific image and approved administrative access architecture.
-    ami_id           = optional(string)
-    access_method    = string
-    ssh_key_pair_key = optional(string)
+    ami_id            = optional(string)
+    ami_ssm_parameter = optional(string)
+    access_method     = string
+    ssh_key_pair_key  = optional(string)
 
     # Select either one exact subnet or a logical subnet group.
     subnet_key   = optional(string)
@@ -245,13 +246,34 @@ variable "recovery_workloads" {
   validation {
     condition = alltrue([
       for workload in values(var.recovery_workloads) :
-      (
-        workload.ami_id == null ||
-        can(regex("^ami-[0-9a-fA-F]+$", workload.ami_id))
-      )
+      workload.ami_id == null || can(regex("^ami-[0-9a-fA-F]+$", workload.ami_id))
     ])
 
     error_message = "Recovery workload ami_id values must be null or valid AMI IDs."
+  }
+
+  validation {
+    condition = alltrue([
+      for workload in values(var.recovery_workloads) :
+      workload.ami_ssm_parameter == null || (
+        length(trimspace(workload.ami_ssm_parameter)) > 1 &&
+        startswith(trimspace(workload.ami_ssm_parameter), "/")
+      )
+    ])
+
+    error_message = "Recovery workload ami_ssm_parameter values must be null or valid absolute SSM parameter names."
+  }
+
+  validation {
+    condition = alltrue([
+      for workload in values(var.recovery_workloads) :
+      !(
+        workload.ami_id != null &&
+        workload.ami_ssm_parameter != null
+      )
+    ])
+
+    error_message = "A Recovery workload may define ami_id or ami_ssm_parameter, but not both."
   }
 
   validation {
@@ -293,11 +315,14 @@ variable "recovery_workloads" {
       !var.demo_ec2_enabled ||
       alltrue([
         for workload in values(var.recovery_workloads) :
-        workload.ami_id != null
+        (
+          (workload.ami_id != null ? 1 : 0) +
+          (workload.ami_ssm_parameter != null ? 1 : 0)
+        ) == 1
       ])
     )
 
-    error_message = "Every enabled Recovery workload must define ami_id in recovery_workloads."
+    error_message = "Every enabled Recovery workload must define exactly one of ami_id or ami_ssm_parameter."
   }
 
   validation {
