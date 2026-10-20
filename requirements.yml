@@ -4,6 +4,3 @@
 collections:
   - name: amazon.aws
     version: "10.3.2"
-
-  - name: community.aws
-    version: "7.1.0"
