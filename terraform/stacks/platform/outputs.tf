@@ -147,6 +147,22 @@ output "platform_contract" {
     ssm_instance_profile_name = (
       local.effective_ssm_instance_profile_name
     )
+
+    notifications = {
+      enabled = var.notifications_enabled
+
+      topic_arn = (
+        var.notifications_enabled
+        ? aws_sns_topic.ire_notifications[0].arn
+        : null
+      )
+
+      topic_name = (
+        var.notifications_enabled
+        ? aws_sns_topic.ire_notifications[0].name
+        : null
+      )
+    }
   }
 }
 

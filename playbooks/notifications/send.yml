@@ -1,0 +1,48 @@
+---
+- name: Send IRE operational notification
+  hosts: localhost
+  gather_facts: false
+
+  vars:
+    ire_notification_subject_max_length: 100
+
+  pre_tasks:
+    - name: Validate notification inputs
+      ansible.builtin.assert:
+        that:
+          - ire_notification_topic_arn is defined
+          - ire_notification_topic_arn | string | trim | length > 0
+          - ire_notification_subject is defined
+          - ire_notification_subject | string | trim | length > 0
+          - ire_notification_subject | string | length <= ire_notification_subject_max_length
+          - ire_notification_message is defined
+          - ire_notification_message | string | trim | length > 0
+        fail_msg: >-
+          ire_notification_topic_arn, ire_notification_subject, and
+          ire_notification_message are required.
+
+    - name: Assume IRE AWS execution role
+      ansible.builtin.include_role:
+        name: ire_platform.aws.assume_role
+      vars:
+        assume_role_application_name: "ire-notifications"
+
+  tasks:
+    - name: Publish IRE notification
+      community.aws.sns:
+        topic: "{{ ire_notification_topic_arn }}"
+        subject: "{{ ire_notification_subject }}"
+        msg: "{{ ire_notification_message }}"
+        message_structure: string
+        region: "{{ assume_role_aws_auth.region }}"
+        access_key: "{{ assume_role_aws_auth.access_key }}"
+        secret_key: "{{ assume_role_aws_auth.secret_key }}"
+        session_token: "{{ assume_role_aws_auth.session_token }}"
+      register: ire_notification_publish_result
+
+    - name: Publish notification result for AAP workflows
+      ansible.builtin.set_stats:
+        data:
+          ire_notification_message_id: "{{ ire_notification_publish_result.message_id | default('') }}"
+          ire_notification_topic_arn: "{{ ire_notification_topic_arn }}"
+        per_host: false

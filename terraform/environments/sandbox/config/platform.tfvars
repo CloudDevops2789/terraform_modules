@@ -888,3 +888,16 @@ s3_gateway_endpoint_bindings = {
     ]
   }
 }
+
+
+################################################################################
+# IRE Operational Notifications
+#
+# Email recipients are environment-specific. Keep the public repository free of
+# organization or personal email addresses. Organization deployments can supply
+# approved recipients through their private environment configuration.
+################################################################################
+
+notifications_enabled = true
+
+notification_email_subscriptions = []

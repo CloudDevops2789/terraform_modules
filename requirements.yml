@@ -1,5 +1,9 @@
 ---
-# Ansible collection dependencies required by the AWS automation roles.
+# Ansible collection dependencies required by the AWS automation roles
+# and operational playbooks.
 collections:
   - name: amazon.aws
     version: "10.3.2"
+
+  - name: community.aws
+    version: "7.1.0"
