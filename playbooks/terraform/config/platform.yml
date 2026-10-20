@@ -6,7 +6,8 @@ terraform_var_files:
   - platform.tfvars
   - platform-network-policy.tfvars
 
-terraform_environment_variable_allowlist: []
+terraform_environment_variable_allowlist:
+  - notification_email_subscriptions
 
 terraform_runtime_variable_allowlist:
   - ssm_instance_profile_name

@@ -58,6 +58,10 @@ awx_job_templates:
       - "{{ awx_terraform_credential_name }}"
     extra_vars:
       terraform_variables: {}
+      terraform_environment_variables_by_stack:
+        platform:
+          notification_email_subscriptions: >-
+            {{ awx_notification_email_subscriptions }}
     ask_variables_on_launch: false
 
   - name: "IRE-Platform-Apply"
@@ -66,6 +70,10 @@ awx_job_templates:
       - "{{ awx_terraform_credential_name }}"
     extra_vars:
       terraform_variables: {}
+      terraform_environment_variables_by_stack:
+        platform:
+          notification_email_subscriptions: >-
+            {{ awx_notification_email_subscriptions }}
     ask_variables_on_launch: false
 
   - name: "IRE-Platform-Destroy-Plan"

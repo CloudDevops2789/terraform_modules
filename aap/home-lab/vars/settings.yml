@@ -68,3 +68,11 @@ awx_client_vpn_client_root_certificate_chain_arn: ""
 ################################################################################
 
 awx_recovery_demo_ec2_enabled: true
+
+################################################################################
+# IRE Operational Notifications
+#
+# Recipients are supplied through the Git-ignored home-lab runtime.yml.
+################################################################################
+
+awx_notification_email_subscriptions: []
