@@ -295,12 +295,12 @@ awx_job_templates:
     playbook: "playbooks/workload/bootstrap_domain.yml"
     credentials:
       - "{{ awx_terraform_credential_name }}"
-      - "{{ awx_workload_domain_join_credential_name }}"
     extra_vars:
       workload_domain_bootstrap_workload_keys: []
       workload_domain_bootstrap_domain_name: ""
       workload_domain_bootstrap_ou_path: ""
     ask_variables_on_launch: true
+    ask_credential_on_launch: true
 
   ##############################################################################
   # Identity State Contract

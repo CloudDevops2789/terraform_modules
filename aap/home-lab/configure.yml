@@ -63,7 +63,7 @@
           - awx_execution_environment_image | length > 0
           - awx_terraform_credential_name | length > 0
           - awx_managed_ad_password_credential_name | length > 0
-          - awx_workload_domain_join_credential_name | length > 0
+          - awx_workload_domain_join_credential_type_name | length > 0
 
     ##########################################################################
     # SCM Project
@@ -82,6 +82,49 @@
         scm_branch: "{{ awx_project_scm_branch }}"
         credential: "{{ awx_project_scm_credential_name }}"
         scm_update_on_launch: "{{ awx_project_update_on_launch }}"
+
+        state: present
+
+        controller_host: "{{ controller_host_value }}"
+        controller_oauthtoken: "{{ controller_token_value }}"
+        validate_certs: "{{ controller_validate_certs_value }}"
+
+    ##########################################################################
+    # Workload Domain Join Credential Type
+    #
+    # Credential instances remain operational secrets and are not managed in
+    # Git. Multiple domain-specific credentials may use this common type.
+    ##########################################################################
+
+    - name: Configure workload domain join credential type
+      awx.awx.credential_type:
+        name: "{{ awx_workload_domain_join_credential_type_name }}"
+        description: >-
+          Domain credential used by IRE workload bootstrap for Windows and
+          Linux Active Directory membership.
+        kind: cloud
+
+        inputs:
+          fields:
+            - id: domain_join_username
+              type: string
+              label: Domain join username
+
+            - id: domain_join_password
+              type: string
+              label: Domain join password
+              secret: true
+
+          required:
+            - domain_join_username
+            - domain_join_password
+
+        injectors:
+          env:
+            IRE_WORKLOAD_DOMAIN_JOIN_USERNAME: >-
+              {{ '{{ domain_join_username }}' }}
+            IRE_WORKLOAD_DOMAIN_JOIN_PASSWORD: >-
+              {{ '{{ domain_join_password }}' }}
 
         state: present
 
@@ -124,6 +167,9 @@
         extra_vars: "{{ item.extra_vars | default({}) }}"
         ask_variables_on_launch: >-
           {{ item.ask_variables_on_launch | default(false) }}
+
+        ask_credential_on_launch: >-
+          {{ item.ask_credential_on_launch | default(false) }}
 
         state: present
 

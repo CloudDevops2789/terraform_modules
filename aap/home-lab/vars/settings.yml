@@ -83,4 +83,4 @@ awx_recovery_demo_ec2_enabled: true
 # the Recovery Terraform contract.
 ################################################################################
 
-awx_workload_domain_join_credential_name: "IRE Workload Domain Join"
+awx_workload_domain_join_credential_type_name: "IRE Workload Domain Join"
