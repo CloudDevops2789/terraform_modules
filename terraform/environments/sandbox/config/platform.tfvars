@@ -888,3 +888,16 @@ s3_gateway_endpoint_bindings = {
     ]
   }
 }
+
+##################################################################################################
+# Ansible over Systems Manager Transfer Channel
+#
+# Transient encrypted S3 transport used by the amazon.aws.aws_ssm connection
+# plugin. Objects expire after one day and bucket versioning is disabled by the
+# Platform implementation.
+##################################################################################################
+
+ssm_transfer_bucket_enabled         = true
+ssm_transfer_object_expiration_days = 1
+ssm_transfer_kms_key_administrators = ["arn:aws:iam::781436988948:role/fhs-main-test-ire-redhataap-role"]
+ssm_transfer_kms_key_users          = ["arn:aws:iam::781436988948:role/fhs-main-test-ire-redhataap-role"]
