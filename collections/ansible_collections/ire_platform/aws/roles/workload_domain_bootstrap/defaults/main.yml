@@ -1,0 +1,33 @@
+---
+################################################################################
+# Workload Domain Bootstrap - Defaults
+#
+# Reusable domain-join lifecycle for Windows and Linux EC2 workloads.
+#
+# Credentials are runtime inputs supplied by the caller. They are never
+# persisted by this role.
+################################################################################
+
+workload_domain_bootstrap_domain_name: ""
+
+workload_domain_bootstrap_username: ""
+workload_domain_bootstrap_password: ""
+
+# Optional distinguished name for the target computer OU.
+# Example:
+# OU=Recovery,OU=Servers,DC=ad,DC=ire,DC=example
+workload_domain_bootstrap_ou_path: ""
+
+# Linux v1 support is intentionally limited to RedHat-family systems.
+workload_domain_bootstrap_linux_packages:
+  - realmd
+  - sssd
+  - sssd-tools
+  - adcli
+  - krb5-workstation
+  - oddjob
+  - oddjob-mkhomedir
+
+# Windows domain join may require a reboot.
+workload_domain_bootstrap_windows_reboot: true
+workload_domain_bootstrap_windows_reboot_timeout: 900

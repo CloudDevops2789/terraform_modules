@@ -1,0 +1,123 @@
+---
+################################################################################
+# RedHat-family Linux workload domain bootstrap
+################################################################################
+
+- name: Install Linux Active Directory client packages
+  ansible.builtin.package:
+    name: "{{ workload_domain_bootstrap_linux_packages }}"
+    state: present
+  become: true
+
+- name: Read current Linux realm membership
+  ansible.builtin.command:
+    cmd: realm list --name-only
+  register: workload_domain_bootstrap_linux_realms
+  changed_when: false
+  failed_when: false
+
+- name: Derive current Linux realm membership
+  ansible.builtin.set_fact:
+    workload_domain_bootstrap_linux_current_realms: >-
+      {{
+        workload_domain_bootstrap_linux_realms.stdout_lines
+        | default([])
+        | map('lower')
+        | list
+      }}
+    workload_domain_bootstrap_linux_target_domain: >-
+      {{ workload_domain_bootstrap_domain_name | lower }}
+
+- name: Refuse unsupported Linux realm state or cross-domain rejoin
+  ansible.builtin.assert:
+    that:
+      - >-
+        workload_domain_bootstrap_linux_current_realms | length == 0
+        or
+        (
+          workload_domain_bootstrap_linux_current_realms | length == 1
+          and
+          workload_domain_bootstrap_linux_target_domain
+          in workload_domain_bootstrap_linux_current_realms
+        )
+    fail_msg: >-
+      Linux workload has an unsupported existing realm configuration:
+      {{ workload_domain_bootstrap_linux_current_realms | join(', ') }}.
+      Automatic unjoin, cross-domain rejoin, or multi-realm remediation is
+      prohibited.
+
+- name: Validate Linux can discover target directory
+  ansible.builtin.command:
+    cmd: "realm discover {{ workload_domain_bootstrap_domain_name }}"
+  register: workload_domain_bootstrap_linux_discovery
+  changed_when: false
+  when:
+    - workload_domain_bootstrap_linux_target_domain not in workload_domain_bootstrap_linux_current_realms
+
+- name: Join Linux workload to requested domain
+  ansible.builtin.command:
+    argv: >-
+      {{
+        [
+          'realm',
+          'join',
+          workload_domain_bootstrap_domain_name,
+          '--user=' ~ workload_domain_bootstrap_username
+        ]
+        +
+        (
+          ['--computer-ou=' ~ workload_domain_bootstrap_ou_path]
+          if workload_domain_bootstrap_ou_path | length > 0
+          else []
+        )
+      }}
+    stdin: "{{ workload_domain_bootstrap_password }}"
+    stdin_add_newline: true
+  become: true
+  no_log: true
+  when:
+    - workload_domain_bootstrap_linux_target_domain not in workload_domain_bootstrap_linux_current_realms
+
+- name: Ensure SSSD is enabled and running
+  ansible.builtin.service:
+    name: sssd
+    enabled: true
+    state: started
+  become: true
+
+- name: Validate Linux domain trust
+  ansible.builtin.command:
+    cmd: adcli testjoin
+  register: workload_domain_bootstrap_linux_testjoin
+  changed_when: false
+  become: true
+
+- name: Read final Linux realm membership
+  ansible.builtin.command:
+    cmd: realm list --name-only
+  register: workload_domain_bootstrap_linux_final_realms
+  changed_when: false
+
+- name: Validate final Linux realm membership
+  ansible.builtin.assert:
+    that:
+      - >-
+        workload_domain_bootstrap_domain_name | lower
+        in
+        (
+          workload_domain_bootstrap_linux_final_realms.stdout_lines
+          | default([])
+          | map('lower')
+          | list
+        )
+    fail_msg: >-
+      Linux workload domain join completed without the expected realm
+      {{ workload_domain_bootstrap_domain_name }}.
+
+- name: Publish Linux domain bootstrap result
+  ansible.builtin.set_fact:
+    workload_domain_bootstrap_result:
+      platform: linux
+      domain: "{{ workload_domain_bootstrap_domain_name }}"
+      joined: true
+      validation: passed

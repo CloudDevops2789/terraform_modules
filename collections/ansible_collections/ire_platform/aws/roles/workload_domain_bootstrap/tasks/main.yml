@@ -1,0 +1,53 @@
+---
+################################################################################
+# Workload Domain Bootstrap
+#
+# Ownership:
+#   Terraform / network -> EC2, routing, DNS and directory infrastructure
+#   AAP / inventory     -> target selection and connection transport
+#   this role           -> workload operating-system domain membership
+#
+# Safety:
+#   - already joined to requested domain -> validate / no destructive action
+#   - not joined                         -> join
+#   - joined to another domain           -> fail
+################################################################################
+
+- name: Validate workload domain bootstrap inputs
+  ansible.builtin.assert:
+    that:
+      - workload_domain_bootstrap_domain_name is string
+      - workload_domain_bootstrap_domain_name | trim | length > 0
+      - workload_domain_bootstrap_username is string
+      - workload_domain_bootstrap_username | trim | length > 0
+      - workload_domain_bootstrap_password is string
+      - workload_domain_bootstrap_password | length > 0
+      - workload_domain_bootstrap_ou_path is string
+      - workload_domain_bootstrap_windows_reboot is boolean
+      - workload_domain_bootstrap_windows_reboot | bool
+      - workload_domain_bootstrap_windows_reboot_timeout | int > 0
+    fail_msg: >-
+      Supply the target directory DNS name, approved domain-join credential,
+      optional OU path and Windows reboot enabled for the v1 bootstrap lifecycle.
+
+- name: Validate supported workload operating system
+  ansible.builtin.assert:
+    that:
+      - >-
+        ansible_os_family == 'Windows'
+        or ansible_os_family == 'RedHat'
+    fail_msg: >-
+      Workload domain bootstrap currently supports Windows and RedHat-family
+      Linux workloads only. Detected OS family: {{ ansible_os_family }}.
+
+- name: Bootstrap Windows workload domain membership
+  ansible.builtin.include_tasks:
+    file: windows.yml
+  when:
+    - ansible_os_family == "Windows"
+
+- name: Bootstrap Linux workload domain membership
+  ansible.builtin.include_tasks:
+    file: linux.yml
+  when:
+    - ansible_os_family == "RedHat"
