@@ -189,6 +189,7 @@ variable "recovery_workloads" {
 
   type = map(object({
     server_name = optional(string)
+    platform    = string
     vpc_key     = string
 
     # Workload-specific image and approved administrative access architecture.
@@ -241,6 +242,15 @@ variable "recovery_workloads" {
     ])
 
     error_message = "Recovery workload server names must be null or non-empty strings."
+  }
+
+  validation {
+    condition = alltrue([
+      for workload in values(var.recovery_workloads) :
+      contains(["windows", "linux"], workload.platform)
+    ])
+
+    error_message = "Recovery workload platform must be windows or linux."
   }
 
   validation {

@@ -2,12 +2,264 @@
 ################################################################################
 # Workload Domain Bootstrap
 #
-# AAP entry point for joining Windows or Linux workloads to the requested
-# recovery directory.
+# AAP entry point for joining selected Recovery workloads to the requested
+# recovery directory using Ansible over AWS Systems Manager.
 #
-# Target connectivity and inventory are caller-owned. The role does not assume
-# SSH, WinRM or SSM transport.
+# Operator inputs:
+#
+#   workload_domain_bootstrap_workload_keys:
+#     - protected_windows
+#     - protected_linux
+#
+#   workload_domain_bootstrap_domain_name: ad.example.com
+#
+# Runtime discovery:
+#
+#   Platform Terraform state
+#       -> platform_contract.ssm_transfer
+#
+#   Recovery Terraform state
+#       -> recovery_workload_contract
+#
+#   logical workload key
+#       -> EC2 instance ID
+#       -> operating-system platform
+#       -> amazon.aws.aws_ssm
+#
+# No SSH or WinRM ingress is required.
 ################################################################################
+
+- name: Build workload domain bootstrap inventory
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    terraform_repository_root: "{{ playbook_dir }}/../.."
+
+    terraform_backend_use_lockfile: true
+    terraform_backend_encrypt: true
+
+  pre_tasks:
+
+    - name: Validate workload bootstrap request
+      ansible.builtin.assert:
+        that:
+          - workload_domain_bootstrap_workload_keys is defined
+          - workload_domain_bootstrap_workload_keys is sequence
+          - workload_domain_bootstrap_workload_keys is not string
+          - workload_domain_bootstrap_workload_keys | length > 0
+          - >-
+            workload_domain_bootstrap_workload_keys
+            | unique
+            | length
+            ==
+            workload_domain_bootstrap_workload_keys
+            | length
+          - workload_domain_bootstrap_domain_name | default('') | length > 0
+          - assume_role_role_arn | default('') | length > 0
+          - assume_role_aws_region | default('') | length > 0
+        fail_msg: >-
+          Supply one or more unique Recovery workload keys, the target domain,
+          and valid AssumeRole configuration.
+
+    - name: Validate workload bootstrap selectors
+      ansible.builtin.assert:
+        that:
+          - item is string
+          - item | trim | length > 0
+        fail_msg: >-
+          Every workload selector must be a non-empty logical Recovery workload
+          key.
+      loop: "{{ workload_domain_bootstrap_workload_keys }}"
+
+    - name: Assume IRE AWS deployment role
+      ansible.builtin.include_role:
+        name: ire_platform.aws.assume_role
+      vars:
+        assume_role_application_name: "ire-workload-bootstrap"
+
+  tasks:
+
+    - name: Discover workload bootstrap runtime contracts
+      block:
+
+        - name: Create temporary Terraform dependency workspace
+          ansible.builtin.tempfile:
+            state: directory
+            suffix: "-ire-workload-bootstrap"
+          register: terraform_temp_dir
+
+        - name: Initialize dependency output map
+          ansible.builtin.set_fact:
+            terraform_dependency_outputs: {}
+
+        - name: Read Platform runtime contract
+          ansible.builtin.include_tasks:
+            file: "{{ terraform_repository_root }}/playbooks/terraform/tasks/read_dependency.yml"
+          vars:
+            terraform_dependency_stack: platform
+            terraform_dependency_output_names:
+              - platform_contract
+            terraform_dependency_outputs_optional: false
+
+        - name: Read Recovery workload contract
+          ansible.builtin.include_tasks:
+            file: "{{ terraform_repository_root }}/playbooks/terraform/tasks/read_dependency.yml"
+          vars:
+            terraform_dependency_stack: recovery
+            terraform_dependency_output_names:
+              - recovery_workload_contract
+            terraform_dependency_outputs_optional: false
+
+        - name: Resolve workload bootstrap contracts
+          ansible.builtin.set_fact:
+            workload_domain_bootstrap_platform_contract: >-
+              {{ terraform_dependency_outputs.platform.platform_contract }}
+
+            workload_domain_bootstrap_recovery_contract: >-
+              {{
+                terraform_dependency_outputs
+                .recovery
+                .recovery_workload_contract
+              }}
+          no_log: true
+
+        - name: Validate Platform SSM transfer contract
+          ansible.builtin.assert:
+            that:
+              - >-
+                workload_domain_bootstrap_platform_contract.ssm_transfer
+                is mapping
+              - >-
+                workload_domain_bootstrap_platform_contract
+                .ssm_transfer
+                .enabled
+                | bool
+              - >-
+                workload_domain_bootstrap_platform_contract
+                .ssm_transfer
+                .bucket_name
+                | default('')
+                | length > 0
+              - >-
+                workload_domain_bootstrap_platform_contract
+                .ssm_transfer
+                .kms_key_arn
+                | default('')
+                is match(
+                  '^arn:[^:]+:kms:[^:]+:[0-9]{12}:key/.+$'
+                )
+            fail_msg: >-
+              Platform state does not expose an enabled Ansible-over-SSM transfer
+              channel. Apply Platform with the SSM transfer capability enabled
+              before running workload domain bootstrap.
+
+        - name: Validate requested Recovery workloads exist
+          ansible.builtin.assert:
+            that:
+              - >-
+                workload_domain_bootstrap_workload_keys
+                | difference(
+                    workload_domain_bootstrap_recovery_contract.keys() | list
+                  )
+                | length == 0
+            fail_msg: >-
+              One or more requested workload keys are absent from the current
+              Recovery Terraform state.
+
+        - name: Validate selected Recovery workload contracts
+          ansible.builtin.assert:
+            that:
+              - >-
+                workload_domain_bootstrap_recovery_contract[item].instance_id
+                is match('^i-[0-9a-fA-F]+$')
+              - >-
+                workload_domain_bootstrap_recovery_contract[item].platform
+                in ['windows', 'linux']
+              - >-
+                workload_domain_bootstrap_recovery_contract[item].access_method
+                in ['ssm', 'ssm_with_ssh_fallback']
+            fail_msg: >-
+              Selected workload {{ item }} is not a valid SSM-managed Windows or
+              Linux Recovery workload.
+          loop: "{{ workload_domain_bootstrap_workload_keys }}"
+
+        - name: Register selected Recovery workloads for SSM bootstrap
+          ansible.builtin.add_host:
+            name: "{{ item }}"
+
+            groups:
+              - workload_targets
+
+            ansible_host: >-
+              {{
+                workload_domain_bootstrap_recovery_contract[item].instance_id
+              }}
+
+            ansible_connection: amazon.aws.aws_ssm
+
+            ansible_aws_ssm_instance_id: >-
+              {{
+                workload_domain_bootstrap_recovery_contract[item].instance_id
+              }}
+
+            ansible_aws_ssm_region: "{{ assume_role_aws_auth.region }}"
+
+            ansible_aws_ssm_bucket_name: >-
+              {{
+                workload_domain_bootstrap_platform_contract
+                .ssm_transfer
+                .bucket_name
+              }}
+
+            ansible_aws_ssm_bucket_sse_mode: "aws:kms"
+
+            ansible_aws_ssm_bucket_sse_kms_key_id: >-
+              {{
+                workload_domain_bootstrap_platform_contract
+                .ssm_transfer
+                .kms_key_arn
+              }}
+
+            ansible_aws_ssm_access_key_id: >-
+              {{ assume_role_aws_auth.access_key }}
+
+            ansible_aws_ssm_secret_access_key: >-
+              {{ assume_role_aws_auth.secret_key }}
+
+            ansible_aws_ssm_session_token: >-
+              {{ assume_role_aws_auth.session_token }}
+
+            ansible_shell_type: >-
+              {{
+                'powershell'
+                if
+                workload_domain_bootstrap_recovery_contract[item].platform
+                == 'windows'
+                else 'sh'
+              }}
+
+            workload_domain_bootstrap_requested_platform: >-
+              {{
+                workload_domain_bootstrap_recovery_contract[item].platform
+              }}
+
+            workload_domain_bootstrap_logical_key: "{{ item }}"
+
+          loop: "{{ workload_domain_bootstrap_workload_keys }}"
+          no_log: true
+
+      always:
+
+        - name: Remove temporary Terraform dependency workspace
+          ansible.builtin.file:
+            path: "{{ terraform_temp_dir.path | default('') }}"
+            state: absent
+          when:
+            - terraform_temp_dir is defined
+            - terraform_temp_dir.path | default('') | length > 0
+
 
 - name: Bootstrap workload domain membership
   hosts: workload_targets
@@ -15,22 +267,74 @@
 
   pre_tasks:
 
+    - name: Resolve workload domain join credential
+      ansible.builtin.set_fact:
+        workload_domain_bootstrap_effective_username: >-
+          {{
+            workload_domain_bootstrap_username
+            | default(
+                lookup(
+                  'ansible.builtin.env',
+                  'IRE_WORKLOAD_DOMAIN_JOIN_USERNAME',
+                  default=''
+                ),
+                true
+              )
+          }}
+
+        workload_domain_bootstrap_effective_password: >-
+          {{
+            workload_domain_bootstrap_password
+            | default(
+                lookup(
+                  'ansible.builtin.env',
+                  'IRE_WORKLOAD_DOMAIN_JOIN_PASSWORD',
+                  default=''
+                ),
+                true
+              )
+          }}
+      no_log: true
+
     - name: Validate workload bootstrap runtime request
       ansible.builtin.assert:
         that:
           - workload_domain_bootstrap_domain_name | default('') | length > 0
-          - workload_domain_bootstrap_username | default('') | length > 0
-          - workload_domain_bootstrap_password | default('') | length > 0
+          - workload_domain_bootstrap_effective_username | length > 0
+          - workload_domain_bootstrap_effective_password | length > 0
         fail_msg: >-
           Supply the target domain and approved domain-join credential through
-          the AAP runtime credential/variable contract.
+          the AAP credential/runtime contract.
       no_log: true
+
+    - name: Validate discovered workload platform
+      ansible.builtin.assert:
+        that:
+          - >-
+            (
+              workload_domain_bootstrap_requested_platform == 'windows'
+              and ansible_os_family == 'Windows'
+            )
+            or
+            (
+              workload_domain_bootstrap_requested_platform == 'linux'
+              and ansible_os_family == 'RedHat'
+            )
+        fail_msg: >-
+          Recovery workload {{ inventory_hostname }} does not match the
+          operating-system platform recorded in the Recovery contract.
 
   tasks:
 
     - name: Bootstrap workload directory membership
       ansible.builtin.include_role:
         name: ire_platform.aws.workload_domain_bootstrap
+      vars:
+        workload_domain_bootstrap_username: >-
+          {{ workload_domain_bootstrap_effective_username }}
+
+        workload_domain_bootstrap_password: >-
+          {{ workload_domain_bootstrap_effective_password }}
 
   post_tasks:
 
@@ -50,10 +354,16 @@
     - name: Publish workload domain bootstrap artifacts
       ansible.builtin.set_stats:
         data:
+          workload_domain_bootstrap_workload_key: >-
+            {{ workload_domain_bootstrap_logical_key }}
+
           workload_domain_bootstrap_platform: >-
             {{ workload_domain_bootstrap_result.platform }}
+
           workload_domain_bootstrap_domain: >-
             {{ workload_domain_bootstrap_result.domain }}
+
           workload_domain_bootstrap_status: >-
             {{ workload_domain_bootstrap_result.validation }}
+
         per_host: true

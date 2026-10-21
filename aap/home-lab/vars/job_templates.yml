@@ -8,7 +8,7 @@
 
 awx_job_templates:
 
-  ##############################################################################
+##############################################################################
   # Persistent
   ##############################################################################
 
@@ -280,6 +280,26 @@ awx_job_templates:
       terraform_destroy_enabled: false
       terraform_destroy_confirmation: ""
       terraform_variables: {}
+    ask_variables_on_launch: true
+
+  ##############################################################################
+  ##############################################################################
+  # Workload Domain Bootstrap
+  #
+  # Standalone operational job for explicitly selected Windows or Linux
+  # Recovery workloads. Logical workload keys and target domain are supplied
+  # by the operator; instance IDs and platform are resolved from Terraform state.
+  ##############################################################################
+
+  - name: "IRE-Workload-Domain-Bootstrap"
+    playbook: "playbooks/workload/bootstrap_domain.yml"
+    credentials:
+      - "{{ awx_terraform_credential_name }}"
+      - "{{ awx_workload_domain_join_credential_name }}"
+    extra_vars:
+      workload_domain_bootstrap_workload_keys: []
+      workload_domain_bootstrap_domain_name: ""
+      workload_domain_bootstrap_ou_path: ""
     ask_variables_on_launch: true
 
   ##############################################################################

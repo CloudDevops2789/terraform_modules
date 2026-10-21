@@ -46,6 +46,7 @@ resource_name_overrides = {}
 recovery_workloads = {
   management_windows = {
     server_name       = "A2NIREMGMTWIN001"
+    platform          = "windows"
     ami_ssm_parameter = "/aws/service/ami-windows-latest/Windows_Server-2022-English-Full-Base"
     access_method     = "ssm"
 
@@ -62,6 +63,7 @@ recovery_workloads = {
 
   protected_windows = {
     server_name       = "A2NIREPROTWIN001"
+    platform          = "windows"
     ami_ssm_parameter = "/aws/service/ami-windows-latest/Windows_Server-2022-English-Full-Base"
     access_method     = "ssm"
 
@@ -78,6 +80,7 @@ recovery_workloads = {
 
   protected_linux = {
     server_name       = "A2NIREPROTLNX001"
+    platform          = "linux"
     ami_ssm_parameter = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
     access_method     = "ssm"
 

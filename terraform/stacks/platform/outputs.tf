@@ -147,6 +147,22 @@ output "platform_contract" {
     ssm_instance_profile_name = (
       local.effective_ssm_instance_profile_name
     )
+
+    ssm_transfer = {
+      enabled = var.ssm_transfer_bucket_enabled
+
+      bucket_name = (
+        var.ssm_transfer_bucket_enabled
+        ? module.ssm_transfer_bucket[0].name
+        : null
+      )
+
+      kms_key_arn = (
+        var.ssm_transfer_bucket_enabled
+        ? module.ssm_transfer_kms[0].key_arn
+        : null
+      )
+    }
   }
 }
 

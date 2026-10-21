@@ -122,3 +122,24 @@ resource "aws_s3_bucket_policy" "this" {
   bucket = aws_s3_bucket.this.id
   policy = data.aws_iam_policy_document.secure_transport.json
 }
+
+resource "aws_s3_bucket_lifecycle_configuration" "this" {
+  count = var.object_expiration_days == null ? 0 : 1
+
+  bucket = aws_s3_bucket.this.id
+
+  rule {
+    id     = "expire-transient-objects"
+    status = "Enabled"
+
+    filter {}
+
+    expiration {
+      days = var.object_expiration_days
+    }
+  }
+
+  depends_on = [
+    aws_s3_bucket_versioning.this
+  ]
+}

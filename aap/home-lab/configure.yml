@@ -60,8 +60,10 @@
           - awx_project_scm_url | length > 0
           - awx_project_scm_branch | length > 0
           - awx_execution_environment_name | length > 0
+          - awx_execution_environment_image | length > 0
           - awx_terraform_credential_name | length > 0
           - awx_managed_ad_password_credential_name | length > 0
+          - awx_workload_domain_join_credential_name | length > 0
 
     ##########################################################################
     # SCM Project
@@ -81,6 +83,21 @@
         credential: "{{ awx_project_scm_credential_name }}"
         scm_update_on_launch: "{{ awx_project_update_on_launch }}"
 
+        state: present
+
+        controller_host: "{{ controller_host_value }}"
+        controller_oauthtoken: "{{ controller_token_value }}"
+        validate_certs: "{{ controller_validate_certs_value }}"
+
+    ##########################################################################
+    # Execution Environment
+    ##########################################################################
+
+    - name: Configure home-lab AWX Execution Environment
+      awx.awx.execution_environment:
+        name: "{{ awx_execution_environment_name }}"
+        image: "{{ awx_execution_environment_image }}"
+        pull: always
         state: present
 
         controller_host: "{{ controller_host_value }}"

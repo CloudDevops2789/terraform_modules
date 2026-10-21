@@ -41,3 +41,22 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "object_expiration_days" {
+  description = "Optional number of days after which bucket objects expire. Null disables lifecycle expiration."
+  type        = number
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = (
+      var.object_expiration_days == null ||
+      (
+        var.object_expiration_days >= 1 &&
+        floor(var.object_expiration_days) == var.object_expiration_days
+      )
+    )
+
+    error_message = "object_expiration_days must be null or a whole number greater than or equal to 1."
+  }
+}
