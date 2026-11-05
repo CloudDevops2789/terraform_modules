@@ -137,11 +137,11 @@ network_inspection_mode = "firewall"
 ################################################################################
 
 network_config = {
-  account_cidr_block = "10.213.252.0/22"
+  account_cidr_block = "10.213.248.0/22"
 
   vpcs = {
     recovery_access = {
-      cidr_block = "10.213.252.0/24"
+      cidr_block = "10.213.248.0/24"
 
       route_tables = {
         client-vpn-a      = { group = "client-vpn" }
@@ -156,56 +156,56 @@ network_config = {
 
       subnets = {
         client-vpn-a = {
-          cidr_block              = "10.213.252.0/27"
+          cidr_block              = "10.213.248.0/27"
           availability_zone_index = 0
           group                   = "client-vpn"
           route_table_key         = "client-vpn-a"
         }
 
         client-vpn-b = {
-          cidr_block              = "10.213.252.32/27"
+          cidr_block              = "10.213.248.32/27"
           availability_zone_index = 1
           group                   = "client-vpn"
           route_table_key         = "client-vpn-b"
         }
 
         admin-tools-a = {
-          cidr_block              = "10.213.252.64/27"
+          cidr_block              = "10.213.248.64/27"
           availability_zone_index = 0
           group                   = "admin-tools"
           route_table_key         = "admin-tools-a"
         }
 
         admin-tools-b = {
-          cidr_block              = "10.213.252.96/27"
+          cidr_block              = "10.213.248.96/27"
           availability_zone_index = 1
           group                   = "admin-tools"
           route_table_key         = "admin-tools-b"
         }
 
         endpoints-a = {
-          cidr_block              = "10.213.252.128/28"
+          cidr_block              = "10.213.248.128/28"
           availability_zone_index = 0
           group                   = "endpoints"
           route_table_key         = "endpoints-a"
         }
 
         endpoints-b = {
-          cidr_block              = "10.213.252.144/28"
+          cidr_block              = "10.213.248.144/28"
           availability_zone_index = 1
           group                   = "endpoints"
           route_table_key         = "endpoints-b"
         }
 
         transit-gateway-a = {
-          cidr_block              = "10.213.252.160/28"
+          cidr_block              = "10.213.248.160/28"
           availability_zone_index = 0
           group                   = "transit-gateway"
           route_table_key         = "transit-gateway-a"
         }
 
         transit-gateway-b = {
-          cidr_block              = "10.213.252.176/28"
+          cidr_block              = "10.213.248.176/28"
           availability_zone_index = 1
           group                   = "transit-gateway"
           route_table_key         = "transit-gateway-b"
@@ -214,7 +214,7 @@ network_config = {
     }
 
     core_recovery = {
-      cidr_block = "10.213.253.0/24"
+      cidr_block = "10.213.249.0/24"
 
       route_tables = {
         recovery-services-a  = { group = "recovery-services" }
@@ -229,56 +229,56 @@ network_config = {
 
       subnets = {
         recovery-services-a = {
-          cidr_block              = "10.213.253.0/26"
+          cidr_block              = "10.213.249.0/26"
           availability_zone_index = 0
           group                   = "recovery-services"
           route_table_key         = "recovery-services-a"
         }
 
         recovery-services-b = {
-          cidr_block              = "10.213.253.64/26"
+          cidr_block              = "10.213.249.64/26"
           availability_zone_index = 1
           group                   = "recovery-services"
           route_table_key         = "recovery-services-b"
         }
 
         directory-services-a = {
-          cidr_block              = "10.213.253.128/28"
+          cidr_block              = "10.213.249.128/28"
           availability_zone_index = 0
           group                   = "directory-services"
           route_table_key         = "directory-services-a"
         }
 
         directory-services-b = {
-          cidr_block              = "10.213.253.144/28"
+          cidr_block              = "10.213.249.144/28"
           availability_zone_index = 1
           group                   = "directory-services"
           route_table_key         = "directory-services-b"
         }
 
         endpoints-a = {
-          cidr_block              = "10.213.253.160/28"
+          cidr_block              = "10.213.249.160/28"
           availability_zone_index = 0
           group                   = "endpoints"
           route_table_key         = "endpoints-a"
         }
 
         endpoints-b = {
-          cidr_block              = "10.213.253.176/28"
+          cidr_block              = "10.213.249.176/28"
           availability_zone_index = 1
           group                   = "endpoints"
           route_table_key         = "endpoints-b"
         }
 
         transit-gateway-a = {
-          cidr_block              = "10.213.253.192/28"
+          cidr_block              = "10.213.249.192/28"
           availability_zone_index = 0
           group                   = "transit-gateway"
           route_table_key         = "transit-gateway-a"
         }
 
         transit-gateway-b = {
-          cidr_block              = "10.213.253.208/28"
+          cidr_block              = "10.213.249.208/28"
           availability_zone_index = 1
           group                   = "transit-gateway"
           route_table_key         = "transit-gateway-b"
@@ -287,7 +287,7 @@ network_config = {
     }
 
     protected_data = {
-      cidr_block = "10.213.254.0/24"
+      cidr_block = "10.213.250.0/24"
 
       route_tables = {
         protected-workloads-a = { group = "protected-workloads" }
@@ -306,84 +306,84 @@ network_config = {
 
       subnets = {
         protected-workloads-a = {
-          cidr_block              = "10.213.254.0/27"
+          cidr_block              = "10.213.250.0/27"
           availability_zone_index = 0
           group                   = "protected-workloads"
           route_table_key         = "protected-workloads-a"
         }
 
         protected-workloads-b = {
-          cidr_block              = "10.213.254.32/27"
+          cidr_block              = "10.213.250.32/27"
           availability_zone_index = 1
           group                   = "protected-workloads"
           route_table_key         = "protected-workloads-b"
         }
 
         ingestion-a = {
-          cidr_block              = "10.213.254.64/28"
+          cidr_block              = "10.213.250.64/28"
           availability_zone_index = 0
           group                   = "ingestion"
           route_table_key         = "ingestion-a"
         }
 
         ingestion-b = {
-          cidr_block              = "10.213.254.80/28"
+          cidr_block              = "10.213.250.80/28"
           availability_zone_index = 1
           group                   = "ingestion"
           route_table_key         = "ingestion-b"
         }
 
         database-a = {
-          cidr_block              = "10.213.254.96/28"
+          cidr_block              = "10.213.250.96/28"
           availability_zone_index = 0
           group                   = "database"
           route_table_key         = "database-a"
         }
 
         database-b = {
-          cidr_block              = "10.213.254.112/28"
+          cidr_block              = "10.213.250.112/28"
           availability_zone_index = 1
           group                   = "database"
           route_table_key         = "database-b"
         }
 
         file-services-a = {
-          cidr_block              = "10.213.254.128/28"
+          cidr_block              = "10.213.250.128/28"
           availability_zone_index = 0
           group                   = "file-services"
           route_table_key         = "file-services-a"
         }
 
         file-services-b = {
-          cidr_block              = "10.213.254.144/28"
+          cidr_block              = "10.213.250.144/28"
           availability_zone_index = 1
           group                   = "file-services"
           route_table_key         = "file-services-b"
         }
 
         endpoints-a = {
-          cidr_block              = "10.213.254.160/28"
+          cidr_block              = "10.213.250.160/28"
           availability_zone_index = 0
           group                   = "endpoints"
           route_table_key         = "endpoints-a"
         }
 
         endpoints-b = {
-          cidr_block              = "10.213.254.176/28"
+          cidr_block              = "10.213.250.176/28"
           availability_zone_index = 1
           group                   = "endpoints"
           route_table_key         = "endpoints-b"
         }
 
         transit-gateway-a = {
-          cidr_block              = "10.213.254.192/28"
+          cidr_block              = "10.213.250.192/28"
           availability_zone_index = 0
           group                   = "transit-gateway"
           route_table_key         = "transit-gateway-a"
         }
 
         transit-gateway-b = {
-          cidr_block              = "10.213.254.208/28"
+          cidr_block              = "10.213.250.208/28"
           availability_zone_index = 1
           group                   = "transit-gateway"
           route_table_key         = "transit-gateway-b"
@@ -392,7 +392,7 @@ network_config = {
     }
 
     inspection = {
-      cidr_block = "10.213.255.0/24"
+      cidr_block = "10.213.251.0/24"
 
       route_tables = {
         firewall-a        = { group = "network-firewall" }
@@ -403,28 +403,28 @@ network_config = {
 
       subnets = {
         firewall-a = {
-          cidr_block              = "10.213.255.0/28"
+          cidr_block              = "10.213.251.0/28"
           availability_zone_index = 0
           group                   = "network-firewall"
           route_table_key         = "firewall-a"
         }
 
         firewall-b = {
-          cidr_block              = "10.213.255.16/28"
+          cidr_block              = "10.213.251.16/28"
           availability_zone_index = 1
           group                   = "network-firewall"
           route_table_key         = "firewall-b"
         }
 
         transit-gateway-a = {
-          cidr_block              = "10.213.255.32/28"
+          cidr_block              = "10.213.251.32/28"
           availability_zone_index = 0
           group                   = "transit-gateway"
           route_table_key         = "transit-gateway-a"
         }
 
         transit-gateway-b = {
-          cidr_block              = "10.213.255.48/28"
+          cidr_block              = "10.213.251.48/28"
           availability_zone_index = 1
           group                   = "transit-gateway"
           route_table_key         = "transit-gateway-b"
@@ -433,6 +433,68 @@ network_config = {
 
       transit_gateway = {
         appliance_mode_support = "enable"
+      }
+    }
+
+  }
+
+
+  ################################################################################
+  # External Transit Gateway Peering
+  ################################################################################
+  #
+  # The IRE Transit Gateway is the accepter side of an externally initiated
+  # Transit Gateway peering attachment.
+  #
+  # Keep disabled until the approved enterprise peering attachment ID and
+  # remote enterprise CIDRs are supplied and the resulting Terraform plan
+  # has been reviewed.
+  #
+  # external_to_ire controls which IRE subnet groups may be reached from the
+  # external enterprise network. Traffic is still forced through the Inspection
+  # VPC and AWS Network Firewall before reaching those destinations.
+  #
+  # ire_to_external controls which IRE route-table groups may send traffic
+  # toward the external enterprise network.
+  ################################################################################
+
+  transit_gateway_peering = {
+    enabled       = false
+    attachment_id = null
+
+    remote_cidrs = []
+
+    external_to_ire = {
+      core_recovery = {
+        subnet_groups = [
+          "recovery-services"
+        ]
+      }
+
+      protected_data = {
+        subnet_groups = [
+          "protected-workloads"
+        ]
+      }
+    }
+
+    ire_to_external = {
+      recovery_access = {
+        route_table_groups = [
+          "admin-tools"
+        ]
+      }
+
+      core_recovery = {
+        route_table_groups = [
+          "recovery-services"
+        ]
+      }
+
+      protected_data = {
+        route_table_groups = [
+          "protected-workloads"
+        ]
       }
     }
   }

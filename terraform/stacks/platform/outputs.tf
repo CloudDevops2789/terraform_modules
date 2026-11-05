@@ -187,6 +187,44 @@ output "inspection_contract" {
 
     account_cidr_block = var.network_config.account_cidr_block
 
+    external_peering = (
+      var.network_config.transit_gateway_peering.enabled
+      ? {
+        transit_gateway_attachment_id = (
+          aws_ec2_transit_gateway_peering_attachment_accepter.external[0].id
+        )
+
+        transit_gateway_route_table_id = (
+          module.transit_gateway.route_table_ids["external_peer"]
+        )
+
+        remote_cidrs = sort(
+          tolist(var.network_config.transit_gateway_peering.remote_cidrs)
+        )
+
+        external_to_ire_cidrs = sort(distinct(flatten([
+          for vpc_key, config
+          in var.network_config.transit_gateway_peering.external_to_ire : [
+            for subnet in values(var.network_config.vpcs[vpc_key].subnets) :
+            subnet.cidr_block
+            if contains(
+              config.subnet_groups,
+              subnet.group
+            )
+          ]
+        ])))
+
+        ire_to_external_vpc_keys = sort(
+          keys(
+            var.network_config
+            .transit_gateway_peering
+            .ire_to_external
+          )
+        )
+      }
+      : null
+    )
+
     # Approved directional connectivity required by Inspection to construct
     # TGW routes through the Inspection attachment. Platform retains ownership
     # of the complete network_config and VPC route-table placement policy.
@@ -214,6 +252,13 @@ output "inspection_contract" {
 
         transit_gateway_attachment_id = try(
           module.transit_gateway.attachment_ids[
+            local.inspection_vpc_key
+          ],
+          null
+        )
+
+        transit_gateway_route_table_id = try(
+          module.transit_gateway.route_table_ids[
             local.inspection_vpc_key
           ],
           null
