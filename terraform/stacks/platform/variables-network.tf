@@ -58,6 +58,31 @@ variable "network_config" {
       source_route_table_groups = set(string)
     })), {})
 
+    # Optional external Transit Gateway peering integration.
+    #
+    # The IRE side acts as the accepter of a peering attachment created
+    # by an external/shared Transit Gateway.
+    #
+    # When disabled, no peering resources or routes are created.
+    transit_gateway_peering = optional(object({
+      enabled          = optional(bool, false)
+      attachment_id    = optional(string)
+      route_table_name = optional(string)
+      remote_cidrs     = optional(set(string), [])
+
+      # IRE subnet groups that may receive traffic
+      # from the external enterprise network.
+      external_to_ire = optional(map(object({
+        subnet_groups = set(string)
+      })), {})
+
+      # IRE route-table groups that may initiate traffic
+      # toward the external enterprise network.
+      ire_to_external = optional(map(object({
+        route_table_groups = set(string)
+      })), {})
+    }), {})
+
     # Optional centralized inspection placement.
     inspection = optional(object({
       vpc_key                      = string
@@ -85,6 +110,70 @@ variable "network_config" {
     ))
 
     error_message = "All account, Client VPN, VPC, and subnet CIDRs must be valid IPv4 CIDR blocks."
+  }
+
+  validation {
+    condition = alltrue([
+      for vpc_key in keys(
+        var.network_config.transit_gateway_peering.external_to_ire
+      ) :
+      contains(keys(var.network_config.vpcs), vpc_key)
+    ])
+
+    error_message = "Every Transit Gateway peering external_to_ire key must reference a VPC defined in network_config.vpcs."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for vpc_key, config
+      in var.network_config.transit_gateway_peering.external_to_ire : [
+        for subnet_group in config.subnet_groups :
+        contains(
+          distinct([
+            for subnet in values(
+              var.network_config.vpcs[vpc_key].subnets
+            ) :
+            subnet.group
+          ]),
+          subnet_group
+        )
+      ]
+      if contains(keys(var.network_config.vpcs), vpc_key)
+    ]))
+
+    error_message = "Every Transit Gateway peering external_to_ire subnet group must exist in the referenced VPC."
+  }
+
+  validation {
+    condition = alltrue([
+      for vpc_key in keys(
+        var.network_config.transit_gateway_peering.ire_to_external
+      ) :
+      contains(keys(var.network_config.vpcs), vpc_key)
+    ])
+
+    error_message = "Every Transit Gateway peering ire_to_external key must reference a VPC defined in network_config.vpcs."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for vpc_key, config
+      in var.network_config.transit_gateway_peering.ire_to_external : [
+        for route_table_group in config.route_table_groups :
+        contains(
+          distinct([
+            for route_table in values(
+              var.network_config.vpcs[vpc_key].route_tables
+            ) :
+            route_table.group
+          ]),
+          route_table_group
+        )
+      ]
+      if contains(keys(var.network_config.vpcs), vpc_key)
+    ]))
+
+    error_message = "Every Transit Gateway peering ire_to_external route-table group must exist in the referenced VPC."
   }
 
   validation {
@@ -145,6 +234,41 @@ variable "network_config" {
 
     error_message = "network_config.inspection.vpc_key must reference a VPC defined in network_config.vpcs."
   }
+
+  # Validate the optional Transit Gateway peering configuration.
+  # Peering requires a valid attachment ID when enabled, and all
+  # configured remote networks must be valid IPv4 CIDR blocks.
+
+  validation {
+    condition = (
+      !var.network_config.transit_gateway_peering.enabled ||
+      var.network_config.transit_gateway_peering.attachment_id != null
+    )
+
+    error_message = "When Transit Gateway peering is enabled, attachment_id must be provided."
+  }
+
+  validation {
+    condition = (
+      var.network_config.transit_gateway_peering.attachment_id == null ||
+      can(regex(
+        "^tgw-attach-[0-9a-z]+$",
+        var.network_config.transit_gateway_peering.attachment_id
+      ))
+    )
+
+    error_message = "Transit Gateway peering attachment_id must be a valid tgw-attach-* identifier."
+  }
+
+  validation {
+    condition = alltrue([
+      for cidr in var.network_config.transit_gateway_peering.remote_cidrs :
+      can(cidrnetmask(cidr))
+    ])
+
+    error_message = "Every Transit Gateway peering remote_cidrs entry must be a valid IPv4 CIDR block."
+  }
+
 }
 
 variable "network_inspection_mode" {

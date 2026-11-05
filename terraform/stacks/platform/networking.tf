@@ -50,15 +50,27 @@ locals {
     ])
   }
 
-  transit_gateway_route_tables = {
-    for vpc_key, vpc in local.transit_gateway_vpcs :
-    vpc_key => {
-      name = coalesce(
-        vpc.transit_gateway.route_table_name,
-        "${local.name_prefix}-${replace(vpc_key, "_", "-")}-tgw-rt"
-      )
+  transit_gateway_route_tables = merge(
+    {
+      for vpc_key, vpc in local.transit_gateway_vpcs :
+      vpc_key => {
+        name = coalesce(
+          vpc.transit_gateway.route_table_name,
+          "${local.name_prefix}-${replace(vpc_key, "_", "-")}-tgw-rt"
+        )
+      }
+    },
+    var.network_config.transit_gateway_peering.enabled
+    ? {
+      external_peer = {
+        name = coalesce(
+          var.network_config.transit_gateway_peering.route_table_name,
+          "${local.name_prefix}-external-peer-tgw-rt"
+        )
+      }
     }
-  }
+    : {}
+  )
 
   transit_gateway_attachments = {
     for vpc_key, vpc in local.transit_gateway_vpcs :
