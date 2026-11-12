@@ -121,6 +121,164 @@ locals {
       )
     }
   }
+
+  ################################################################################################
+  # External Peer TGW Route Table -> Inspection attachment
+  ################################################################################################
+  #
+  # Traffic entering through the external Transit Gateway peer for the IRE
+  # address space must first enter the Inspection VPC. The dedicated external
+  # peer route table therefore has no direct route to any recovery VPC.
+  ################################################################################################
+
+  external_peer_to_inspection_routes = (
+    var.inspection_contract.external_peering == null
+    ? {}
+    : {
+      for destination_cidr
+      in var.inspection_contract.external_peering.external_to_ire_cidrs :
+
+      "external-to-ire-${replace(replace(destination_cidr, ".", "-"), "/", "-")}" => {
+        transit_gateway_route_table_id = (
+          var.inspection_contract
+          .external_peering
+          .transit_gateway_route_table_id
+        )
+
+        destination_cidr_block = destination_cidr
+
+        transit_gateway_attachment_id = (
+          var.inspection_contract
+          .inspection_vpc
+          .transit_gateway_attachment_id
+        )
+      }
+    }
+  )
+
+  ################################################################################################
+  # Source-domain TGW Route Tables -> Inspection attachment for external networks
+  ################################################################################################
+  #
+  # Selected IRE routing domains send approved remote enterprise CIDRs toward
+  # the Inspection VPC. They never route directly to the peering attachment.
+  ################################################################################################
+
+  external_remote_to_inspection_routes = (
+    var.inspection_contract.external_peering == null
+    ? {}
+    : merge(
+      {},
+      [
+        for vpc_key in var.inspection_contract.external_peering.ire_to_external_vpc_keys : {
+          for remote_cidr in var.inspection_contract.external_peering.remote_cidrs :
+
+          "${vpc_key}-${replace(replace(remote_cidr, ".", "-"), "/", "-")}-to-inspection" => {
+            transit_gateway_route_table_id = (
+              var.inspection_contract
+              .spoke_vpcs[vpc_key]
+              .transit_gateway_route_table_id
+            )
+
+            destination_cidr_block = remote_cidr
+
+            transit_gateway_attachment_id = (
+              var.inspection_contract
+              .inspection_vpc
+              .transit_gateway_attachment_id
+            )
+          }
+        }
+      ]...
+    )
+  )
+
+  ################################################################################################
+  # Inspection TGW subnets -> Network Firewall for external networks
+  ################################################################################################
+
+  external_inspection_tgw_to_firewall_routes = (
+    var.inspection_contract.external_peering == null
+    ? {}
+    : merge(
+      {},
+      [
+        for availability_zone, zone in local.inspection_routing_zones : {
+          for remote_cidr in var.inspection_contract.external_peering.remote_cidrs :
+
+          "external-tgw-${availability_zone}-${replace(replace(remote_cidr, ".", "-"), "/", "-")}" => {
+            route_table_id         = zone.transit_gateway_route_table_id
+            destination_cidr_block = remote_cidr
+
+            target = {
+              vpc_endpoint_id = (
+                module.network_firewall
+                .endpoint_ids_by_availability_zone["inspection"][
+                  availability_zone
+                ]
+              )
+            }
+          }
+        }
+      ]...
+    )
+  )
+
+  ################################################################################################
+  # Network Firewall subnets -> Transit Gateway for external networks
+  ################################################################################################
+
+  external_firewall_to_tgw_routes = (
+    var.inspection_contract.external_peering == null
+    ? {}
+    : merge(
+      {},
+      [
+        for availability_zone, zone in local.inspection_routing_zones : {
+          for remote_cidr in var.inspection_contract.external_peering.remote_cidrs :
+
+          "external-firewall-${availability_zone}-${replace(replace(remote_cidr, ".", "-"), "/", "-")}" => {
+            route_table_id         = zone.firewall_route_table_id
+            destination_cidr_block = remote_cidr
+
+            target = {
+              transit_gateway_id = (
+                var.inspection_contract.transit_gateway_id
+              )
+            }
+          }
+        }
+      ]...
+    )
+  )
+
+  ################################################################################################
+  # Inspection TGW Route Table -> External peering attachment
+  ################################################################################################
+
+  inspection_to_external_peer_routes = (
+    var.inspection_contract.external_peering == null
+    ? {}
+    : {
+      for remote_cidr in var.inspection_contract.external_peering.remote_cidrs :
+
+      "inspection-to-external-${replace(replace(remote_cidr, ".", "-"), "/", "-")}" => {
+        transit_gateway_route_table_id = (
+          var.inspection_contract
+          .inspection_vpc
+          .transit_gateway_route_table_id
+        )
+
+        destination_cidr_block = remote_cidr
+
+        transit_gateway_attachment_id = (
+          var.inspection_contract
+          .external_peering
+          .transit_gateway_attachment_id
+        )
+      }
+    }
+  )
 }
 
 module "network_firewall_routing" {
@@ -128,11 +286,16 @@ module "network_firewall_routing" {
 
   vpc_routes = merge(
     local.inspection_tgw_to_firewall_routes,
-    local.inspection_firewall_to_tgw_routes
+    local.inspection_firewall_to_tgw_routes,
+    local.external_inspection_tgw_to_firewall_routes,
+    local.external_firewall_to_tgw_routes
   )
 
-  transit_gateway_routes = (
-    local.inspection_transit_gateway_routes
+  transit_gateway_routes = merge(
+    local.inspection_transit_gateway_routes,
+    local.external_peer_to_inspection_routes,
+    local.external_remote_to_inspection_routes,
+    local.inspection_to_external_peer_routes
   )
 
   route_table_associations                 = {}
