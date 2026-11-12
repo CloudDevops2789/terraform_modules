@@ -60,8 +60,8 @@ variable "network_config" {
 
     # Optional external Transit Gateway peering integration.
     #
-    # The IRE side acts as the accepter of a peering attachment created
-    # by an external/shared Transit Gateway.
+    # IRE consumes an existing, externally managed TGW peering attachment.
+    # Terraform does not create, accept, or delete the peering attachment.
     #
     # When disabled, no peering resources or routes are created.
     transit_gateway_peering = optional(object({
@@ -258,6 +258,15 @@ variable "network_config" {
     )
 
     error_message = "Transit Gateway peering attachment_id must be a valid tgw-attach-* identifier."
+  }
+
+  validation {
+    condition = (
+      !var.network_config.transit_gateway_peering.enabled ||
+      length(var.network_config.transit_gateway_peering.remote_cidrs) > 0
+    )
+
+    error_message = "When Transit Gateway peering is enabled, at least one remote CIDR must be configured."
   }
 
   validation {

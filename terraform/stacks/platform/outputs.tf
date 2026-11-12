@@ -191,7 +191,7 @@ output "inspection_contract" {
       var.network_config.transit_gateway_peering.enabled
       ? {
         transit_gateway_attachment_id = (
-          aws_ec2_transit_gateway_peering_attachment_accepter.external[0].id
+          var.network_config.transit_gateway_peering.attachment_id
         )
 
         transit_gateway_route_table_id = (
