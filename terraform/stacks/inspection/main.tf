@@ -45,6 +45,7 @@ locals {
     recovery_access = local.network_cidrs.recovery_access
     core_recovery   = local.network_cidrs.core_recovery
     protected_data  = local.network_cidrs.protected_data
+    external        = "$EXTERNAL_ENTERPRISE"
     any             = "any"
   }
 
@@ -68,11 +69,21 @@ locals {
 
       rule_group = {
         rule_variables = {
-          ip_sets = {
-            HOME_NET = {
-              definition = [local.network_cidrs.account]
+          ip_sets = merge(
+            {
+              HOME_NET = {
+                definition = [local.network_cidrs.account]
+              }
+            },
+            var.inspection_contract.external_peering != null &&
+            length(var.inspection_contract.external_peering.remote_cidrs) > 0
+            ? {
+              EXTERNAL_ENTERPRISE = {
+                definition = var.inspection_contract.external_peering.remote_cidrs
+              }
             }
-          }
+            : {}
+          )
         }
 
         rules_source = {

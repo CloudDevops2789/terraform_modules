@@ -34,17 +34,24 @@ variable "inspection_contract" {
   type = object({
     transit_gateway_id = string
     account_cidr_block = string
-
+    external_peering = optional(object({
+      transit_gateway_attachment_id  = string
+      transit_gateway_route_table_id = string
+      remote_cidrs                   = list(string)
+      ire_to_external_vpc_keys       = list(string)
+      external_to_ire_cidrs          = list(string)
+    }))
     connectivity = map(object({
       source_vpc_key      = string
       destination_vpc_key = string
     }))
 
     inspection_vpc = object({
-      key                           = string
-      vpc_id                        = string
-      cidr_block                    = string
-      transit_gateway_attachment_id = optional(string)
+      key                            = string
+      vpc_id                         = string
+      cidr_block                     = string
+      transit_gateway_attachment_id  = optional(string)
+      transit_gateway_route_table_id = optional(string)
 
       firewall_subnets_by_az = map(object({
         subnet_id      = string
@@ -223,16 +230,16 @@ variable "network_firewall_rules" {
     condition = alltrue([
       for rule in var.network_firewall_rules :
       contains(
-        ["recovery_access", "core_recovery", "protected_data", "any"],
+        ["recovery_access", "core_recovery", "protected_data", "external", "any"],
         rule.source_zone
       ) &&
       contains(
-        ["recovery_access", "core_recovery", "protected_data", "any"],
+        ["recovery_access", "core_recovery", "protected_data", "external", "any"],
         rule.destination_zone
       )
     ])
 
-    error_message = "Firewall rule zones must be recovery_access, core_recovery, protected_data, or any."
+    error_message = "Firewall rule zones must be recovery_access, core_recovery, protected_data, external, or any."
   }
 
   validation {
